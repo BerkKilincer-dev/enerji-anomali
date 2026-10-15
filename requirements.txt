@@ -1,0 +1,34 @@
+# Veri
+pandas
+polars
+numpy
+pyarrow
+
+# Model
+lightgbm
+scikit-learn
+statsmodels
+mlflow
+optuna
+
+# Backend
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]
+pydantic
+apscheduler
+python-dotenv
+python-telegram-bot
+
+# IoT
+paho-mqtt
+
+# Keşif
+jupyter
+matplotlib
+plotly
+
+# Kod kalitesi
+ruff
+pytest
