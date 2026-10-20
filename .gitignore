@@ -1,12 +1,13 @@
-# Veri ve model çıktıları
+# Data and model output
 data/*
 !data/.gitkeep
+!data/splits.json
 mlruns/
 models_out/
 *.pkl
 *.joblib
 
-# Gizli bilgiler
+# Secrets
 .env
 
 # Python
@@ -21,8 +22,9 @@ venv/
 # Node
 node_modules/
 frontend/dist/
+*.tsbuildinfo
 
-# Sistem / editör
+# OS / editor
 .DS_Store
 .vscode/
 .idea/

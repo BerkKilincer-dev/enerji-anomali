@@ -1,31 +1,86 @@
+# Local stack on 127.0.0.1; `--profile live` adds scoring and MQTT ingest (needs a model).
+x-app: &app
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql://${DB_TEAM_USER:-team}:${DB_TEAM_PASSWORD:?set DB_TEAM_PASSWORD in .env}@db:5432/${POSTGRES_DB:-energy}
+    MQTT_HOST: mqtt
+  depends_on:
+    init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
 services:
   db:
     image: timescale/timescaledb:latest-pg16
-    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-energy}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
 
   mqtt:
     image: eclipse-mosquitto:2
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
     volumes:
-      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  init:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-energy}
+    command: ["python", "-m", "src.data.load_db", "--schema-only"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   api:
-    build: .
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      MQTT_HOST: mqtt
+    <<: *app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+
+  scoring:
+    <<: *app
+    profiles: ["live"]
+    command: ["python", "-m", "src.scoring.service", "--interval", "300"]
+    volumes:
+      - ./models_out:/app/models_out:ro
+
+  ingest:
+    <<: *app
+    profiles: ["live"]
+    command: ["python", "-m", "src.ingest.mqtt_ingest"]
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:8000
+    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_modules:/app/node_modules
     depends_on:
-      - db
-      - mqtt
+      - api
 
 volumes:
   dbdata:
+  frontend_modules:
