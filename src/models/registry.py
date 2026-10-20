@@ -26,7 +26,7 @@ def save(scorer: AnomalyScorer, out_dir: Path, metrics: dict | None = None) -> P
         "thresholds": asdict(scorer.thresholds),
         "metrics": metrics or {},
     }
-    (out_dir / "bundle.json").write_text(json.dumps(meta, indent=2) + "\n")
+    (out_dir / "bundle.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return out_dir
 
 
@@ -40,8 +40,8 @@ def _from_parts(meta: dict, expected: str, detector: str) -> AnomalyScorer:
 
 
 def _read_bundle(model_dir: Path) -> tuple[dict, str, str]:
-    meta = json.loads((model_dir / "bundle.json").read_text())
-    expected, detector = ((model_dir / name).read_text() for name in FILES.values())
+    meta = json.loads((model_dir / "bundle.json").read_text(encoding="utf-8"))
+    expected, detector = ((model_dir / name).read_text(encoding="utf-8") for name in FILES.values())
     return meta, expected, detector
 
 

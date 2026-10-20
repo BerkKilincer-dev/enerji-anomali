@@ -2,22 +2,38 @@
 
 Run: uvicorn src.api.main:app --reload
 Reads come from Postgres when DATABASE_URL is set, otherwise from built-in demo data.
-Write endpoints need an X-API-Key header that matches API_KEY; without API_KEY they are off.
+With a database every endpoint except /health and /auth/login needs a signed-in user
+(session cookie from POST /auth/login). Viewers read, operators also give feedback and import
+data, admins also register buildings and users; users without a tenant are platform staff and
+see every tenant. Writes need the header X-Requested-With, which a cross-site form cannot send.
 """
 
 from __future__ import annotations
 
-import hmac
 import io
 from functools import lru_cache
 from typing import Annotated
 
 import pandas as pd
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Path, Query, UploadFile
+from fastapi import (
+    Cookie,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api import schemas
+from src.api import auth, schemas
+from src.api.auth import User
 from src.api.repository import (
     ConflictError,
     DemoRepository,
@@ -31,14 +47,29 @@ from src.data.customer import BuildingInfo, TenantInfo, read_export
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_HOURS = 24 * 90
+# Demo mode has no accounts; this user lets the dashboard read and shows writes as unavailable.
+DEMO_USER = User(0, None, "demo@localhost", "Demo", "admin")
 
-app = FastAPI(title="Energy Anomaly API", version="0.2.0")
+
+def same_site_request(
+    request: Request, x_requested_with: Annotated[str | None, Header()] = None
+) -> None:
+    # A custom header forces a CORS preflight, which only the allowed origins pass.
+    if request.method not in ("GET", "HEAD", "OPTIONS") and not x_requested_with:
+        raise HTTPException(403, "missing X-Requested-With header")
+
+
+app = FastAPI(
+    title="Energy Anomaly API", version="0.3.0", dependencies=[Depends(same_site_request)]
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(get_settings().cors_origins),
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_headers=["Content-Type", "X-Requested-With"],
 )
+throttle = auth.LoginThrottle()
 
 
 @lru_cache(maxsize=1)
@@ -47,20 +78,52 @@ def get_repository() -> Repository:
     return PostgresRepository(url) if url else DemoRepository()
 
 
-def require_api_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
-    expected = get_settings().api_key
-    if not expected:
-        raise HTTPException(503, "writes are disabled: API_KEY is not set")
-    if not x_api_key or not hmac.compare_digest(x_api_key.encode(), expected.encode()):
-        raise HTTPException(401, "missing or invalid X-API-Key")
+Base = Annotated[Repository, Depends(get_repository)]
+SessionCookie = Annotated[str | None, Cookie(alias=auth.COOKIE)]
 
 
-Repo = Annotated[Repository, Depends(get_repository)]
+def current_user(base: Base, session: SessionCookie = None) -> User:
+    if base.mode == "demo":
+        return DEMO_USER
+    user = base.session_user(auth.token_hash(session)) if session else None
+    if user is None:
+        raise HTTPException(401, "not signed in")
+    return user
+
+
+Viewer = Annotated[User, Depends(current_user)]
+
+
+def scoped_repository(base: Base, user: Viewer) -> Repository:
+    return base.scoped(user.tenant_id)
+
+
+def require_operator(user: Viewer) -> User:
+    if not user.can_write:
+        raise HTTPException(403, "operator or admin role required")
+    return user
+
+
+def require_admin(user: Viewer) -> User:
+    if not user.is_admin:
+        raise HTTPException(403, "admin role required")
+    return user
+
+
+def require_platform_admin(user: Annotated[User, Depends(require_admin)]) -> User:
+    if not user.is_platform:
+        raise HTTPException(403, "platform admin required")
+    return user
+
+
+Repo = Annotated[Repository, Depends(scoped_repository)]
+Operator = Annotated[User, Depends(require_operator)]
+Admin = Annotated[User, Depends(require_admin)]
 Hours = Annotated[int, Query(ge=1, le=MAX_HOURS)]
 # Ids outside the Postgres INT and BIGINT ranges are rejected before they reach SQL.
 BuildingId = Annotated[int, Path(ge=0, le=schemas.INT_MAX)]
 RowId = Annotated[int, Path(ge=1, le=schemas.BIGINT_MAX)]
-Writer = [Depends(require_api_key)]
+Writer = [Depends(require_operator)]
 
 
 @app.exception_handler(NotFoundError)
@@ -79,8 +142,62 @@ def read_only(_, exc: ReadOnlyError) -> JSONResponse:
 
 
 @app.get("/health")
-def health(repo: Repo) -> dict:
-    return {"status": "ok", "mode": repo.mode}
+def health(base: Base) -> dict:
+    return {"status": "ok", "mode": base.mode}
+
+
+@app.post("/auth/login")
+def login(body: schemas.LoginIn, base: Base, response: Response) -> schemas.Me:
+    if base.mode == "demo":
+        raise ReadOnlyError("demo mode has no accounts")
+    email = body.email.lower()
+    if throttle.blocked(email):
+        raise HTTPException(429, "too many failed logins, try again later")
+    found = base.login_user(email)
+    stored = found[1] if found else None
+    if not auth.verify_password(body.password, stored or auth.DUMMY_HASH) or not stored:
+        throttle.failed(email)
+        raise HTTPException(401, "wrong e-mail or password")
+    throttle.succeeded(email)
+    user = found[0]
+    token = auth.new_token()
+    base.create_session(user.user_id, auth.token_hash(token), auth.SESSION_SECONDS)
+    response.set_cookie(
+        auth.COOKIE,
+        token,
+        max_age=auth.SESSION_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().cookie_secure,
+    )
+    return schemas.Me.of(user)
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(base: Base, response: Response, session: SessionCookie = None) -> None:
+    if session and base.mode != "demo":
+        base.delete_session(auth.token_hash(session))
+    response.delete_cookie(auth.COOKIE, httponly=True, samesite="lax")
+
+
+@app.get("/auth/me")
+def me(user: Viewer) -> schemas.Me:
+    return schemas.Me.of(user)
+
+
+@app.get("/users")
+def users(user: Admin, repo: Repo) -> list[schemas.UserOut]:
+    return repo.users()
+
+
+@app.post("/users", status_code=201)
+def create_user(body: schemas.UserIn, user: Admin, repo: Repo) -> schemas.Created:
+    # Tenant admins add users to their own tenant only; platform admins choose.
+    tenant_id = body.tenant_id if user.is_platform else user.tenant_id
+    user_id = repo.create_user(
+        tenant_id, body.email.lower(), body.name, body.role, auth.hash_password(body.password)
+    )
+    return schemas.Created(id=user_id)
 
 
 @app.get("/buildings")
@@ -112,14 +229,22 @@ def summary(repo: Repo) -> schemas.Summary:
     return repo.summary()
 
 
-@app.post("/tenants", status_code=201, dependencies=Writer)
+@app.get("/tenants")
+def tenants(repo: Repo) -> list[schemas.TenantOut]:
+    return repo.tenants()
+
+
+@app.post("/tenants", status_code=201, dependencies=[Depends(require_platform_admin)])
 def register_tenant(body: schemas.TenantIn, repo: Repo) -> schemas.Created:
     return schemas.Created(id=repo.register_tenant(TenantInfo(**body.model_dump())))
 
 
-@app.post("/buildings", status_code=201, dependencies=Writer)
-def register(body: schemas.BuildingIn, repo: Repo) -> schemas.Created:
-    return schemas.Created(id=repo.register(BuildingInfo(**body.model_dump())))
+@app.post("/buildings", status_code=201)
+def register(body: schemas.BuildingIn, user: Admin, repo: Repo) -> schemas.Created:
+    fields = body.model_dump()
+    if not user.is_platform:
+        fields["tenant_id"] = user.tenant_id
+    return schemas.Created(id=repo.register(BuildingInfo(**fields)))
 
 
 @app.get("/buildings/{building_id}/operating-hours")
@@ -173,8 +298,8 @@ def import_readings(
     return schemas.ImportResult(**report.as_dict())
 
 
-@app.post("/anomalies/{anomaly_id}/feedback", status_code=201, dependencies=Writer)
-def feedback(anomaly_id: RowId, body: schemas.FeedbackIn, repo: Repo) -> schemas.Created:
-    return schemas.Created(
-        id=repo.add_feedback(anomaly_id, body.verdict, body.note, body.created_by)
-    )
+@app.post("/anomalies/{anomaly_id}/feedback", status_code=201)
+def feedback(
+    anomaly_id: RowId, body: schemas.FeedbackIn, user: Operator, repo: Repo
+) -> schemas.Created:
+    return schemas.Created(id=repo.add_feedback(anomaly_id, body.verdict, body.note, user.email))

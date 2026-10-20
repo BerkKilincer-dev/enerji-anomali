@@ -1,7 +1,5 @@
 line-length = 100
 target-version = "py311"
-# The issue setup script belongs to the team plan and keeps its own layout.
-extend-exclude = ["scripts/gorevleri_ac.py"]
 
 [lint]
 select = ["E", "F", "I", "B"]

@@ -192,7 +192,7 @@ def main() -> None:
     summary = summarize(df, tables.buildings)
     out = settings.reports_dir / "data"
     write_json(out / "quality.json", summary)
-    (out / "quality.md").write_text(to_markdown(summary))
+    (out / "quality.md").write_text(to_markdown(summary), encoding="utf-8")
     for path in plot(df, summary, out / "figures"):
         print(path)
     print(out / "quality.md")

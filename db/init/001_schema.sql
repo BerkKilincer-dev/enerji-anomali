@@ -55,6 +55,17 @@ CREATE TABLE IF NOT EXISTS core.users (
     active      BOOLEAN NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Dashboard login: scrypt hash from src/api/auth.py; NULL means the user cannot sign in yet.
+ALTER TABLE core.users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+-- Signed-in sessions; only the SHA-256 of the cookie token is stored.
+CREATE TABLE IF NOT EXISTS core.sessions (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     INT NOT NULL REFERENCES core.users ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON core.sessions (user_id);
 
 -- One site (factory, office, store) of a tenant; LEAD keeps dataset ids, customers start at 100000.
 CREATE TABLE IF NOT EXISTS core.buildings (
@@ -197,6 +208,8 @@ CREATE TABLE IF NOT EXISTS ml.anomalies (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (building_id, ts_start, origin)
 );
+-- Optional Turkish advice written by an LLM once an event has ended (src/scoring/advice.py).
+ALTER TABLE ml.anomalies ADD COLUMN IF NOT EXISTS advice TEXT CHECK (length(advice) <= 2000);
 
 -- Operator verdicts (training labels); the time range survives a re-published anomaly.
 CREATE TABLE IF NOT EXISTS ml.anomaly_feedback (

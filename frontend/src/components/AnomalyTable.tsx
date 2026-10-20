@@ -2,16 +2,14 @@ import { useState } from "react";
 
 import { api, ApiError, type Anomaly, type Verdict } from "../api";
 import { anomalyLabel, formatKwh, formatTl, formatTs, hourAfter } from "../format";
+import { useLang } from "../i18n";
 
-const VERDICTS: { value: Verdict; label: string }[] = [
-  { value: "confirmed", label: "Confirm" },
-  { value: "false_alarm", label: "False alarm" },
-  { value: "planned", label: "Planned" },
-];
+const VERDICTS: Verdict[] = ["confirmed", "false_alarm", "planned"];
 
 type Props = { anomalies: Anomaly[]; canWrite: boolean; onChange: () => void };
 
 export function AnomalyTable({ anomalies, canWrite, onChange }: Props) {
+  const { t } = useLang();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<number>();
 
@@ -22,13 +20,13 @@ export function AnomalyTable({ anomalies, canWrite, onChange }: Props) {
       await api.feedback(id, verdict);
       onChange();
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 401 ? "API key is missing or wrong." : (e as Error).message);
+      setError(e instanceof ApiError && e.status === 403 ? t("verdict.denied") : (e as Error).message);
     } finally {
       setBusy(undefined);
     }
   }
 
-  if (anomalies.length === 0) return <p className="muted">No anomalies for this building.</p>;
+  if (anomalies.length === 0) return <p className="muted">{t("detail.none")}</p>;
   return (
     <>
       {error && <p className="error">{error}</p>}
@@ -36,12 +34,12 @@ export function AnomalyTable({ anomalies, canWrite, onChange }: Props) {
         <table>
           <thead>
             <tr>
-              <th>Window</th>
-              <th>Type</th>
-              <th>Excess</th>
-              <th>Cost</th>
-              <th>Explanation</th>
-              <th>Verdict</th>
+              <th>{t("col.window")}</th>
+              <th>{t("col.type")}</th>
+              <th>{t("col.excess")}</th>
+              <th>{t("col.cost")}</th>
+              <th>{t("col.explanation")}</th>
+              <th>{t("col.verdict")}</th>
             </tr>
           </thead>
           <tbody>
@@ -52,17 +50,24 @@ export function AnomalyTable({ anomalies, canWrite, onChange }: Props) {
                   <br />
                   {formatTs(hourAfter(a.ts_end))}
                 </td>
-                <td>{anomalyLabel(a.source, a.rule_type)}</td>
+                <td>{anomalyLabel(t, a.source, a.rule_type)}</td>
                 <td>{formatKwh(a.excess_kwh)}</td>
                 <td>{formatTl(a.est_cost_tl)}</td>
-                <td className="explanation">{a.explanation ?? "-"}</td>
+                <td className="explanation">
+                  {a.explanation ?? "-"}
+                  {a.advice && (
+                    <p className="advice">
+                      <strong>{t("advice.title")}:</strong> {a.advice}
+                    </p>
+                  )}
+                </td>
                 <td>
                   {a.verdict ? (
-                    <span className={`tag ${a.verdict}`}>{a.verdict.replace("_", " ")}</span>
+                    <span className={`tag ${a.verdict}`}>{t(`verdict.${a.verdict}`)}</span>
                   ) : canWrite ? (
                     VERDICTS.map((v) => (
-                      <button key={v.value} disabled={busy === a.id} onClick={() => send(a.id, v.value)}>
-                        {v.label}
+                      <button key={v} disabled={busy === a.id} onClick={() => send(a.id, v)}>
+                        {t(`verdict.${v}`)}
                       </button>
                     ))
                   ) : (

@@ -26,7 +26,8 @@ and `ops` ([data.md](data.md#shared-database)).
 | Data ingestion | `src.ingest.mqtt_ingest`, CSV import | writes `telemetry.readings` | in place |
 | Telemetry | readings and forecast endpoints | `telemetry.readings`, `telemetry.weather` | in place |
 | AI / anomaly | `src.scoring.service`, `src.models` | `ml.*`: `predictions`, `anomalies`, `scoring_state`, `model_artifacts`, view `readings_enriched` | in place |
-| Alert | `src.scoring.alerts` | `ops.notifications` | Telegram in place; email and a chat per tenant planned |
+| Alert | none | `ops.alert_settings`, `ops.notifications` | schema ready; no channel yet (Telegram was removed) |
+| Identity | `src.api.auth`, `src.api.users`, `/auth/*`, `/users` | `core.tenants`, `core.users`, `core.sessions` | login, roles and tenant scoping in place |
 | Analytics and reporting | `GET /summary` | views `ops.daily_kpis`, `ml.current_predictions`, `ml.current_anomalies` | KPI view in place; report endpoints planned |
 | Work order | none | `ops.work_orders`, `ml.anomaly_feedback` | schema ready; endpoints planned |
 | Message broker | Mosquitto | none | MQTT for meters; Kafka or RabbitMQ only when services split |
@@ -57,7 +58,7 @@ Model of the data behind it:
 With Docker:
 
 ```bash
-cp .env.example .env              # fill in every password and API_KEY
+cp .env.example .env              # fill in every password
 docker compose up -d --build      # db, mqtt, init, api, frontend
 docker compose --profile live up -d
 docker compose logs -f api scoring ingest
@@ -124,16 +125,20 @@ published by training.
 
 ## Alerts
 
-With `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` set, every scoring cycle ends with
-`src.scoring.alerts.send_alerts`. It sends each live event once (`notifications`, one row per
-event and channel), only while the event ended in the last 24 hours of the building's local
-time, so a replayed backlog or a scoring outage does not flood the chat. Events are filtered
-by `alert_settings`, sent costliest first and at most 10 per cycle. A failed send stops the
-batch and is retried next cycle; an event that keeps running is not sent again.
+The scoring service sends no messages; new events show up in the dashboard. The
+`alert_settings` and `notifications` tables stay for a future channel, one row per event and
+channel.
 
-Setup: create a bot with [@BotFather](https://t.me/BotFather), send it a message, read the
-chat id from `https://api.telegram.org/bot<token>/getUpdates`, put both values in `.env` and
-restart the scoring service. The log line `telegram alerts on` confirms it.
+## LLM advice
+
+With `ANTHROPIC_API_KEY` set, every scoring cycle ends with `src.scoring.advice.write_advice`.
+It picks live events that ended at least 6 hours before the building's last scored hour and
+within the last 7 days, costliest first, at most 10 per cycle, and asks Claude (`LLM_MODEL`,
+default `claude-opus-5-5`, low effort) for at most three Turkish sentences: the likely cause
+and one concrete action. The fixed prompt is `SYSTEM_PROMPT` in that module; the request
+carries only the facts the dashboard shows. The text lands in `anomalies.advice`; a declined
+request stores an empty string so it is not asked again, and a network or rate-limit error
+stops the batch until the next cycle. The log line `llm advice on` confirms it is enabled.
 
 Known limits:
 
@@ -189,8 +194,7 @@ python -m src.ingest.replay --building 1 2 3 --register \
 Run the scoring service with a short `--interval` (for example 30) during a demo, so the
 event shows up within a minute after the backlog ends. Check each hop if it does not:
 `readings` rows with `source = 'mqtt'` (ingest), `predictions` and `anomalies` with
-`origin = 'live'` (scoring), then `notifications` (Telegram). A second cycle without new
-readings sends nothing.
+`origin = 'live'` (scoring), then the dashboard.
 
 ## Adding an endpoint
 

@@ -224,6 +224,6 @@ def write_reports(
     _plot_example(ev.test_scored, labels, figures / "example_building.png")
     _plot_scenarios(scenarios, figures / "scenarios.png")
     (out / "results.md").write_text(
-        _markdown(summary, table, budgets, scenarios, importance, events)
+        _markdown(summary, table, budgets, scenarios, importance, events), encoding="utf-8"
     )
     return out

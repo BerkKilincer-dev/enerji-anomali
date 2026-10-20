@@ -34,7 +34,7 @@ def test_injected_night_waste_becomes_one_costed_event(tables, scorer):
     event = hit.iloc[0]
     assert event.ts_start == pd.Timestamp("2026-02-05 00:00")
     assert event.est_cost_tl == event.excess_kwh * 4.0 > 0
-    assert event.explanation.startswith("2026-02-05 00:00-06:00: Night load was")
+    assert event.explanation.startswith("2026-02-05 00:00-06:00: Gece tüketimi")
 
 
 def test_registry_roundtrip_gives_identical_scores(tables, scorer, tmp_path):
@@ -88,7 +88,7 @@ def test_model_events_do_not_carry_a_rule_type():
     )
     event = build_events(scored, tariff=4.0).iloc[0]
     assert event.source == "ml_sup" and pd.isna(event.rule_type)
-    assert event.explanation.endswith("(340 TL at 4.0 TL/kWh).")
+    assert event.explanation.endswith("(4,00 TL/kWh ile 340 TL).")
 
 
 def test_every_rule_and_model_source_has_an_explanation():
@@ -111,4 +111,4 @@ def test_flatline_explanation_counts_the_equal_hours_before_the_rule_fired():
         }
     )
     event = build_events(scored, tariff=4.0).iloc[0]
-    assert FLATLINE_HOURS == 6 and "at least 8 hours" in event.explanation
+    assert FLATLINE_HOURS == 6 and "en az 8 saat" in event.explanation

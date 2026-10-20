@@ -44,10 +44,11 @@ reporting, work order) and the tables each one owns is in
 | Training | `src.models.train` | CLI or notebook 02 |
 | Model registry | `src.models.registry` | files in `models_out/` + table `model_artifacts` |
 | Live scoring | `src.scoring.service` | container `scoring` (profile `live`) |
+| LLM advice | `src.scoring.advice` | inside the scoring service when `ANTHROPIC_API_KEY` is set |
 | MQTT ingest | `src.ingest.mqtt_ingest` | container `ingest` (profile `live`) |
-| Alerts | `src.scoring.alerts` | inside the scoring service, Telegram when configured |
 | Virtual meters | `src.ingest.replay` | demo CLI: replays LEAD buildings over MQTT, optional injected anomaly |
-| API | `src.api.main`, `repository`, `schemas` | container `api` |
+| API | `src.api.main`, `repository`, `schemas`, `auth` | container `api` |
+| User admin | `src.api.users` | CLI: create users, reset passwords |
 | Dashboard | `frontend/` | container `frontend` or `npm run dev` |
 
 ## Scoring pipeline
@@ -95,8 +96,8 @@ reporting, work order) and the tables each one owns is in
 
 `docker-compose.yml` runs the whole stack on one machine, every port bound to `127.0.0.1`.
 One Python image serves `init`, `api`, `scoring` and `ingest`; `init` applies the schema and
-creates roles, then exits. Production needs TLS, MQTT authentication and secrets management,
-see [security.md](security.md).
+creates roles and the demo admin from `.env`, then exits. A public deployment would also
+need TLS, MQTT authentication and new passwords.
 
 ## Conventions
 

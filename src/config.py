@@ -40,14 +40,14 @@ class Settings:
     default_lat: float
     default_lng: float
     default_timezone: str
-    api_key: str | None
+    cookie_secure: bool
     cors_origins: tuple[str, ...]
     mqtt_host: str
     mqtt_port: int
     mqtt_user: str | None
     mqtt_password: str | None
-    telegram_bot_token: str | None
-    telegram_chat_id: str | None
+    llm_enabled: bool
+    llm_model: str
 
     @property
     def raw_dir(self) -> Path:
@@ -73,14 +73,14 @@ def get_settings() -> Settings:
         default_lat=float(os.getenv("DEFAULT_LAT", lat)),
         default_lng=float(os.getenv("DEFAULT_LNG", lng)),
         default_timezone=os.getenv("DEFAULT_TIMEZONE", tz),
-        api_key=os.getenv("API_KEY") or None,
+        cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() in ("1", "true", "yes"),
         cors_origins=tuple(o.strip() for o in cors.split(",") if o.strip()),
         mqtt_host=os.getenv("MQTT_HOST", "localhost"),
         mqtt_port=int(os.getenv("MQTT_PORT", "1883")),
         mqtt_user=os.getenv("MQTT_USER") or None,
         mqtt_password=os.getenv("MQTT_PASSWORD") or None,
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
-        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID") or None,
+        llm_enabled=bool(os.getenv("ANTHROPIC_API_KEY")),
+        llm_model=os.getenv("LLM_MODEL", "claude-opus-5-5"),
     )
 
 

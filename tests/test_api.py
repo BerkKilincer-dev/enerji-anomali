@@ -1,18 +1,17 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api import main
+from src.api import auth, main
 from src.api.repository import DemoRepository
 from src.api.schemas import Schedule
-from src.config import get_settings
 
-KEY = "test-key-0123456789"
+# Writes need this header; a cross-site form cannot set it.
+H = {"X-Requested-With": "test"}
 
 
 @pytest.fixture
 def client(monkeypatch, fresh_settings):
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setenv("API_KEY", KEY)
     main.app.dependency_overrides[main.get_repository] = DemoRepository
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()
@@ -41,34 +40,20 @@ def test_bad_inputs(client):
     assert client.get("/anomalies", params={"building_id": 2**31}).status_code == 422
 
 
-def test_writes_need_a_valid_key(client, monkeypatch):
+def test_demo_reads_without_login_and_refuses_writes(client):
+    assert client.get("/auth/me").json()["email"] == "demo@localhost"
     body = {"verdict": "confirmed"}
-    assert client.post("/anomalies/1/feedback", json=body).status_code == 401
-    assert (
-        client.post("/anomalies/1/feedback", json=body, headers={"X-API-Key": "wrong"}).status_code
-        == 401
-    )
+    assert client.post("/anomalies/1/feedback", json=body).status_code == 403
     # Demo mode has nowhere to store writes.
-    assert (
-        client.post("/anomalies/1/feedback", json=body, headers={"X-API-Key": KEY}).status_code
-        == 503
-    )
-    assert (
-        client.post(
-            "/anomalies/1/feedback", json={"verdict": "maybe"}, headers={"X-API-Key": KEY}
-        ).status_code
-        == 422
-    )
-    monkeypatch.delenv("API_KEY")
-    get_settings.cache_clear()
-    assert (
-        client.post("/anomalies/1/feedback", json=body, headers={"X-API-Key": KEY}).status_code
-        == 503
-    )
+    assert client.post("/anomalies/1/feedback", json=body, headers=H).status_code == 503
+    bad = {"verdict": "maybe"}
+    assert client.post("/anomalies/1/feedback", json=bad, headers=H).status_code == 422
+    login = {"email": "a@b.co", "password": "x"}
+    assert client.post("/auth/login", json=login, headers=H).status_code == 503
 
 
 def test_register_validates_body(client):
-    headers = {"X-API-Key": KEY}
+    headers = H
     assert (
         client.post("/buildings", json={"external_id": "has space"}, headers=headers).status_code
         == 422
@@ -91,7 +76,7 @@ def test_import_rejects_large_files(client, monkeypatch):
     monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 10)
     response = client.post(
         "/buildings/100000/readings/import",
-        headers={"X-API-Key": KEY},
+        headers=H,
         files={"file": ("x.csv", b"timestamp,kwh\n" * 5, "text/csv")},
     )
     assert response.status_code == 413
@@ -118,10 +103,10 @@ def test_schedule_reads_in_demo_mode(client):
         ("delete", "/buildings/100000/downtime/1", None),
     ],
 )
-def test_schedule_and_tenant_writes_need_key_and_database(client, method, path, body):
+def test_schedule_and_tenant_writes_need_header_and_database(client, method, path, body):
     kwargs = {} if body is None else {"json": body}
-    assert client.request(method, path, **kwargs).status_code == 401
-    assert client.request(method, path, headers={"X-API-Key": KEY}, **kwargs).status_code == 503
+    assert client.request(method, path, **kwargs).status_code == 403
+    assert client.request(method, path, headers=H, **kwargs).status_code == 503
 
 
 @pytest.mark.parametrize(
@@ -177,7 +162,7 @@ def test_schedule_and_tenant_writes_need_key_and_database(client, method, path, 
     ],
 )
 def test_schedule_and_tenant_bodies_are_validated(client, method, path, body):
-    response = client.request(method, path, json=body, headers={"X-API-Key": KEY})
+    response = client.request(method, path, json=body, headers=H)
     assert response.status_code == 422
 
 
@@ -189,3 +174,24 @@ def test_back_to_back_periods_are_allowed():
         {"weekday": 3, "opens": "00:00", "closes": "00:00"},
     ]
     assert len(Schedule.model_validate(shifts).root) == 4
+
+
+def test_passwords_hash_and_verify():
+    stored = auth.hash_password("correct horse battery")
+    assert stored.startswith("scrypt$") and "correct" not in stored
+    assert auth.verify_password("correct horse battery", stored)
+    assert not auth.verify_password("wrong horse battery", stored)
+    assert not auth.verify_password("anything", None)
+    assert not auth.verify_password("anything", "garbage")
+    with pytest.raises(ValueError):
+        auth.hash_password("short")
+
+
+def test_login_throttle_blocks_after_repeated_failures():
+    throttle = auth.LoginThrottle(limit=2, window=60)
+    throttle.failed("a@b.co")
+    assert not throttle.blocked("a@b.co")
+    throttle.failed("a@b.co")
+    assert throttle.blocked("a@b.co") and not throttle.blocked("c@d.co")
+    throttle.succeeded("a@b.co")
+    assert not throttle.blocked("a@b.co")

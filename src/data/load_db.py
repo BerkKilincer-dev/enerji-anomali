@@ -3,6 +3,7 @@
 Usage: python -m src.data.load_db [--schema-only] [--force]
 DATABASE_URL must point at the database owner. Optional roles come from
 DB_TEAM_USER/DB_TEAM_PASSWORD (read-write) and DB_READER_USER/DB_READER_PASSWORD (read-only).
+With DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD set, that dashboard admin is created if missing.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ LEAD_DEPENDENTS = (
 
 
 def apply_schema(conn: psycopg.Connection) -> None:
-    conn.execute(SCHEMA_PATH.read_text())
+    conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
     # psql and DataGrip sessions also find the tables without a schema prefix.
     conn.execute(
         sql.SQL("ALTER DATABASE {} SET search_path = {}").format(
@@ -93,6 +94,9 @@ def grant_rights(conn: psycopg.Connection, name: str, read_only: bool) -> None:
             "ALTER DEFAULT PRIVILEGES IN SCHEMA {schemas} "
             "GRANT USAGE, SELECT ON SEQUENCES TO {role}",
         ]
+    else:
+        # Analysts never need password hashes or session tokens.
+        statements.append("REVOKE ALL ON core.users, core.sessions FROM {role}")
     schemas = sql.SQL(", ").join(map(sql.Identifier, SCHEMAS))
     for statement in statements:
         conn.execute(
@@ -103,6 +107,22 @@ def grant_rights(conn: psycopg.Connection, name: str, read_only: bool) -> None:
                 rights=table_rights,
             )
         )
+
+
+def ensure_demo_admin(conn: psycopg.Connection) -> str | None:
+    """Create the platform admin from DEMO_ADMIN_* once, so a fresh stack can be signed into."""
+    email = (os.getenv("DEMO_ADMIN_EMAIL") or "").strip().lower()
+    password = os.getenv("DEMO_ADMIN_PASSWORD") or ""
+    if not email or not password:
+        return None
+    from src.api.auth import hash_password
+
+    conn.execute(
+        "INSERT INTO users (email, name, role, password_hash) "
+        "VALUES (%s, 'Demo admin', 'admin', %s) ON CONFLICT (email) DO NOTHING",
+        (email, hash_password(password)),
+    )
+    return email
 
 
 def ensure_roles_from_env(conn: psycopg.Connection) -> list[str]:
@@ -178,6 +198,8 @@ def main() -> None:
     with connect(url) as conn:
         apply_schema(conn)
         roles = ensure_roles_from_env(conn)
+        if admin := ensure_demo_admin(conn):
+            log.info("dashboard admin %s ready", admin)
         if tables is not None and not load_tables(conn, tables, args.force):
             log.info("data already loaded, use --force to reload")
     log.info("schema ready%s", f", roles: {', '.join(roles)}" if roles else "")

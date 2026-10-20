@@ -68,11 +68,11 @@ def save_split(split: Split, path: Path = SPLITS_PATH, seed: int = SEED) -> None
     strategy = f"building-level, stratified by anomaly-rate quartile ({RATE_BINS} bins)"
     lines = [f'  "seed": {seed}', f'  "strategy": {json.dumps(strategy)}']
     lines += [f'  "{name}": {json.dumps(getattr(split, name))}' for name in SPLITS]
-    path.write_text("{\n" + ",\n".join(lines) + "\n}\n")
+    path.write_text("{\n" + ",\n".join(lines) + "\n}\n", encoding="utf-8")
 
 
 def load_split(path: Path = SPLITS_PATH) -> Split:
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     split = Split(*(payload[name] for name in SPLITS))
     ids = [*split.train, *split.val, *split.test]
     if len(set(ids)) != len(ids):

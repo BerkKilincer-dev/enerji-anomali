@@ -34,7 +34,6 @@ from src.data.load_db import apply_schema, ensure_role, ensure_roles_from_env, l
 from src.data.store import fetch_tables
 from src.ingest.mqtt_ingest import Buffer, Reading
 from src.models import registry
-from src.scoring import alerts
 from src.scoring.service import refresh_scorer, run_once
 from tests.conftest import daily_profile, make_tables
 
@@ -338,59 +337,6 @@ def test_incremental_live_scoring_matches_a_full_rescore(db, scorer):
     expected = expected.sort_values(["building_id", "ts"], ignore_index=True)
     assert [row[2] or "" for row in live] == expected["source"].fillna("").tolist()
     assert (ids[100000], pd.Timestamp("2026-02-20 00:00"), "rule") in live
-
-
-def add_event(url: str, building_id: int, hours_ago: int, cost: float, origin="live") -> None:
-    """Event ending `hours_ago` before the building's current local hour."""
-    with connect(url) as conn:
-        conn.execute(
-            "INSERT INTO anomalies (building_id, ts_start, ts_end, source, est_cost_tl, "
-            "explanation, origin) "
-            "SELECT building_id, t - interval '2 hours', t, 'rule', %s, %s, %s "
-            "FROM (SELECT building_id, date_trunc('hour', now() AT TIME ZONE timezone) "
-            "- make_interval(hours => %s) AS t FROM buildings WHERE building_id = %s) s",
-            (cost, f"cost {cost:g}", origin, hours_ago, building_id),
-        )
-
-
-def test_alerts_go_out_once_for_recent_live_events_above_the_threshold(db):
-    building = load_customer(db, make_tables(building_ids=(100000,), days=1))[100000]
-    add_event(db, building, 1, cost=50)
-    add_event(db, building, 2, cost=200)
-    add_event(db, building, 3, cost=20)
-    add_event(db, building, 3, cost=900, origin="batch")
-    add_event(db, building, 72, cost=900)
-    sent = []
-
-    def broken(text):
-        raise OSError("telegram down")
-
-    with connect(db, autocommit=True) as conn:
-        conn.execute(
-            "INSERT INTO alert_settings (building_id, min_cost_tl) VALUES (%s, 30)", (building,)
-        )
-        assert alerts.send_alerts(conn, broken) == 0
-        assert alerts.send_alerts(conn, sent.append) == 2
-        assert alerts.send_alerts(conn, sent.append) == 0
-        conn.execute("UPDATE alert_settings SET notify = false, min_cost_tl = 0")
-        assert alerts.send_alerts(conn, sent.append) == 0
-    assert sent == ["Energy alert: test-100000\ncost 200", "Energy alert: test-100000\ncost 50"]
-    assert count(db, "SELECT count(*) FROM notifications WHERE channel = 'telegram'") == 2
-
-
-def test_live_scoring_sends_alerts_for_new_events(db, scorer, monkeypatch):
-    monkeypatch.setattr(alerts, "MAX_PER_CYCLE", 1000)
-    now = pd.Timestamp.now(tz="Europe/Istanbul").tz_localize(None).floor("h")
-    tables = make_tables(building_ids=(100000,), start=now - pd.Timedelta(days=35))
-    r = tables.readings
-    recent_nights = (r.ts >= now - pd.Timedelta(days=2)) & r.ts.dt.hour.isin(range(6))
-    r.loc[recent_nights, "kwh"] *= 3
-    load_customer(db, tables)
-    sent = []
-    run_once(db, scorer, notify=sent.append)
-    run_once(db, scorer, notify=sent.append)
-    assert sent and all(text.startswith("Energy alert: test-100000") for text in sent)
-    assert len(sent) == count(db, "SELECT count(*) FROM notifications")
 
 
 def test_repository_reads_writes_and_feedback(db, scorer):

@@ -12,15 +12,51 @@ uvicorn src.api.main:app --reload        # demo data without DATABASE_URL
 
 | `DATABASE_URL` | Mode | Reads | Writes |
 |---|---|---|---|
-| set | `database` | Postgres | allowed with `X-API-Key` |
-| not set | `demo` | two built-in Istanbul buildings | 503 |
+| set | `database` | Postgres, signed-in users only | by role, see below |
+| not set | `demo` | two built-in Istanbul buildings, no login | 503 |
 
 Timestamps are the building's local time without an offset, for example
 `2026-10-19T01:00:00`.
 
+## Login, roles and tenants
+
+The dashboard signs in with `POST /auth/login`; the answer sets the session cookie
+`energy_session` (HttpOnly, `SameSite=Lax`, `Secure` when `COOKIE_SECURE=true`, valid 7 days).
+Every endpoint except `/health` and `/auth/login` needs it. Create the first user with
+`python -m src.api.users create --email you@example.com --role admin`.
+
+| Role | Can |
+|---|---|
+| `viewer` | read |
+| `operator` | read, give feedback, import readings, edit operating hours and downtime |
+| `admin` | all of the above, register buildings, create users |
+
+A user belongs to one tenant, or to none (platform staff). Tenant users see only their
+tenant's buildings, anomalies, summary and users; another tenant's building answers 404 as if
+it did not exist. Platform staff see everything and alone can register tenants. A tenant admin
+always registers buildings and users into the own tenant; `tenant_id` in the body is ignored.
+
+Every request other than `GET` needs the header `X-Requested-With` (any value). Browsers only
+send it after a CORS preflight, so a page on another site cannot submit a form with the
+user's cookie. After 5 failed logins for one e-mail in 15 minutes, logins for it return 429.
+
+| Method and path | Body | Returns |
+|---|---|---|
+| `POST /auth/login` | `email`, `password` | the user (`user_id`, `tenant_id`, `email`, `name`, `role`) and the cookie |
+| `POST /auth/logout` | | 204; the session is deleted |
+| `GET /auth/me` | | the signed-in user |
+| `GET /users` | | users in scope (admin) |
+| `POST /users` | `email`, `name`, `role`, `password` (12+ characters), `tenant_id` | 201 and `{"id": <user_id>}`; 409 for a taken e-mail (admin) |
+
+```bash
+curl -c jar.txt -X POST http://localhost:8000/auth/login -H "X-Requested-With: curl" \
+  -H "Content-Type: application/json" -d '{"email": "you@example.com", "password": "..."}'
+curl -b jar.txt http://localhost:8000/buildings
+```
+
 ## Read endpoints
 
-No key needed.
+Any signed-in role.
 
 | Method and path | Query | Returns |
 |---|---|---|
@@ -32,6 +68,7 @@ No key needed.
 | `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48 | `expected_kwh`, `alarm`, `source`, `origin` |
 | `GET /anomalies` | `building_id` optional, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) |
 | `GET /summary` | | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings` |
+| `GET /tenants` | | `tenant_id`, `name`, `status`, `city`; tenant users see their own |
 
 - The `hours` window ends at the building's latest reading, not at the current time, so a
   building that stopped sending data still shows its last period.
@@ -39,22 +76,23 @@ No key needed.
   `summary` use its live output only; before that they show the batch output from training.
 - `active_alerts` counts events that ended within 24 hours of the building's latest reading.
 - `summary` covers active buildings only, the same set as `GET /buildings`.
-- Tenant details (tax number, contacts) have no read endpoint; they stay out of the
-  unauthenticated API until login exists.
+- Tax numbers and contacts are not returned by any endpoint.
+- Anomalies carry `explanation` (built-in Turkish text) and `advice` (Turkish advice from
+  Claude when `ANTHROPIC_API_KEY` is set; `null` until written, empty when the model declined).
 
 ```bash
-curl "http://localhost:8000/buildings/100000/readings?hours=24"
-curl "http://localhost:8000/anomalies?building_id=100000&limit=10"
+curl -b jar.txt "http://localhost:8000/buildings/100000/readings?hours=24"
+curl -b jar.txt "http://localhost:8000/anomalies?building_id=100000&limit=10"
 ```
 
 ## Write endpoints
 
-Every write needs the header `X-API-Key: <API_KEY>`. Without `API_KEY` on the server, writes
-are switched off and return 503.
+Writes need the session cookie, the `X-Requested-With` header and the role named in each
+section. The examples reuse `jar.txt` from the login above.
 
 ### `POST /tenants`
 
-Registers a tenant, or updates the given fields when the `name` already exists. Returns 201
+Platform admin. Registers a tenant, or updates the given fields when the `name` already exists. Returns 201
 and `{"id": <tenant_id>}`; 409 when another tenant has the same tax number.
 
 | Field | Rule |
@@ -72,13 +110,13 @@ and `{"id": <tenant_id>}`; 409 when another tenant has the same tax number.
 
 ```bash
 curl -X POST http://localhost:8000/tenants \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -b jar.txt -H "X-Requested-With: curl" -H "Content-Type: application/json" \
   -d '{"name": "Acme A.S.", "tax_number": "1234567890", "city": "Istanbul"}'
 ```
 
 ### `POST /buildings`
 
-Registers a building, or updates it when `external_id` already exists. Returns 201 and
+Admin. Registers a building, or updates it when `external_id` already exists. Returns 201 and
 `{"id": <building_id>}`.
 
 | Field | Rule |
@@ -97,14 +135,14 @@ Registers a building, or updates it when `external_id` already exists. Returns 2
 
 ```bash
 curl -X POST http://localhost:8000/buildings \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -b jar.txt -H "X-Requested-With: curl" -H "Content-Type: application/json" \
   -d '{"external_id": "acme-hq", "name": "Acme HQ", "lat": 41.01, "lng": 28.98,
        "primary_use": "Office", "square_feet": 54000, "tariff_tl_per_kwh": 4.2}'
 ```
 
 ### `PUT /buildings/{id}/operating-hours`
 
-Replaces the weekly schedule and returns it. The body is a list of up to 70 periods; an empty
+Operator or admin. Replaces the weekly schedule and returns it. The body is a list of up to 70 periods; an empty
 list clears the schedule. Periods may not overlap, also across midnight and from Sunday into
 Monday; one may start when another ends.
 
@@ -115,14 +153,14 @@ Monday; one may start when another ends.
 
 ```bash
 curl -X PUT http://localhost:8000/buildings/100000/operating-hours \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -b jar.txt -H "X-Requested-With: curl" -H "Content-Type: application/json" \
   -d '[{"weekday": 1, "opens": "06:00", "closes": "14:00"},
        {"weekday": 1, "opens": "22:00", "closes": "06:00"}]'
 ```
 
 ### `POST /buildings/{id}/downtime` and `DELETE /buildings/{id}/downtime/{downtime_id}`
 
-Adds a planned downtime window and returns 201 with `{"id": <downtime_id>}`; `DELETE` removes
+Operator or admin. Adds a planned downtime window and returns 201 with `{"id": <downtime_id>}`; `DELETE` removes
 one and returns 204.
 
 | Field | Rule |
@@ -133,7 +171,7 @@ one and returns 204.
 
 ### `POST /buildings/{id}/readings/import`
 
-Uploads a meter export as `multipart/form-data`. The cleaning rules are in
+Operator or admin. Uploads a meter export as `multipart/form-data`. The cleaning rules are in
 [data.md](data.md#import-a-meter-export).
 
 | Form field | Default | Meaning |
@@ -153,25 +191,24 @@ Returns the import report: `rows_in`, `unparseable`, `duplicates`, `conflicting_
 
 ```bash
 curl -X POST http://localhost:8000/buildings/100000/readings/import \
-  -H "X-API-Key: $API_KEY" \
+  -b jar.txt -H "X-Requested-With: curl" \
   -F file=@export.csv -F ts_col=Tarih -F value_col=Tuketim -F decimal=,
 ```
 
 ### `POST /anomalies/{id}/feedback`
 
-Stores an operator verdict. Returns 201 and `{"id": <feedback_id>}`. Verdicts become training
+Operator or admin. Stores a verdict with the signed-in user's e-mail as `created_by`. Returns 201 and `{"id": <feedback_id>}`. Verdicts become training
 labels (see [data.md](data.md#feedback-as-labels)).
 
 | Field | Rule |
 |---|---|
 | `verdict` | `confirmed`, `false_alarm` or `planned` |
 | `note` | up to 1000 characters |
-| `created_by` | up to 100 characters |
 
 ```bash
 curl -X POST http://localhost:8000/anomalies/1/feedback \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{"verdict": "confirmed", "note": "chiller left on", "created_by": "ops"}'
+  -b jar.txt -H "X-Requested-With: curl" -H "Content-Type: application/json" \
+  -d '{"verdict": "confirmed", "note": "chiller left on"}'
 ```
 
 ## Errors
@@ -180,23 +217,27 @@ Errors return `{"detail": "..."}`.
 
 | Status | When |
 |---|---|
-| 401 | `X-API-Key` missing or wrong |
-| 404 | building, tenant, anomaly or downtime not found, or a building without readings |
-| 409 | tax number already used by another tenant |
+| 401 | not signed in, session expired, or wrong e-mail or password at login |
+| 403 | role too low, or `X-Requested-With` missing on a write |
+| 404 | building, tenant, anomaly or downtime not found or outside the user's tenant, or a building without readings |
+| 409 | tax number used by another tenant, e-mail taken, or an `external_id` that belongs to another tenant |
 | 413 | upload larger than 20 MB |
 | 422 | invalid body or query, an id outside its Postgres integer range, or an export that cannot be parsed |
-| 503 | `API_KEY` not set, or a write in demo mode |
+| 429 | too many failed logins for this e-mail |
+| 503 | a write or login in demo mode |
 
 ## CORS
 
 Allowed origins come from `CORS_ORIGINS` (comma separated, default
-`http://localhost:5173,http://127.0.0.1:5173`). Methods `GET`, `POST`, `PUT` and `DELETE`, headers
-`Content-Type` and `X-API-Key`.
+`http://localhost:5173,http://127.0.0.1:5173`). Credentials (the cookie) are allowed for those
+origins only. Methods `GET`, `POST`, `PUT` and `DELETE`, headers `Content-Type` and
+`X-Requested-With`.
 
 ## Changing the API
 
 1. Add or change the model in `src/api/schemas.py`.
 2. Add the query to `Repository`, `PostgresRepository` and `DemoRepository` in
    `src/api/repository.py`.
-3. Add the route in `src/api/main.py`; writes get `dependencies=Writer`.
+3. Add the route in `src/api/main.py` with the repository from `Repo` (already limited to the
+   user's tenant); writes get `dependencies=Writer` or an `Admin` parameter.
 4. Update the types in `frontend/src/api.ts`, this file and `tests/test_api.py`.

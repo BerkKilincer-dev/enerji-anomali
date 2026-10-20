@@ -14,13 +14,13 @@ x-app: &app
 
 services:
   db:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb:2.30.2-pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-owner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-energy}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   mqtt:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2.0.22
     ports:
       - "127.0.0.1:1883:1883"
     volumes:
@@ -68,7 +68,7 @@ services:
     command: ["python", "-m", "src.ingest.mqtt_ingest"]
 
   frontend:
-    image: node:22-alpine
+    image: node:22.23.2-alpine
     working_dir: /app
     environment:
       VITE_API_URL: http://localhost:8000

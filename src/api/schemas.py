@@ -15,11 +15,13 @@ from pydantic import (
     model_validator,
 )
 
+from src.api.auth import MIN_PASSWORD_LENGTH, Role, User
 from src.data.customer import TenantStatus
 from src.data.segments import Segment
 
 INT_MAX = 2**31 - 1
 BIGINT_MAX = 2**63 - 1
+EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
 class Building(BaseModel):
@@ -34,6 +36,7 @@ class Building(BaseModel):
     country: str | None
     lat: float | None
     lng: float | None
+    tenant_id: int | None
     last_scored_ts: datetime | None
     anomaly_count: int
 
@@ -65,6 +68,7 @@ class Anomaly(BaseModel):
     excess_kwh: float | None
     est_cost_tl: float | None
     explanation: str | None
+    advice: str | None
     origin: str
     verdict: str | None
 
@@ -105,7 +109,7 @@ class TenantIn(BaseModel):
     city: str | None = Field(None, max_length=100)
     address: str | None = Field(None, max_length=500)
     contact_name: str | None = Field(None, max_length=200)
-    contact_email: str | None = Field(None, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    contact_email: str | None = Field(None, max_length=254, pattern=EMAIL)
     contact_phone: str | None = Field(None, pattern=r"^\+?[0-9 ()-]{7,20}$")
     plan: str | None = Field(None, max_length=50)
     status: TenantStatus | None = None
@@ -174,7 +178,53 @@ class Created(BaseModel):
 class FeedbackIn(BaseModel):
     verdict: Literal["confirmed", "false_alarm", "planned"]
     note: str | None = Field(None, max_length=1000)
-    created_by: str | None = Field(None, max_length=100)
+
+
+class LoginIn(BaseModel):
+    email: str = Field(max_length=254, pattern=EMAIL)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class Me(BaseModel):
+    user_id: int
+    tenant_id: int | None
+    email: str
+    name: str | None
+    role: Role
+
+    @classmethod
+    def of(cls, user: User) -> Me:
+        return cls(
+            user_id=user.user_id,
+            tenant_id=user.tenant_id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+        )
+
+
+class UserIn(BaseModel):
+    email: str = Field(max_length=254, pattern=EMAIL)
+    name: str | None = Field(None, max_length=200)
+    role: Role
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=200)
+    tenant_id: int | None = Field(None, gt=0, le=INT_MAX)
+
+
+class UserOut(BaseModel):
+    user_id: int
+    tenant_id: int | None
+    email: str
+    name: str | None
+    role: Role
+    active: bool
+
+
+class TenantOut(BaseModel):
+    tenant_id: int
+    name: str
+    status: str
+    city: str | None
 
 
 class ImportResult(BaseModel):

@@ -42,4 +42,4 @@ def _jsonable(value: object) -> object:
 
 def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(_jsonable(payload), indent=2) + "\n")
+    path.write_text(json.dumps(_jsonable(payload), indent=2) + "\n", encoding="utf-8")

@@ -83,17 +83,17 @@ once the next hour has arrived. `CONTEXT_HOURS` follows from `HISTORY_HOURS` in
   table and why the numbers are not directly comparable:
   [docs/rapor/lead-benchmark.md](rapor/lead-benchmark.md).
 
-Results: [reports/ml/results.md](../reports/ml/results.md). The committed file is a quick run
-(20% of buildings) that only proves the pipeline works; replace it with the full Colab run.
+Results: [reports/ml/results.md](../reports/ml/results.md), from the full run on all
+buildings (30 held-out test buildings). Rerun and commit it after every model change.
 
-Quick-run observations that will likely hold on the full run:
+Observations from the full run:
 
-- LightGBM is the best detector (test PR-AUC about 0.82); the hybrid is on par; dropping
+- LightGBM is the best detector (test PR-AUC about 0.77); the hybrid is on par; dropping
   weather costs a little. Random Forest is close but slower; unsupervised models are far
   behind on LEAD labels.
 - The top feature is flatline length, then short differences: LEAD labels are dominated by
   stuck and dropping meters.
-- The combined product alarm has low event precision against LEAD labels (about 0.3) because
+- The combined product alarm has low event precision against LEAD labels (about 0.2) because
   most product alarms are waste rules, and LEAD does not label waste. Feedback labels are the
   real measure.
 - Spikes, dropouts, stuck meters and night base load are detected in nearly every injection;

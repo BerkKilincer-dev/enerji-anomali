@@ -3,8 +3,8 @@
 Usage: python -m src.scoring.service [--once] [--interval 300] [--include-lead] [--no-weather]
 Pulls the latest model from model_artifacts (or MODEL_DIR), reads each building's new
 hours with enough history to score them as a full rescore would, and writes predictions
-and anomaly events. New events go to Telegram when TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
-are set.
+and anomaly events. With ANTHROPIC_API_KEY set, finished events also get Turkish advice
+(src/scoring/advice.py).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from src.models import registry
 from src.models.detector import CONTEXT_HOURS, REVISION_HOURS, AnomalyScorer
 from src.models.events import MAX_GAP_HOURS, build_events
 from src.models.publish import anomaly_rows, prediction_rows
-from src.scoring.alerts import send_alerts, telegram_from_settings
+from src.scoring.advice import Advisor, advisor_from_settings, write_advice
 
 log = logging.getLogger(__name__)
 
@@ -140,9 +140,9 @@ def run_once(
     scorer: AnomalyScorer,
     include_lead: bool = False,
     weather: Callable | None = None,
-    notify: Callable[[str], None] | None = None,
+    advise: Advisor | None = None,
 ) -> int:
-    """Score pending buildings, one transaction each; `weather` and `notify` are optional."""
+    """Score pending buildings, one transaction each; `weather` and `advise` are optional."""
     default_tariff = get_settings().tariff_tl_per_kwh
     total = 0
     with connect(database_url, autocommit=True) as conn:
@@ -155,11 +155,11 @@ def run_once(
                     total += score_building(conn, scorer, item, default_tariff)
             except Exception:
                 log.exception("building %d failed, will retry next cycle", item.building_id)
-        if notify is not None:
+        if advise is not None:
             try:
-                send_alerts(conn, notify)
+                write_advice(conn, advise)
             except Exception:
-                log.exception("alerts failed, will retry next cycle")
+                log.exception("advice failed, will retry next cycle")
     return total
 
 
@@ -173,14 +173,12 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     url = require_database_url()
     scorer = load_scorer(url)
-    telegram = telegram_from_settings()
-    log.info(
-        "scoring with model %s, telegram alerts %s", scorer.version, "on" if telegram else "off"
-    )
+    advise = advisor_from_settings()
+    log.info("scoring with model %s, llm advice %s", scorer.version, "on" if advise else "off")
     weather = None if args.no_weather else weather_api.fetch
     while True:
         scorer = refresh_scorer(url, scorer)
-        run_once(url, scorer, args.include_lead, weather, telegram.send if telegram else None)
+        run_once(url, scorer, args.include_lead, weather, advise)
         if args.once:
             return
         time.sleep(args.interval)

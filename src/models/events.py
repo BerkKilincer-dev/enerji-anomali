@@ -30,28 +30,36 @@ EMPTY_DTYPES = {
     "est_cost_tl": "float64",
 }
 
+# Explanations are Turkish, for the facility managers who read them; numbers use tr-TR style.
 _TEMPLATES = {
-    "night_base_load": "Night load was {ratio:.1f}x the same hour in recent weeks.",
-    "weekend_usage": "Weekend or holiday load was {ratio:.1f}x the same hour in recent weeks.",
-    "spike": "Consumption spiked to {ratio:.1f}x the weekly median.",
-    "dropout": "Meter reported near-zero consumption; check the meter or supply.",
-    "flatline": "Meter repeated the same value for at least {flat} hours; it may be stuck.",
-    "ml_sup": "Pattern matches anomalies labeled in historical data.",
-    "ml_unsup": "Consumption was {ratio:.1f}x the expected level.",
+    "night_base_load": "Gece tüketimi son haftalardaki aynı saatin {ratio} katına çıktı.",
+    "weekend_usage": "Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin {ratio} katı"
+    " oldu.",
+    "spike": "Tüketim haftalık medyanın {ratio} katına sıçradı.",
+    "dropout": "Sayaç sıfıra yakın tüketim bildirdi; sayacı veya beslemeyi kontrol edin.",
+    "flatline": "Sayaç en az {flat} saat aynı değeri gönderdi; takılmış olabilir.",
+    "ml_sup": "Tüketim deseni geçmişte etiketlenmiş anomalilere benziyor.",
+    "ml_unsup": "Tüketim beklenen seviyenin {ratio} katı oldu.",
 }
+
+
+def tr_number(value: float, digits: int = 0) -> str:
+    """1234.5 -> '1.234,5' (Turkish separators)."""
+    text = f"{value:,.{digits}f}"
+    return text.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
 def explain(row: pd.Series, tariff: float) -> str:
     key = row["rule_type"] if row["source"] == "rule" else row["source"]
     # The rule fires on the FLATLINE_HOURS-th equal reading, so earlier equal hours count too.
     flat = row["flat_hours"] + FLATLINE_HOURS - 1
-    text = _TEMPLATES[key].format(ratio=row["ratio"], flat=flat)
+    text = _TEMPLATES[key].format(ratio=tr_number(row["ratio"], 1), flat=flat)
     window = f"{row['ts_start']:%Y-%m-%d %H:%M}-{row['ts_end'] + pd.Timedelta(hours=1):%H:%M}"
     cost = ""
     if row["excess_kwh"] > 0:
         cost = (
-            f" About {row['excess_kwh']:,.0f} kWh above expected"
-            f" ({row['est_cost_tl']:,.0f} TL at {tariff} TL/kWh)."
+            f" Beklenenden yaklaşık {tr_number(row['excess_kwh'])} kWh fazla"
+            f" ({tr_number(tariff, 2)} TL/kWh ile {tr_number(row['est_cost_tl'])} TL)."
         )
     return f"{window}: {text}{cost}"
 
