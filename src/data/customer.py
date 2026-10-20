@@ -1,7 +1,8 @@
 """Onboard customer buildings and import their meter exports into the shared database.
 
 Usage:
-  python -m src.data.customer register --external-id acme-hq [--lat 41.01 --lng 28.98 ...]
+  python -m src.data.customer tenant --name "Acme A.S." [--tax-number 1234567890 ...]
+  python -m src.data.customer register --external-id acme-hq [--tenant-id 1 --segment office ...]
   python -m src.data.customer import --external-id acme-hq --file export.csv \\
       [--ts-col timestamp --value-col kwh --unit kwh --cumulative --source-tz UTC]
 DATABASE_URL must allow writes (the team role is enough).
@@ -13,19 +14,21 @@ import argparse
 import json
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import date, timedelta
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Literal, TypeVar, get_args
 
 import pandas as pd
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 
 from src.common.db import connect
 from src.config import require_database_url
 from src.data import weather_api
 from src.data.prepare import WEATHER_COLUMNS, country_for_timezone
+from src.data.segments import BDG2_SEGMENTS, SEGMENTS, Segment
 from src.data.store import upsert_frame
 from src.data.validate import ImportReport, normalize_readings
 
@@ -46,6 +49,8 @@ class BuildingInfo:
     square_feet: float | None = None
     year_built: int | None = None
     tariff_tl_per_kwh: float | None = None
+    tenant_id: int | None = None
+    segment: Segment | None = None
 
     def location(self) -> weather_api.Location:
         default = weather_api.Location.default()
@@ -56,31 +61,73 @@ class BuildingInfo:
         )
 
 
+TenantStatus = Literal["pilot", "active", "inactive"]
+
+
+@dataclass(frozen=True)
+class TenantInfo:
+    name: str
+    tax_number: str | None = None
+    tax_office: str | None = None
+    city: str | None = None
+    address: str | None = None
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    plan: str | None = None
+    status: TenantStatus | None = None
+    dpa_signed_on: date | None = None
+
+
+def register_tenant(conn: psycopg.Connection, info: TenantInfo) -> int:
+    """Create a tenant or update the given fields of the one with this name; returns its id."""
+    values = {k: v for k, v in asdict(info).items() if v is not None}
+    columns = list(values)
+    row = conn.execute(
+        sql.SQL(
+            "INSERT INTO tenants ({}) VALUES ({}) ON CONFLICT (name) DO UPDATE SET {} "
+            "RETURNING tenant_id"
+        ).format(
+            sql.SQL(", ").join(map(sql.Identifier, columns)),
+            sql.SQL(", ").join(sql.Placeholder() * len(columns)),
+            sql.SQL(", ").join(
+                sql.SQL("{0} = EXCLUDED.{0}").format(sql.Identifier(c)) for c in columns
+            ),
+        ),
+        list(values.values()),
+    ).fetchone()
+    return row[0]
+
+
 def register_building(conn: psycopg.Connection, info: BuildingInfo) -> int:
     """Create or update a customer building; returns its building_id."""
     stored = conn.execute(
-        "SELECT lat, lng, timezone, country FROM buildings WHERE external_id = %s",
+        "SELECT lat, lng, timezone, country, segment FROM buildings WHERE external_id = %s",
         (info.external_id,),
     ).fetchone()
     if stored:
-        # An update without a location keeps the stored one, not the Istanbul default.
-        lat, lng, timezone, country = stored
+        # An update keeps the stored location and segment, not the Istanbul or BDG2 default.
+        lat, lng, timezone, country, segment = stored
         info = replace(
             info,
             lat=lat if info.lat is None else info.lat,
             lng=lng if info.lng is None else info.lng,
             timezone=info.timezone or timezone,
             country=info.country or country,
+            segment=info.segment or segment,
         )
     loc = info.location()
     country = (info.country or country_for_timezone(loc.timezone) or "").upper() or None
     row = conn.execute(
         """
         INSERT INTO buildings (external_id, name, source, weather_key, primary_use, square_feet,
-                               year_built, timezone, country, lat, lng, tariff_tl_per_kwh)
-        VALUES (%s, %s, 'customer', %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                               year_built, timezone, country, lat, lng, tariff_tl_per_kwh,
+                               tenant_id, segment)
+        VALUES (%s, %s, 'customer', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (external_id) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, buildings.name),
+            tenant_id = COALESCE(EXCLUDED.tenant_id, buildings.tenant_id),
+            segment = COALESCE(EXCLUDED.segment, buildings.segment),
             weather_key = EXCLUDED.weather_key,
             primary_use = COALESCE(EXCLUDED.primary_use, buildings.primary_use),
             square_feet = COALESCE(EXCLUDED.square_feet, buildings.square_feet),
@@ -102,6 +149,8 @@ def register_building(conn: psycopg.Connection, info: BuildingInfo) -> int:
             loc.lat,
             loc.lng,
             info.tariff_tl_per_kwh,
+            info.tenant_id,
+            info.segment or BDG2_SEGMENTS.get(info.primary_use),
         ),
     ).fetchone()
     return row[0]
@@ -237,13 +286,23 @@ def _parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    ten = sub.add_parser("tenant", help="create or update a tenant")
+    ten.add_argument("--name", required=True)
+    details = "tax-number tax-office city address contact-name contact-email contact-phone plan"
+    for name in details.split():
+        ten.add_argument(f"--{name}")
+    ten.add_argument("--status", choices=get_args(TenantStatus))
+    ten.add_argument("--dpa-signed-on", type=date.fromisoformat, help="YYYY-MM-DD")
     reg = sub.add_parser("register", help="create or update a building")
     reg.add_argument("--external-id", required=True)
     for name in ("name", "timezone", "country", "primary-use"):
         reg.add_argument(f"--{name}")
-    for name in ("lat", "lng", "square-feet", "tariff"):
+    for name in ("lat", "lng", "square-feet"):
         reg.add_argument(f"--{name}", type=float)
+    reg.add_argument("--tariff", type=float, dest="tariff_tl_per_kwh")
     reg.add_argument("--year-built", type=int)
+    reg.add_argument("--tenant-id", type=int)
+    reg.add_argument("--segment", choices=SEGMENTS)
     imp = sub.add_parser("import", help="import a meter export (CSV)")
     imp.add_argument("--external-id", required=True)
     imp.add_argument("--file", type=Path, required=True)
@@ -258,25 +317,23 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+Info = TypeVar("Info", TenantInfo, BuildingInfo)
+
+
+def _from_args(cls: type[Info], args: argparse.Namespace) -> Info:
+    return cls(**{f.name: getattr(args, f.name) for f in fields(cls)})
+
+
 def main() -> None:
     args = _parser().parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     url = require_database_url()
     with connect(url) as conn:
+        if args.command == "tenant":
+            print(f"tenant_id {register_tenant(conn, _from_args(TenantInfo, args))}")
+            return
         if args.command == "register":
-            info = BuildingInfo(
-                args.external_id,
-                args.name,
-                args.lat,
-                args.lng,
-                args.timezone,
-                args.country,
-                args.primary_use,
-                args.square_feet,
-                args.year_built,
-                args.tariff,
-            )
-            print(f"building_id {register_building(conn, info)}")
+            print(f"building_id {register_building(conn, _from_args(BuildingInfo, args))}")
             return
         raw = read_export(args.file, args.ts_col, args.value_col, args.sep, args.decimal)
         report = import_file(

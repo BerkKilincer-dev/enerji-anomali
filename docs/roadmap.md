@@ -16,7 +16,10 @@ one issue per item.
 - Services: FastAPI with demo mode, live scoring service with Telegram alerts, virtual
   meters for demos with injected anomalies.
 - Schema for the target services: tenants, users, assets, meters, alert settings,
-  notifications, work orders and a daily KPI view.
+  notifications, work orders and a daily KPI view, grouped in the `core`, `telemetry`, `ml`
+  and `ops` schemas.
+- Tenant registration with tax and contact details, fixed building segments, weekly
+  operating hours and planned downtime.
 - Dashboard: overview, building chart against expected load, anomaly table with feedback,
   phone layout.
 - Colab notebooks for data and ML, tests with database integration, Docker Compose stack.
@@ -37,12 +40,14 @@ one issue per item.
 1. Full training run in Colab (notebook 02, CPU) and commit the new `reports/ml`.
 2. Drift detection: weekly CUSUM on the residual, or the same week last year, so slow
    increases are reported (the weakest scenario today).
-3. Thresholds per segment and per customer from the alarm budget table, stored with the
-   building.
-4. Retrain monthly with `--source db --publish` once feedback exists; compare against the
+3. Thresholds per segment (`buildings.segment`) and per customer from the alarm budget
+   table, stored with the building.
+4. Use `operating_hours` and `planned_downtime` in the rules and thresholds, so night-load
+   and weekend rules follow each building's own schedule and planned shutdowns raise nothing.
+5. Retrain monthly with `--source db --publish` once feedback exists; compare against the
    current model before switching.
-5. Probability calibration (isotonic on validation) if scores are shown to users.
-6. Check the BDG2 weather against Open-Meteo for the same sites; retrain the expected model on
+6. Probability calibration (isotonic on validation) if scores are shown to users.
+7. Check the BDG2 weather against Open-Meteo for the same sites; retrain the expected model on
    Open-Meteo history if the gap is large.
 
 ## Backend developer

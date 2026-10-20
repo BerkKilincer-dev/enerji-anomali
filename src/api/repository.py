@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Protocol
+from datetime import datetime, time, timedelta
+from typing import NoReturn, Protocol
 
 import numpy as np
 import pandas as pd
+import psycopg
+from psycopg import errors
 from psycopg.rows import dict_row
 
 from src.common.db import connect
-from src.data.customer import BuildingInfo, import_file, register_building
+from src.data.customer import (
+    BuildingInfo,
+    TenantInfo,
+    import_file,
+    register_building,
+    register_tenant,
+)
 from src.data.validate import ImportReport
 
 
@@ -19,6 +27,10 @@ class ReadOnlyError(RuntimeError):
 
 
 class NotFoundError(LookupError):
+    pass
+
+
+class ConflictError(ValueError):
     pass
 
 
@@ -34,6 +46,12 @@ class Repository(Protocol):
         self, anomaly_id: int, verdict: str, note: str | None, created_by: str | None
     ) -> int: ...
     def register(self, info: BuildingInfo) -> int: ...
+    def register_tenant(self, info: TenantInfo) -> int: ...
+    def operating_hours(self, building_id: int) -> list[dict]: ...
+    def set_operating_hours(self, building_id: int, hours: list[dict]) -> list[dict]: ...
+    def downtime(self, building_id: int) -> list[dict]: ...
+    def add_downtime(self, building_id: int, period: dict) -> int: ...
+    def delete_downtime(self, building_id: int, downtime_id: int) -> None: ...
     def import_readings(
         self,
         building_id: int,
@@ -50,9 +68,14 @@ class PostgresRepository:
     def __init__(self, database_url: str):
         self.url = database_url
 
-    def _query(self, query: str, params: tuple = ()) -> list[dict]:
-        with connect(self.url) as conn, conn.cursor(row_factory=dict_row) as cur:
+    @staticmethod
+    def _rows(conn: psycopg.Connection, query: str, params: tuple = ()) -> list[dict]:
+        with conn.cursor(row_factory=dict_row) as cur:
             return cur.execute(query, params).fetchall()
+
+    def _query(self, query: str, params: tuple = ()) -> list[dict]:
+        with connect(self.url) as conn:
+            return self._rows(conn, query, params)
 
     def _window(self, building_id: int, hours: int) -> tuple[datetime, datetime]:
         rows = self._query(
@@ -63,11 +86,20 @@ class PostgresRepository:
         end = rows[0]["end_ts"]
         return end - timedelta(hours=hours - 1), end
 
+    @staticmethod
+    def _require_building(conn: psycopg.Connection, building_id: int, lock: bool = False) -> str:
+        # The lock makes concurrent schedule writes wait; readings can still reference the row.
+        query = "SELECT external_id FROM buildings WHERE building_id = %s"
+        row = conn.execute(query + " FOR NO KEY UPDATE" * lock, (building_id,)).fetchone()
+        if row is None:
+            raise NotFoundError(f"building {building_id} not found")
+        return row[0]
+
     def buildings(self) -> list[dict]:
         return self._query(
             """
-            SELECT b.building_id, b.external_id, b.name, b.source, b.primary_use, b.square_feet,
-                   b.timezone, b.country, b.lat, b.lng, s.last_scored_ts,
+            SELECT b.building_id, b.external_id, b.name, b.source, b.primary_use, b.segment,
+                   b.square_feet, b.timezone, b.country, b.lat, b.lng, s.last_scored_ts,
                    (SELECT count(*) FROM current_anomalies a
                     WHERE a.building_id = b.building_id) AS anomaly_count
             FROM buildings b LEFT JOIN scoring_state s USING (building_id)
@@ -145,8 +177,74 @@ class PostgresRepository:
         return row[0]
 
     def register(self, info: BuildingInfo) -> int:
+        try:
+            with connect(self.url) as conn:
+                return register_building(conn, info)
+        except errors.ForeignKeyViolation as exc:
+            raise NotFoundError(f"tenant {info.tenant_id} not found") from exc
+
+    def register_tenant(self, info: TenantInfo) -> int:
+        try:
+            with connect(self.url) as conn:
+                return register_tenant(conn, info)
+        except errors.UniqueViolation as exc:
+            raise ConflictError("another tenant has this tax number") from exc
+
+    def operating_hours(self, building_id: int) -> list[dict]:
         with connect(self.url) as conn:
-            return register_building(conn, info)
+            self._require_building(conn, building_id)
+            return self._hours(conn, building_id)
+
+    def set_operating_hours(self, building_id: int, hours: list[dict]) -> list[dict]:
+        with connect(self.url) as conn:
+            self._require_building(conn, building_id, lock=True)
+            conn.execute("DELETE FROM operating_hours WHERE building_id = %s", (building_id,))
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO operating_hours (building_id, weekday, opens, closes) "
+                    "VALUES (%s, %s, %s, %s)",
+                    [(building_id, h["weekday"], h["opens"], h["closes"]) for h in hours],
+                )
+            return self._hours(conn, building_id)
+
+    def _hours(self, conn: psycopg.Connection, building_id: int) -> list[dict]:
+        return self._rows(
+            conn,
+            "SELECT weekday, opens, closes FROM operating_hours WHERE building_id = %s "
+            "ORDER BY weekday, opens",
+            (building_id,),
+        )
+
+    def downtime(self, building_id: int) -> list[dict]:
+        with connect(self.url) as conn:
+            self._require_building(conn, building_id)
+            return self._rows(
+                conn,
+                "SELECT id, building_id, starts_at, ends_at, kind, note FROM planned_downtime "
+                "WHERE building_id = %s ORDER BY starts_at",
+                (building_id,),
+            )
+
+    def add_downtime(self, building_id: int, period: dict) -> int:
+        try:
+            with connect(self.url) as conn:
+                return conn.execute(
+                    "INSERT INTO planned_downtime (building_id, starts_at, ends_at, kind, note) "
+                    "VALUES (%(building_id)s, %(starts_at)s, %(ends_at)s, %(kind)s, %(note)s) "
+                    "RETURNING id",
+                    {**period, "building_id": building_id},
+                ).fetchone()[0]
+        except errors.ForeignKeyViolation as exc:
+            raise NotFoundError(f"building {building_id} not found") from exc
+
+    def delete_downtime(self, building_id: int, downtime_id: int) -> None:
+        with connect(self.url) as conn:
+            deleted = conn.execute(
+                "DELETE FROM planned_downtime WHERE id = %s AND building_id = %s",
+                (downtime_id, building_id),
+            ).rowcount
+        if not deleted:
+            raise NotFoundError(f"downtime {downtime_id} not found for building {building_id}")
 
     def import_readings(
         self,
@@ -157,13 +255,9 @@ class PostgresRepository:
         source_tz: str | None,
     ) -> ImportReport:
         with connect(self.url) as conn:
-            row = conn.execute(
-                "SELECT external_id FROM buildings WHERE building_id = %s", (building_id,)
-            ).fetchone()
-            if row is None:
-                raise NotFoundError(f"building {building_id} not found")
+            external_id = self._require_building(conn, building_id)
             return import_file(
-                conn, row[0], raw, unit=unit, cumulative=cumulative, source_tz=source_tz
+                conn, external_id, raw, unit=unit, cumulative=cumulative, source_tz=source_tz
             )
 
 
@@ -181,6 +275,7 @@ class DemoRepository:
             "name": "Demo office",
             "source": "demo",
             "primary_use": "Office",
+            "segment": "office",
             "square_feet": 54000.0,
             "timezone": "Europe/Istanbul",
             "country": "TR",
@@ -195,6 +290,7 @@ class DemoRepository:
             "name": "Demo retail",
             "source": "demo",
             "primary_use": "Retail",
+            "segment": "retail",
             "square_feet": 120000.0,
             "timezone": "Europe/Istanbul",
             "country": "TR",
@@ -271,11 +367,16 @@ class DemoRepository:
             "buildings": len(self.BUILDINGS),
         }
 
-    def add_feedback(self, *args, **kwargs) -> int:
+    def operating_hours(self, building_id: int) -> list[dict]:
+        self._building(building_id)
+        return [{"weekday": d, "opens": time(8), "closes": time(19)} for d in range(1, 6)]
+
+    def downtime(self, building_id: int) -> list[dict]:
+        self._building(building_id)
+        return []
+
+    def _read_only(self, *args: object, **kwargs: object) -> NoReturn:
         raise ReadOnlyError("demo mode has no database")
 
-    def register(self, info: BuildingInfo) -> int:
-        raise ReadOnlyError("demo mode has no database")
-
-    def import_readings(self, *args, **kwargs) -> ImportReport:
-        raise ReadOnlyError("demo mode has no database")
+    add_feedback = register = register_tenant = _read_only
+    set_operating_hours = add_downtime = delete_downtime = import_readings = _read_only

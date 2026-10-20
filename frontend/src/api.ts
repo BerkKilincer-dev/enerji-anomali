@@ -9,6 +9,7 @@ export type Building = {
   name: string | null;
   source: string;
   primary_use: string | null;
+  segment: string | null;
   square_feet: number | null;
   timezone: string;
   country: string | null;

@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Literal
 from zoneinfo import available_timezones
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    NaiveDatetime,
+    RootModel,
+    field_validator,
+    model_validator,
+)
+
+from src.data.customer import TenantStatus
+from src.data.segments import Segment
+
+INT_MAX = 2**31 - 1
+BIGINT_MAX = 2**63 - 1
 
 
 class Building(BaseModel):
@@ -15,6 +28,7 @@ class Building(BaseModel):
     name: str | None
     source: str
     primary_use: str | None
+    segment: str | None
     square_feet: float | None
     timezone: str
     country: str | None
@@ -73,6 +87,8 @@ class BuildingIn(BaseModel):
     square_feet: float | None = Field(None, gt=0)
     year_built: int | None = Field(None, ge=1800, le=2100)
     tariff_tl_per_kwh: float | None = Field(None, ge=0)
+    tenant_id: int | None = Field(None, gt=0, le=INT_MAX)
+    segment: Segment | None = None
 
     @field_validator("timezone")
     @classmethod
@@ -80,6 +96,75 @@ class BuildingIn(BaseModel):
         if value is not None and value not in available_timezones():
             raise ValueError(f"unknown timezone {value!r}")
         return value
+
+
+class TenantIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    tax_number: str | None = Field(None, pattern=r"^[0-9]{10,11}$")
+    tax_office: str | None = Field(None, max_length=100)
+    city: str | None = Field(None, max_length=100)
+    address: str | None = Field(None, max_length=500)
+    contact_name: str | None = Field(None, max_length=200)
+    contact_email: str | None = Field(None, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    contact_phone: str | None = Field(None, pattern=r"^\+?[0-9 ()-]{7,20}$")
+    plan: str | None = Field(None, max_length=50)
+    status: TenantStatus | None = None
+    dpa_signed_on: date | None = None
+
+
+class OperatingHours(BaseModel):
+    weekday: int = Field(ge=1, le=7)
+    opens: time
+    closes: time
+
+
+DAY_SECONDS = 86_400
+WEEK_SECONDS = 7 * DAY_SECONDS
+
+
+def _seconds(value: time) -> int:
+    return value.hour * 3600 + value.minute * 60 + value.second
+
+
+class Schedule(RootModel[list[OperatingHours]]):
+    root: list[OperatingHours] = Field(max_length=70)
+
+    @model_validator(mode="after")
+    def no_overlap(self) -> Schedule:
+        # Periods on a weekly circle in seconds; each must end before the next one starts.
+        periods = sorted(
+            (
+                (p.weekday - 1) * DAY_SECONDS + _seconds(p.opens),
+                (_seconds(p.closes) - _seconds(p.opens)) % DAY_SECONDS or DAY_SECONDS,
+            )
+            for p in self.root
+        )
+        ends = [start + length for start, length in periods]
+        nexts = [start for start, _ in periods[1:]] + [s + WEEK_SECONDS for s, _ in periods[:1]]
+        if any(end > next_start for end, next_start in zip(ends, nexts, strict=True)):
+            raise ValueError("periods overlap")
+        return self
+
+
+DowntimeKind = Literal["holiday", "maintenance", "shutdown"]
+
+
+class DowntimeIn(BaseModel):
+    starts_at: NaiveDatetime
+    ends_at: NaiveDatetime
+    kind: DowntimeKind
+    note: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def ends_after_start(self) -> DowntimeIn:
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+class Downtime(DowntimeIn):
+    id: int
+    building_id: int
 
 
 class Created(BaseModel):

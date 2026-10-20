@@ -10,9 +10,12 @@
       │               src.data.customer            │
       ▼                       ▼                    ▼
  ┌──────────────────────── Postgres (TimescaleDB optional) ─────────────────────────┐
- │ tenants · users · buildings · assets · meters · readings · weather ·             │
- │ predictions · anomalies · anomaly_feedback · scoring_state · model_artifacts ·   │
- │ alert_settings · notifications · work_orders · views current_*, daily_kpis       │
+ │ core       tenants · users · buildings · operating_hours · planned_downtime ·    │
+ │            assets · meters                                                       │
+ │ telemetry  readings · weather                                                    │
+ │ ml         predictions · anomalies · anomaly_feedback · scoring_state ·          │
+ │            model_artifacts · views readings_enriched, current_*                  │
+ │ ops        alert_settings · notifications · work_orders · view daily_kpis        │
  └──────────────────────────────────────────────────────────────────────────────────┘
       │  ▲                         │  ▲                                   ▲
       │  │ Open-Meteo weather      │  │ predictions, anomalies           │ feedback
@@ -66,6 +69,10 @@ reporting, work order) and the tables each one owns is in
 
 ## Data design
 
+- Tables are grouped in four Postgres schemas: `core` (tenants, buildings and their
+  configuration), `telemetry` (readings, weather), `ml` (model input views and output) and
+  `ops` (alerts, work orders, reports). Every connection sets a `search_path` over all four,
+  so code uses plain table names; the layout is in [data.md](data.md#shared-database).
 - `buildings.building_id` is internal: LEAD keeps its BDG2 ids, customers start at 100000.
   `external_id` is the customer's own meter or site id and is unique.
 - `readings` hold hourly kWh in building local time with `quality` (ok, partial, merged,
@@ -77,8 +84,11 @@ reporting, work order) and the tables each one owns is in
   (`current_predictions`, `current_anomalies`).
 - `scoring_state` stores the last scored hour per building, so scoring is incremental.
 - `model_artifacts` stores model bundles, so the scoring service never needs a file share.
-- `tenants`, `users`, `assets`, `meters` and `work_orders` are ready for the identity,
-  asset and work order services; `notifications` and `alert_settings` drive the alerts.
+- `tenants` hold the company and contract details; `buildings.segment` is one of a fixed
+  list (`src/data/segments.py`). `operating_hours` and `planned_downtime` store the schedule
+  for later use in rules and thresholds.
+- `users`, `assets`, `meters` and `work_orders` are ready for the identity, asset and work
+  order services; `notifications` and `alert_settings` drive the alerts.
 - TimescaleDB hypertables are created when the extension exists; plain tables otherwise.
 
 ## Deployment

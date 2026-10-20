@@ -15,10 +15,11 @@ import pandas as pd
 import psycopg
 from psycopg import sql
 
-from src.common.db import connect
+from src.common.db import SCHEMAS, connect
 from src.config import ROOT, require_database_url
 from src.data.dataset import ensure_tables
 from src.data.prepare import Tables
+from src.data.segments import BDG2_SEGMENTS
 from src.data.split import assign_splits
 from src.data.store import COLUMNS, copy_frame
 
@@ -27,6 +28,8 @@ log = logging.getLogger(__name__)
 SCHEMA_PATH = ROOT / "db" / "init" / "001_schema.sql"
 MIN_PASSWORD_LENGTH = 12
 LEAD_DEPENDENTS = (
+    "operating_hours",
+    "planned_downtime",
     "work_orders",
     "alert_settings",
     "meters",
@@ -41,6 +44,20 @@ LEAD_DEPENDENTS = (
 
 def apply_schema(conn: psycopg.Connection) -> None:
     conn.execute(SCHEMA_PATH.read_text())
+    # psql and DataGrip sessions also find the tables without a schema prefix.
+    conn.execute(
+        sql.SQL("ALTER DATABASE {} SET search_path = {}").format(
+            sql.Identifier(conn.info.dbname),
+            sql.SQL(", ").join(map(sql.Identifier, (*SCHEMAS, "public"))),
+        )
+    )
+    # Buildings stored before segments existed get the default from their BDG2 primary use.
+    conn.execute(
+        "UPDATE buildings b SET segment = m.segment "
+        "FROM unnest(%s::text[], %s::text[]) AS m (primary_use, segment) "
+        "WHERE b.segment IS NULL AND b.primary_use = m.primary_use",
+        (list(BDG2_SEGMENTS), list(BDG2_SEGMENTS.values())),
+    )
 
 
 def ensure_role(conn: psycopg.Connection, name: str, password: str, read_only: bool) -> None:
@@ -48,52 +65,68 @@ def ensure_role(conn: psycopg.Connection, name: str, password: str, read_only: b
         raise ValueError(
             f"password for role {name!r} must be at least {MIN_PASSWORD_LENGTH} characters"
         )
-    exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,)).fetchone()
-    role = sql.Identifier(name)
     conn.execute(
         sql.SQL("{} ROLE {} LOGIN PASSWORD {}").format(
-            sql.SQL("ALTER" if exists else "CREATE"), role, sql.Literal(password)
+            sql.SQL("ALTER" if role_exists(conn, name) else "CREATE"),
+            sql.Identifier(name),
+            sql.Literal(password),
         )
     )
+    grant_rights(conn, name, read_only)
+
+
+def role_exists(conn: psycopg.Connection, name: str) -> bool:
+    return conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,)).fetchone() is not None
+
+
+def grant_rights(conn: psycopg.Connection, name: str, read_only: bool) -> None:
     table_rights = sql.SQL("SELECT" if read_only else "SELECT, INSERT, UPDATE, DELETE")
     statements = [
         "GRANT CONNECT ON DATABASE {db} TO {role}",
-        "GRANT USAGE ON SCHEMA {schema} TO {role}",
-        "GRANT {rights} ON ALL TABLES IN SCHEMA {schema} TO {role}",
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT {rights} ON TABLES TO {role}",
+        "GRANT USAGE ON SCHEMA {schemas} TO {role}",
+        "GRANT {rights} ON ALL TABLES IN SCHEMA {schemas} TO {role}",
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA {schemas} GRANT {rights} ON TABLES TO {role}",
     ]
     if not read_only:
         statements += [
-            "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {schema} TO {role}",
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} "
+            "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {schemas} TO {role}",
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA {schemas} "
             "GRANT USAGE, SELECT ON SEQUENCES TO {role}",
         ]
-    schema = conn.execute("SELECT current_schema()").fetchone()[0]
+    schemas = sql.SQL(", ").join(map(sql.Identifier, SCHEMAS))
     for statement in statements:
         conn.execute(
             sql.SQL(statement).format(
                 db=sql.Identifier(conn.info.dbname),
-                schema=sql.Identifier(schema),
-                role=role,
+                schemas=schemas,
+                role=sql.Identifier(name),
                 rights=table_rights,
             )
         )
 
 
 def ensure_roles_from_env(conn: psycopg.Connection) -> list[str]:
-    created = []
+    roles = []
     for prefix, read_only, default in (("DB_TEAM", False, "team"), ("DB_READER", True, "reader")):
+        name = os.getenv(f"{prefix}_USER", default)
         password = os.getenv(f"{prefix}_PASSWORD")
         if password:
-            name = os.getenv(f"{prefix}_USER", default)
             ensure_role(conn, name, password, read_only)
-            created.append(name)
-    return created
+        elif role_exists(conn, name):
+            # Without a password the role keeps its login but still gets rights in new schemas.
+            grant_rights(conn, name, read_only)
+        else:
+            continue
+        roles.append(name)
+    return roles
 
 
 def db_frames(tables: Tables) -> dict[str, pd.DataFrame]:
     """Shape the processed tables like the database columns."""
-    buildings = tables.buildings.assign(split=assign_splits(tables.buildings))
+    buildings = tables.buildings.assign(
+        split=assign_splits(tables.buildings),
+        segment=tables.buildings["primary_use"].map(BDG2_SEGMENTS),
+    )
     weather = tables.weather.assign(source="bdg2")
     readings = tables.readings.merge(buildings[["building_id", "weather_key"]], on="building_id")
     readings = readings.merge(

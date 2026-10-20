@@ -74,7 +74,8 @@ before go-live is realistic for most customers (warm-up already assumes it).
 
 ## Open questions
 
-1. Which segment is the first target (office, retail, hotel, school, hospital, factory)?
+1. Which segment is the first target? The list a building can take is in
+   `src/data/segments.py` (office, mall, retail, hotel, hospital, education, factory, ...).
 2. Where does the first customer data come from (OSOS export, submeter gateway, BMS)?
 3. Which pricing model and sales channel (direct, ESCO, partner)?
 4. Where is the system hosted (Turkish cloud, EU cloud, on premises)?

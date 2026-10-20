@@ -1,6 +1,6 @@
 """Postgres integration tests. They run only when TEST_DATABASE_URL points at a disposable database.
 
-Each test gets its own schema, so the database itself is left as it was.
+Each test gets its own database, created next to the test database and dropped afterwards.
 """
 
 from __future__ import annotations
@@ -8,26 +8,29 @@ from __future__ import annotations
 import os
 import uuid
 from dataclasses import replace
+from datetime import datetime, time
 
 import pandas as pd
 import psycopg
 import pytest
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.conninfo import make_conninfo
 
-from src.api.repository import NotFoundError, PostgresRepository
+from src.api.repository import ConflictError, NotFoundError, PostgresRepository
 from src.common.db import connect, normalize_url
 from src.data import weather_api
 from src.data.customer import (
     BuildingInfo,
+    TenantInfo,
     backfill_weather,
     import_file,
     register_building,
+    register_tenant,
     upsert_readings,
     upsert_weather,
 )
 from src.data.dataset import model_frame
 from src.data.feedback import apply_feedback, fetch_feedback
-from src.data.load_db import apply_schema, ensure_role, load_tables
+from src.data.load_db import apply_schema, ensure_role, ensure_roles_from_env, load_tables
 from src.data.store import fetch_tables
 from src.ingest.mqtt_ingest import Buffer, Reading
 from src.models import registry
@@ -39,25 +42,23 @@ TEST_URL = os.getenv("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not TEST_URL, reason="TEST_DATABASE_URL is not set")
 
 
-def scoped(url: str, schema: str, **overrides) -> str:
-    params = conninfo_to_dict(normalize_url(url))
-    params["options"] = f"{params.get('options', '')} -csearch_path={schema}".strip()
-    return make_conninfo(**{**params, **overrides})
+@pytest.fixture
+def empty_db() -> str:
+    name = f"t_{uuid.uuid4().hex[:12]}"
+    with connect(TEST_URL, autocommit=True) as conn:
+        conn.execute(f"CREATE DATABASE {name}")
+    try:
+        yield make_conninfo(normalize_url(TEST_URL), dbname=name)
+    finally:
+        with connect(TEST_URL, autocommit=True) as conn:
+            conn.execute(f"DROP DATABASE {name} WITH (FORCE)")
 
 
 @pytest.fixture
-def db() -> str:
-    schema = f"t_{uuid.uuid4().hex[:12]}"
-    with connect(TEST_URL, autocommit=True) as conn:
-        conn.execute(f"CREATE SCHEMA {schema}")
-    url = scoped(TEST_URL, schema)
-    try:
-        with connect(url) as conn:
-            apply_schema(conn)
-        yield url
-    finally:
-        with connect(TEST_URL, autocommit=True) as conn:
-            conn.execute(f"DROP SCHEMA {schema} CASCADE")
+def db(empty_db) -> str:
+    with connect(empty_db) as conn:
+        apply_schema(conn)
+    return empty_db
 
 
 def load_customer(url: str, tables) -> dict[int, int]:
@@ -90,8 +91,40 @@ def count(url: str, query: str, params: tuple = ()) -> int:
 
 def test_schema_can_be_applied_again(db):
     with connect(db) as conn:
+        conn.execute(
+            "INSERT INTO buildings (external_id, weather_key, primary_use) "
+            "VALUES ('old', 'site', 'Office')"
+        )
         apply_schema(conn)
+    assert count(db, "SELECT count(*) FROM buildings WHERE segment = 'office'") == 1
+
+
+def test_connections_find_tables_without_database_settings(db, monkeypatch):
+    with connect(db, autocommit=True) as conn:
+        conn.execute(f"ALTER DATABASE {conn.info.dbname} RESET search_path")
     assert count(db, "SELECT count(*) FROM buildings") == 0
+    monkeypatch.setenv("PGOPTIONS", "-c lock_timeout=2000")
+    with connect(make_conninfo(db, options="-c statement_timeout=1234")) as conn:
+        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "1234ms"
+    with connect(db) as conn:
+        assert conn.execute("SHOW lock_timeout").fetchone()[0] == "2s"
+        assert conn.execute("SELECT count(*) FROM buildings").fetchone()[0] == 0
+
+
+def test_schema_moves_tables_out_of_public(empty_db):
+    with connect(empty_db) as conn:
+        conn.execute("CREATE TABLE public.tenants (tenant_id INT PRIMARY KEY, name TEXT UNIQUE)")
+        conn.execute("INSERT INTO public.tenants VALUES (7, 'Acme')")
+        conn.execute("CREATE VIEW public.daily_kpis AS SELECT * FROM public.tenants")
+    with connect(empty_db) as conn:
+        apply_schema(conn)
+        left = conn.execute(
+            "SELECT (SELECT count(*) FROM pg_tables WHERE schemaname = 'public') "
+            "+ (SELECT count(*) FROM pg_views WHERE schemaname = 'public')"
+        ).fetchone()[0]
+        row = conn.execute("SELECT tenant_id, name, status FROM core.tenants").fetchone()
+    assert left == 0
+    assert row == (7, "Acme", "pilot")
 
 
 def test_lead_load_is_idempotent_and_reads_back_identically(db):
@@ -118,6 +151,9 @@ def test_lead_load_is_idempotent_and_reads_back_identically(db):
         back = fetch_tables(conn)
     assert count(db, "SELECT count(*) FROM readings") == len(tables.readings)
     assert count(db, "SELECT count(*) FROM assets") == 0
+    assert count(db, "SELECT count(*) FROM buildings WHERE segment = 'office'") == len(
+        tables.buildings
+    )
     expected, actual = model_frame(lead), model_frame(back)
     pd.testing.assert_frame_equal(
         expected[actual.columns].reset_index(drop=True),
@@ -462,6 +498,56 @@ def test_tenant_asset_and_work_order_tables(db):
     assert count(db, "SELECT count(*) FROM assets WHERE parent_id IS NOT NULL") == 1
 
 
+def test_tenants_segments_and_schedule(db):
+    acme = TenantInfo("Acme", tax_number="1234567890", city="Istanbul")
+    with connect(db) as conn:
+        tenant = register_tenant(conn, acme)
+        assert register_tenant(conn, TenantInfo("Acme", status="active")) == tenant
+        tenant_row = conn.execute(
+            "SELECT tax_number, city, status FROM tenants WHERE tenant_id = %s", (tenant,)
+        ).fetchone()
+        office = register_building(conn, BuildingInfo("acme-hq", primary_use="Office"))
+        mall = register_building(
+            conn, BuildingInfo("acme-mall", tenant_id=tenant, primary_use="Retail", segment="mall")
+        )
+        register_building(conn, BuildingInfo("acme-mall", primary_use="Office"))
+        segments = dict(conn.execute("SELECT external_id, segment FROM buildings").fetchall())
+        mall_tenant = conn.execute(
+            "SELECT tenant_id FROM buildings WHERE building_id = %s", (mall,)
+        ).fetchone()[0]
+    assert tenant_row == ("1234567890", "Istanbul", "active")
+    assert segments == {"acme-hq": "office", "acme-mall": "mall"} and mall_tenant == tenant
+
+    repo = PostgresRepository(db)
+    with pytest.raises(ConflictError):
+        repo.register_tenant(replace(acme, name="Other"))
+    with pytest.raises(NotFoundError):
+        repo.register(BuildingInfo("orphan", tenant_id=10**6))
+    assert next(b for b in repo.buildings() if b["building_id"] == office)["segment"] == "office"
+
+    shifts = [
+        {"weekday": 1, "opens": time(22), "closes": time(6)},
+        {"weekday": 1, "opens": time(6), "closes": time(14)},
+    ]
+    assert [h["opens"] for h in repo.set_operating_hours(office, shifts)] == [time(6), time(22)]
+    assert repo.set_operating_hours(office, shifts[:1]) == shifts[:1]
+    period = {
+        "starts_at": datetime(2026, 12, 31),
+        "ends_at": datetime(2027, 1, 2),
+        "kind": "holiday",
+        "note": None,
+    }
+    downtime = repo.add_downtime(office, period)
+    assert repo.downtime(office) == [{"id": downtime, "building_id": office, **period}]
+    with pytest.raises(NotFoundError):
+        repo.delete_downtime(mall, downtime)
+    repo.delete_downtime(office, downtime)
+    assert repo.downtime(office) == []
+    for call in (repo.operating_hours, repo.downtime):
+        with pytest.raises(NotFoundError):
+            call(10**9)
+
+
 def test_daily_kpis_count_excess_in_alarm_hours(db, scorer):
     tables = make_tables(building_ids=(100000,))
     load_customer(db, tables)
@@ -506,10 +592,9 @@ def test_registry_publishes_and_fetches_latest(db, scorer, tmp_path):
     assert refresh_scorer(db, current) is current
 
 
-def test_roles_get_the_right_rights(db):
+def test_roles_get_the_right_rights(db, monkeypatch):
     reader, team = f"r_{uuid.uuid4().hex[:8]}", f"w_{uuid.uuid4().hex[:8]}"
     password = "test-role-password-1"
-    schema = conninfo_to_dict(db)["options"].split("search_path=")[1]
     with connect(db) as conn:
         with pytest.raises(ValueError):
             ensure_role(conn, reader, "short", read_only=True)
@@ -517,15 +602,30 @@ def test_roles_get_the_right_rights(db):
         ensure_role(conn, team, password, read_only=False)
         register_building(conn, BuildingInfo("acme-hq"))
     try:
-        with connect(scoped(TEST_URL, schema, user=reader, password=password)) as conn:
+        with connect(make_conninfo(db, user=reader, password=password)) as conn:
             assert conn.execute("SELECT count(*) FROM buildings").fetchone()[0] == 1
+            assert conn.execute("SELECT count(*) FROM ml.readings_enriched").fetchone()[0] == 0
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 conn.execute("INSERT INTO buildings (external_id, weather_key) VALUES ('x', 'y')")
-        with connect(scoped(TEST_URL, schema, user=team, password=password)) as conn:
+        with connect(make_conninfo(db, user=team, password=password)) as conn:
             register_building(conn, BuildingInfo("team-made"))
+            conn.execute(
+                "INSERT INTO planned_downtime (building_id, starts_at, ends_at, kind) "
+                "SELECT building_id, '2027-01-01', '2027-01-02', 'holiday' FROM buildings"
+            )
         assert count(db, "SELECT count(*) FROM buildings") == 2
+        # A run without passwords still restores rights an existing role lost.
+        with connect(db) as conn:
+            conn.execute(f"REVOKE USAGE ON SCHEMA core FROM {reader}")
+            monkeypatch.setenv("DB_READER_USER", reader)
+            monkeypatch.delenv("DB_READER_PASSWORD", raising=False)
+            monkeypatch.setenv("DB_TEAM_USER", f"absent_{uuid.uuid4().hex[:8]}")
+            monkeypatch.delenv("DB_TEAM_PASSWORD", raising=False)
+            assert ensure_roles_from_env(conn) == [reader]
+        with connect(make_conninfo(db, user=reader, password=password)) as conn:
+            assert conn.execute("SELECT count(*) FROM buildings").fetchone()[0] == 2
     finally:
-        with connect(TEST_URL, autocommit=True) as conn:
+        with connect(db, autocommit=True) as conn:
             for role in (reader, team):
                 conn.execute(f"GRANT {role} TO CURRENT_USER")
                 conn.execute(f"DROP OWNED BY {role}")

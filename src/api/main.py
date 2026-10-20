@@ -13,12 +13,13 @@ from functools import lru_cache
 from typing import Annotated
 
 import pandas as pd
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Path, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api import schemas
 from src.api.repository import (
+    ConflictError,
     DemoRepository,
     NotFoundError,
     PostgresRepository,
@@ -26,7 +27,7 @@ from src.api.repository import (
     Repository,
 )
 from src.config import get_settings
-from src.data.customer import BuildingInfo, read_export
+from src.data.customer import BuildingInfo, TenantInfo, read_export
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_HOURS = 24 * 90
@@ -35,7 +36,7 @@ app = FastAPI(title="Energy Anomaly API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(get_settings().cors_origins),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "X-API-Key"],
 )
 
@@ -56,12 +57,20 @@ def require_api_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
 
 Repo = Annotated[Repository, Depends(get_repository)]
 Hours = Annotated[int, Query(ge=1, le=MAX_HOURS)]
+# Ids outside the Postgres INT and BIGINT ranges are rejected before they reach SQL.
+BuildingId = Annotated[int, Path(ge=0, le=schemas.INT_MAX)]
+RowId = Annotated[int, Path(ge=1, le=schemas.BIGINT_MAX)]
 Writer = [Depends(require_api_key)]
 
 
 @app.exception_handler(NotFoundError)
 def not_found(_, exc: NotFoundError) -> JSONResponse:
     return JSONResponse({"detail": str(exc)}, status_code=404)
+
+
+@app.exception_handler(ConflictError)
+def conflict(_, exc: ConflictError) -> JSONResponse:
+    return JSONResponse({"detail": str(exc)}, status_code=409)
 
 
 @app.exception_handler(ReadOnlyError)
@@ -80,18 +89,20 @@ def buildings(repo: Repo) -> list[schemas.Building]:
 
 
 @app.get("/buildings/{building_id}/readings")
-def readings(building_id: int, repo: Repo, hours: Hours = 48) -> list[schemas.Reading]:
+def readings(building_id: BuildingId, repo: Repo, hours: Hours = 48) -> list[schemas.Reading]:
     return repo.readings(building_id, hours)
 
 
 @app.get("/buildings/{building_id}/forecast")
-def forecast(building_id: int, repo: Repo, hours: Hours = 48) -> list[schemas.ForecastPoint]:
+def forecast(building_id: BuildingId, repo: Repo, hours: Hours = 48) -> list[schemas.ForecastPoint]:
     return repo.forecast(building_id, hours)
 
 
 @app.get("/anomalies")
 def anomalies(
-    repo: Repo, building_id: int | None = None, limit: Annotated[int, Query(ge=1, le=500)] = 50
+    repo: Repo,
+    building_id: Annotated[int | None, Query(ge=0, le=schemas.INT_MAX)] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> list[schemas.Anomaly]:
     return repo.anomalies(building_id, limit)
 
@@ -101,14 +112,46 @@ def summary(repo: Repo) -> schemas.Summary:
     return repo.summary()
 
 
+@app.post("/tenants", status_code=201, dependencies=Writer)
+def register_tenant(body: schemas.TenantIn, repo: Repo) -> schemas.Created:
+    return schemas.Created(id=repo.register_tenant(TenantInfo(**body.model_dump())))
+
+
 @app.post("/buildings", status_code=201, dependencies=Writer)
 def register(body: schemas.BuildingIn, repo: Repo) -> schemas.Created:
     return schemas.Created(id=repo.register(BuildingInfo(**body.model_dump())))
 
 
+@app.get("/buildings/{building_id}/operating-hours")
+def operating_hours(building_id: BuildingId, repo: Repo) -> list[schemas.OperatingHours]:
+    return repo.operating_hours(building_id)
+
+
+@app.put("/buildings/{building_id}/operating-hours", dependencies=Writer)
+def set_operating_hours(
+    building_id: BuildingId, body: schemas.Schedule, repo: Repo
+) -> list[schemas.OperatingHours]:
+    return repo.set_operating_hours(building_id, body.model_dump())
+
+
+@app.get("/buildings/{building_id}/downtime")
+def downtime(building_id: BuildingId, repo: Repo) -> list[schemas.Downtime]:
+    return repo.downtime(building_id)
+
+
+@app.post("/buildings/{building_id}/downtime", status_code=201, dependencies=Writer)
+def add_downtime(building_id: BuildingId, body: schemas.DowntimeIn, repo: Repo) -> schemas.Created:
+    return schemas.Created(id=repo.add_downtime(building_id, body.model_dump()))
+
+
+@app.delete("/buildings/{building_id}/downtime/{downtime_id}", status_code=204, dependencies=Writer)
+def delete_downtime(building_id: BuildingId, downtime_id: RowId, repo: Repo) -> None:
+    repo.delete_downtime(building_id, downtime_id)
+
+
 @app.post("/buildings/{building_id}/readings/import", dependencies=Writer)
 def import_readings(
-    building_id: int,
+    building_id: BuildingId,
     repo: Repo,
     file: Annotated[UploadFile, File()],
     ts_col: Annotated[str, Form()] = "timestamp",
@@ -131,7 +174,7 @@ def import_readings(
 
 
 @app.post("/anomalies/{anomaly_id}/feedback", status_code=201, dependencies=Writer)
-def feedback(anomaly_id: int, body: schemas.FeedbackIn, repo: Repo) -> schemas.Created:
+def feedback(anomaly_id: RowId, body: schemas.FeedbackIn, repo: Repo) -> schemas.Created:
     return schemas.Created(
         id=repo.add_feedback(anomaly_id, body.verdict, body.note, body.created_by)
     )

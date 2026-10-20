@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from src.api import main
 from src.api.repository import DemoRepository
+from src.api.schemas import Schedule
 from src.config import get_settings
 
 KEY = "test-key-0123456789"
@@ -36,6 +37,8 @@ def test_bad_inputs(client):
     assert client.get("/buildings/1/readings").status_code == 404
     assert client.get("/buildings/100000/readings", params={"hours": 0}).status_code == 422
     assert client.get("/anomalies", params={"limit": 10_000}).status_code == 422
+    assert client.get(f"/buildings/{2**31}/readings").status_code == 422
+    assert client.get("/anomalies", params={"building_id": 2**31}).status_code == 422
 
 
 def test_writes_need_a_valid_key(client, monkeypatch):
@@ -92,3 +95,97 @@ def test_import_rejects_large_files(client, monkeypatch):
         files={"file": ("x.csv", b"timestamp,kwh\n" * 5, "text/csv")},
     )
     assert response.status_code == 413
+
+
+def test_schedule_reads_in_demo_mode(client):
+    hours = client.get("/buildings/100000/operating-hours").json()
+    assert [h["weekday"] for h in hours] == [1, 2, 3, 4, 5]
+    assert hours[0] == {"weekday": 1, "opens": "08:00:00", "closes": "19:00:00"}
+    assert client.get("/buildings/100000/downtime").json() == []
+    assert client.get("/buildings/1/operating-hours").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/tenants", {"name": "Acme"}),
+        ("put", "/buildings/100000/operating-hours", []),
+        (
+            "post",
+            "/buildings/100000/downtime",
+            {"starts_at": "2026-12-31T00:00", "ends_at": "2027-01-02T00:00", "kind": "holiday"},
+        ),
+        ("delete", "/buildings/100000/downtime/1", None),
+    ],
+)
+def test_schedule_and_tenant_writes_need_key_and_database(client, method, path, body):
+    kwargs = {} if body is None else {"json": body}
+    assert client.request(method, path, **kwargs).status_code == 401
+    assert client.request(method, path, headers={"X-API-Key": KEY}, **kwargs).status_code == 503
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/tenants", {"name": "Acme", "tax_number": "12345"}),
+        ("post", "/tenants", {"name": "Acme", "status": "trial"}),
+        ("post", "/tenants", {"name": ""}),
+        ("post", "/buildings", {"external_id": "ok", "segment": "spaceport"}),
+        ("post", "/buildings", {"external_id": "ok", "tenant_id": 0}),
+        ("post", "/buildings", {"external_id": "ok", "tenant_id": 2**31}),
+        ("delete", f"/buildings/100000/downtime/{2**63}", None),
+        (
+            "post",
+            "/buildings/100000/downtime",
+            {"starts_at": "2027-01-02T00:00", "ends_at": "2027-01-01T00:00", "kind": "holiday"},
+        ),
+        (
+            "post",
+            "/buildings/100000/downtime",
+            {
+                "starts_at": "2027-01-01T00:00+03:00",
+                "ends_at": "2027-01-02T00:00",
+                "kind": "holiday",
+            },
+        ),
+        (
+            "put",
+            "/buildings/100000/operating-hours",
+            [{"weekday": 8, "opens": "08:00", "closes": "18:00"}],
+        ),
+        (
+            "put",
+            "/buildings/100000/operating-hours",
+            [{"weekday": 1, "opens": "08:00", "closes": "12:00"}] * 2,
+        ),
+        (
+            "put",
+            "/buildings/100000/operating-hours",
+            [
+                {"weekday": 1, "opens": "08:00", "closes": "12:00"},
+                {"weekday": 1, "opens": "11:00", "closes": "13:00"},
+            ],
+        ),
+        (
+            "put",
+            "/buildings/100000/operating-hours",
+            [
+                {"weekday": 7, "opens": "22:00", "closes": "06:00"},
+                {"weekday": 1, "opens": "05:00", "closes": "09:00"},
+            ],
+        ),
+    ],
+)
+def test_schedule_and_tenant_bodies_are_validated(client, method, path, body):
+    response = client.request(method, path, json=body, headers={"X-API-Key": KEY})
+    assert response.status_code == 422
+
+
+def test_back_to_back_periods_are_allowed():
+    shifts = [
+        {"weekday": 7, "opens": "22:00", "closes": "06:00"},
+        {"weekday": 1, "opens": "06:00", "closes": "14:00"},
+        {"weekday": 1, "opens": "14:00", "closes": "22:00"},
+        {"weekday": 3, "opens": "00:00", "closes": "00:00"},
+    ]
+    assert len(Schedule.model_validate(shifts).root) == 4

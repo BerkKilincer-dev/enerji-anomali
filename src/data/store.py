@@ -29,6 +29,7 @@ COLUMNS = {
         "lat",
         "lng",
         "split",
+        "segment",
     ],
     "weather": ["weather_key", "ts", *WEATHER_COLUMNS, "source"],
     "readings": ["building_id", "ts", "kwh", "air_temp", "meter_raw", "anomaly", "source"],

@@ -175,3 +175,27 @@ Supervised metrics run on labeled hours only, so dropping unlabeled hours made d
 look adjacent and merged them into one event. Event counts now use each row's hour, which
 matters most for customer data where only feedback hours are labeled. Publishing from notebook
 02 needs `PUBLISH = True`, because the scoring service switches to every newly published model.
+
+## D27. Four Postgres schemas, one search path
+
+Tables are split into `core` (tenants, buildings, configuration), `telemetry` (readings,
+weather), `ml` (model input views and output) and `ops` (alerts, work orders, reports), so the
+data the models read and write is apart from customer setup and operations, and grants can
+follow the areas. Every connection sets a `search_path` over all four (and `load_db` sets it
+on the database for psql and DataGrip), so code keeps plain table names, a table can move
+between schemas without a code change and a restored dump without database settings still
+works. Databases built before the split
+are migrated in place with `ALTER TABLE ... SET SCHEMA`, which keeps the rows, indexes,
+sequences and grants. Tests create a database per test, because a per-test schema cannot hold
+four schemas.
+
+## D28. Tenant details, fixed segments and the operating schedule
+
+Customers are companies, so a tenant carries what a contract needs: tax number and office,
+address, contacts, plan, status and the date the data processing agreement was signed.
+Segments are a fixed list instead of free text, so thresholds and benchmarks can later be
+kept per segment; LEAD buildings get theirs from the BDG2 primary use. The segment check is
+rebuilt on every schema run, so adding a segment reaches existing databases. Weekly operating hours
+(shifts included) and planned downtime are stored now, before the models use them, so a
+quiet holiday or a planned shutdown can be told apart from waste once rules and thresholds
+read them.

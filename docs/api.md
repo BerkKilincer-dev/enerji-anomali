@@ -25,7 +25,9 @@ No key needed.
 | Method and path | Query | Returns |
 |---|---|---|
 | `GET /health` | | `{"status": "ok", "mode": "demo" \| "database"}`; `mode` tells which repository serves the data |
-| `GET /buildings` | | active buildings with `last_scored_ts` and `anomaly_count` |
+| `GET /buildings` | | active buildings with `segment`, `last_scored_ts` and `anomaly_count` |
+| `GET /buildings/{id}/operating-hours` | | weekly periods `weekday`, `opens`, `closes` |
+| `GET /buildings/{id}/downtime` | | planned downtime windows, earliest first |
 | `GET /buildings/{id}/readings` | `hours` 1-2160, default 48 | hourly `kwh` and label `anomaly` |
 | `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48 | `expected_kwh`, `alarm`, `source`, `origin` |
 | `GET /anomalies` | `building_id` optional, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) |
@@ -37,6 +39,8 @@ No key needed.
   `summary` use its live output only; before that they show the batch output from training.
 - `active_alerts` counts events that ended within 24 hours of the building's latest reading.
 - `summary` covers active buildings only, the same set as `GET /buildings`.
+- Tenant details (tax number, contacts) have no read endpoint; they stay out of the
+  unauthenticated API until login exists.
 
 ```bash
 curl "http://localhost:8000/buildings/100000/readings?hours=24"
@@ -47,6 +51,30 @@ curl "http://localhost:8000/anomalies?building_id=100000&limit=10"
 
 Every write needs the header `X-API-Key: <API_KEY>`. Without `API_KEY` on the server, writes
 are switched off and return 503.
+
+### `POST /tenants`
+
+Registers a tenant, or updates the given fields when the `name` already exists. Returns 201
+and `{"id": <tenant_id>}`; 409 when another tenant has the same tax number.
+
+| Field | Rule |
+|---|---|
+| `name` | required, 1-200 characters |
+| `tax_number` | 10 digits, or 11 for a sole proprietor |
+| `tax_office`, `city` | up to 100 characters |
+| `address` | up to 500 characters |
+| `contact_name` | up to 200 characters |
+| `contact_email` | an email address |
+| `contact_phone` | 7-20 digits, spaces, `+`, `-` or parentheses |
+| `plan` | up to 50 characters |
+| `status` | `pilot`, `active` or `inactive`; new tenants start as `pilot` |
+| `dpa_signed_on` | date the data processing agreement was signed, `YYYY-MM-DD` |
+
+```bash
+curl -X POST http://localhost:8000/tenants \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"name": "Acme A.S.", "tax_number": "1234567890", "city": "Istanbul"}'
+```
 
 ### `POST /buildings`
 
@@ -64,6 +92,8 @@ Registers a building, or updates it when `external_id` already exists. Returns 2
 | `square_feet` | greater than 0 |
 | `year_built` | 1800-2100 |
 | `tariff_tl_per_kwh` | 0 or more; missing means `TARIFF_TL_PER_KWH` |
+| `tenant_id` | an existing tenant, 404 otherwise |
+| `segment` | one of `office`, `mall`, `retail`, `hotel`, `hospital`, `education`, `factory`, `warehouse`, `data_center`, `residential`, `public`, `other`; derived from a BDG2 `primary_use` when missing |
 
 ```bash
 curl -X POST http://localhost:8000/buildings \
@@ -71,6 +101,35 @@ curl -X POST http://localhost:8000/buildings \
   -d '{"external_id": "acme-hq", "name": "Acme HQ", "lat": 41.01, "lng": 28.98,
        "primary_use": "Office", "square_feet": 54000, "tariff_tl_per_kwh": 4.2}'
 ```
+
+### `PUT /buildings/{id}/operating-hours`
+
+Replaces the weekly schedule and returns it. The body is a list of up to 70 periods; an empty
+list clears the schedule. Periods may not overlap, also across midnight and from Sunday into
+Monday; one may start when another ends.
+
+| Field | Rule |
+|---|---|
+| `weekday` | 1-7, ISO weekday (1 = Monday) |
+| `opens`, `closes` | `HH:MM`; `closes` at or before `opens` runs past midnight |
+
+```bash
+curl -X PUT http://localhost:8000/buildings/100000/operating-hours \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '[{"weekday": 1, "opens": "06:00", "closes": "14:00"},
+       {"weekday": 1, "opens": "22:00", "closes": "06:00"}]'
+```
+
+### `POST /buildings/{id}/downtime` and `DELETE /buildings/{id}/downtime/{downtime_id}`
+
+Adds a planned downtime window and returns 201 with `{"id": <downtime_id>}`; `DELETE` removes
+one and returns 204.
+
+| Field | Rule |
+|---|---|
+| `starts_at`, `ends_at` | building local time without an offset; `ends_at` after `starts_at` |
+| `kind` | `holiday`, `maintenance` or `shutdown` |
+| `note` | up to 500 characters |
 
 ### `POST /buildings/{id}/readings/import`
 
@@ -122,15 +181,16 @@ Errors return `{"detail": "..."}`.
 | Status | When |
 |---|---|
 | 401 | `X-API-Key` missing or wrong |
-| 404 | building or anomaly not found, or a building without readings |
+| 404 | building, tenant, anomaly or downtime not found, or a building without readings |
+| 409 | tax number already used by another tenant |
 | 413 | upload larger than 20 MB |
-| 422 | invalid body or query, or an export that cannot be parsed |
+| 422 | invalid body or query, an id outside its Postgres integer range, or an export that cannot be parsed |
 | 503 | `API_KEY` not set, or a write in demo mode |
 
 ## CORS
 
 Allowed origins come from `CORS_ORIGINS` (comma separated, default
-`http://localhost:5173,http://127.0.0.1:5173`). Methods `GET` and `POST`, headers
+`http://localhost:5173,http://127.0.0.1:5173`). Methods `GET`, `POST`, `PUT` and `DELETE`, headers
 `Content-Type` and `X-API-Key`.
 
 ## Changing the API

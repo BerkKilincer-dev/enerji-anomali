@@ -15,27 +15,30 @@ database. Endpoint reference: [api.md](api.md).
 The target architecture has the services below. They run today as a modular monolith: one
 codebase, one Postgres, three processes (API, scoring, ingest). Each service owns its tables
 and other services only read them, so a service can move into its own process later without a
-schema rewrite.
+schema rewrite. Tables are grouped by area in the Postgres schemas `core`, `telemetry`, `ml`
+and `ops` ([data.md](data.md#shared-database)).
 
 | Service | Code today | Tables it owns | Status |
 |---|---|---|---|
 | API gateway / BFF | `src.api.main` | none | in place; a reverse proxy with TLS goes in front before production |
-| Identity and tenant | none | `tenants`, `users`, `buildings.tenant_id` | schema ready; login, roles and tenant filtering planned |
-| Asset and configuration | `src.data.customer`, `POST /buildings` | `buildings`, `assets`, `meters`, `alert_settings` | buildings in use; asset, meter and settings endpoints planned |
-| Data ingestion | `src.ingest.mqtt_ingest`, CSV import | writes `readings` | in place |
-| Telemetry | readings and forecast endpoints | `readings`, `weather` | in place |
-| AI / anomaly | `src.scoring.service`, `src.models` | `predictions`, `anomalies`, `scoring_state`, `model_artifacts` | in place |
-| Alert | `src.scoring.alerts` | `notifications` | Telegram in place; email and a chat per tenant planned |
-| Analytics and reporting | `GET /summary` | views `daily_kpis`, `current_predictions`, `current_anomalies` | KPI view in place; report endpoints planned |
-| Work order | none | `work_orders`, `anomaly_feedback` | schema ready; endpoints planned |
+| Identity and tenant | `POST /tenants`, `src.data.customer tenant` | `core.tenants`, `core.users`, `buildings.tenant_id` | tenant registration in place; login, roles and tenant filtering planned |
+| Asset and configuration | `src.data.customer`, `POST /buildings`, schedule endpoints | `core.buildings`, `core.operating_hours`, `core.planned_downtime`, `core.assets`, `core.meters`, `ops.alert_settings` | buildings and schedules in use; asset, meter and settings endpoints planned |
+| Data ingestion | `src.ingest.mqtt_ingest`, CSV import | writes `telemetry.readings` | in place |
+| Telemetry | readings and forecast endpoints | `telemetry.readings`, `telemetry.weather` | in place |
+| AI / anomaly | `src.scoring.service`, `src.models` | `ml.*`: `predictions`, `anomalies`, `scoring_state`, `model_artifacts`, view `readings_enriched` | in place |
+| Alert | `src.scoring.alerts` | `ops.notifications` | Telegram in place; email and a chat per tenant planned |
+| Analytics and reporting | `GET /summary` | views `ops.daily_kpis`, `ml.current_predictions`, `ml.current_anomalies` | KPI view in place; report endpoints planned |
+| Work order | none | `ops.work_orders`, `ml.anomaly_feedback` | schema ready; endpoints planned |
 | Message broker | Mosquitto | none | MQTT for meters; Kafka or RabbitMQ only when services split |
 
 Model of the data behind it:
 
-- A tenant is one customer company; a user with no tenant is platform staff. Roles are
+- A tenant is one customer company with its tax, contact, plan and contract details; a user
+  with no tenant is platform staff. Roles are
   `admin`, `operator` and `viewer`. Once login exists, every API query filters buildings by
   the user's tenant (Postgres row-level security is the stricter option).
-- A building is one site (factory, office, store). `assets` holds its lines and machines as a
+- A building is one site (factory, office, store) with a fixed `segment` and an optional
+  weekly schedule (`operating_hours`) and planned downtime. `assets` holds its lines and machines as a
   tree; `meters` registers its physical meters, at most one main meter. `readings` stores the
   main meter, which is what the models score; submeter readings get their own table when a
   customer needs them.
@@ -46,8 +49,8 @@ Model of the data behind it:
   write feedback (resolved as `confirmed`, dismissed as `false_alarm`).
 - `daily_kpis` sums kWh, expected kWh and excess per building and day over valid hours;
   partial and merged hours count as missing, as in the models.
-- Reloading LEAD (`load_db --force`) also removes assets, meters, alert settings and work
-  orders of LEAD buildings; customer buildings are never touched.
+- Reloading LEAD (`load_db --force`) also removes schedules, assets, meters, alert settings
+  and work orders of LEAD buildings; customer buildings are never touched.
 
 ## Running locally
 
@@ -83,7 +86,8 @@ needs the owner.
   `ReadOnlyError` on writes, so the frontend works without a database.
 - `schemas.py`: Pydantic request and response models.
 
-Domain errors map to HTTP in one place: `NotFoundError` becomes 404 and `ReadOnlyError` 503.
+Domain errors map to HTTP in one place: `NotFoundError` becomes 404, `ConflictError` 409 and
+`ReadOnlyError` 503.
 Imports and registration call the same functions as the CLI (`src.data.customer`), so the
 cleaning rules exist only once.
 
@@ -199,8 +203,14 @@ readings sends nothing.
 ## Database changes
 
 `db/init/001_schema.sql` is the only schema file and must stay idempotent
-(`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`). New tables get grants for the team and reader
-roles through the default privileges set by `load_db`; check them in `tests/test_db.py`.
+(`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`). Every table and view is created with its
+schema prefix (`core.`, `telemetry.`, `ml.`, `ops.`; `tests/test_schema.py` checks it); a new
+schema also goes into `SCHEMAS` in `src/common/db.py`, which feeds the connection
+`search_path` and the role grants. New tables get grants for the team and reader roles
+through the default privileges set by `load_db`; check them in `tests/test_db.py`.
+`apply_schema` also runs `ALTER DATABASE ... SET search_path`, so it must run as the
+database owner. A value list that may grow (segments) is a named check that the file drops and
+adds again; `tests/test_schema.py` checks the lists against the Python literals.
 
 ## Tests
 
@@ -210,4 +220,4 @@ TEST_DATABASE_URL=postgresql://owner:...@localhost:5432/energy_test pytest -q
 ```
 
 `TEST_DATABASE_URL` must point to a database used only for tests: every test creates its own
-schema in it and drops it afterwards. Use a role that may create schemas and roles.
+database next to it and drops it afterwards. Use a role that may create databases and roles.

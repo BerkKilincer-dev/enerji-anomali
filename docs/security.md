@@ -10,7 +10,8 @@ contributor follows.
 |---|---|---|
 | Secrets | passwords and keys only in `.env` (git-ignored) and Colab secrets; `.env.example` has empty values | `.gitignore`, `.env.example` |
 | Network | every compose port is bound to `127.0.0.1`; services talk over the compose network | `docker-compose.yml` |
-| Database roles | owner for schema changes, `team` read and write on data, `reader` read only; services run as `team` | `src/data/load_db.py` |
+| Database roles | owner for schema changes, `team` read and write on data, `reader` read only, granted per schema (`core`, `telemetry`, `ml`, `ops`); services run as `team` | `src/data/load_db.py` |
+| Tenant details | tax number and contact fields are written through `POST /tenants` with the API key and have no read endpoint until login exists | `src/api/main.py` |
 | Passwords | role passwords need at least 12 characters; `load_db` refuses shorter ones | `load_db.ensure_role` |
 | SQL | parameterized queries everywhere; identifiers and role names go through `psycopg.sql` | `src/` |
 | API writes | `X-API-Key` compared in constant time (`hmac.compare_digest`); writes are off when `API_KEY` is unset | `src/api/main.py` |
