@@ -1,0 +1,197 @@
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1f2937;
+  background: #f9fafb;
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px 48px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.api-key {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.api-key input {
+  margin-left: 6px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.card .value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover {
+  background: #f3f4f6;
+}
+
+.explanation {
+  max-width: 420px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.chart {
+  height: 380px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 4px 10px;
+  margin-right: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+button.active {
+  background: #1f2937;
+  color: #fff;
+}
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #2563eb;
+}
+
+.tag {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.tag.confirmed {
+  background: #fee2e2;
+}
+
+.tag.false_alarm,
+.tag.planned {
+  background: #dcfce7;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 12px 12px 32px;
+  }
+
+  header h1 {
+    font-size: 1.15rem;
+  }
+
+  .api-key {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .api-key label {
+    display: flex;
+    flex: 1;
+    align-items: center;
+  }
+
+  .api-key input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .card .value {
+    font-size: 1.2rem;
+    overflow-wrap: anywhere;
+  }
+
+  .chart {
+    height: 300px;
+  }
+
+  th,
+  td {
+    padding: 6px 8px;
+  }
+
+  .explanation {
+    min-width: 220px;
+  }
+}

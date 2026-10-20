@@ -1,9 +1,6 @@
 # Frontend
 
-Sahibi: Frontend geliştirici. React + Vite + ECharts.
+React + Vite + TypeScript + ECharts dashboard. Run `npm install` and `npm run dev`; the API
+address is set with `VITE_API_URL` in `.env` (default `http://localhost:8000`).
 
-Kurulum (ilk kez):
-    npm create vite@latest . -- --template react
-    npm install echarts echarts-for-react
-
-API adresi geliştirme sırasında: http://localhost:8000 (doküman: /docs)
+Guide: [docs/frontend.md](../docs/frontend.md).
