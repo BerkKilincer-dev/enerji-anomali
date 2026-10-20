@@ -1,61 +1,96 @@
-# Enerji Anomali Tespiti
+# Energy Anomaly Detection
 
-Ticari binaların elektrik sayacı verisinden anomalileri tespit eden, TL karşılığını hesaplayan
-ve tasarruf önerisi sunan sistem. SofITo Yapay Zeka Eğitimi bitirme projesi (Proje 14).
+Finds anomalies in hourly electricity meter data of commercial buildings, estimates their cost
+in TL and explains them in plain language. SofITo AI training capstone project (Project 14).
 
-Veri: LEAD — https://www.kaggle.com/competitions/energy-anomaly-detection
+The system learns on public data (LEAD 1.0 + Building Data Genome 2 weather and metadata) and
+is built for real customers: buildings register with a location, meter exports or MQTT
+messages flow into a shared Postgres, a scoring service turns new hours into alarms, and the
+dashboard shows them with cost and a feedback button that becomes training labels.
 
-## Hızlı başlangıç
+## Quick start
 
-```bash
-git clone <repo-adresi>
-cd enerji-anomali
-cp .env.example .env          # değerleri doldurun
-docker compose up --build     # veritabanı + MQTT + API
-```
-
-- API dokümanı: http://localhost:8000/docs
-- Veritabanı: localhost:5432
-- MQTT: localhost:1883
-
-Python ortamı (model ve veri çalışmaları için):
+Local stack (Postgres + TimescaleDB, MQTT, API, dashboard):
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+cp .env.example .env          # set POSTGRES_PASSWORD, DB_TEAM_PASSWORD, DB_READER_PASSWORD, API_KEY
+docker compose up -d --build
 ```
 
-## Klasörler
+| Service | Address |
+|---|---|
+| Dashboard | http://localhost:5173 |
+| API docs | http://localhost:8000/docs |
+| Postgres | `localhost:5432`, database `energy` |
+| MQTT | `localhost:1883` |
 
-| Klasör | İçerik | Sahibi |
+Load the public dataset into the database once (owner role from `.env`):
+
+```bash
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+python -m src.data.load_db                          # downloads, prepares and loads
+```
+
+Live scoring and MQTT ingest need a trained model in `models_out/` (see below):
+
+```bash
+docker compose --profile live up -d
+```
+
+Without a database the API serves built-in demo data, so the dashboard always has something
+to show (`uvicorn src.api.main:app --reload`, then `cd frontend && npm install && npm run dev`).
+
+## Data and ML in Colab
+
+| Notebook | What it does | Runtime |
 |---|---|---|
-| `src/ingest` | MQTT replay, DB yazımı | Veri mühendisi |
-| `src/features` | Özellik çıkarma | Veri + ML |
-| `src/models` | Eğitim, değerlendirme, kurallar | ML geliştirici |
-| `src/api` | FastAPI, skorlama, alarm | Backend |
-| `frontend` | React dashboard | Frontend |
-| `docs` | Görüşmeler, rapor, pitch | Lider, İş geliştirme |
-| `notebooks` | Sadece keşif | Herkes |
-| `db/init` | Veritabanı şeması | Veri + Backend |
+| [`notebooks/01_data_pipeline.ipynb`](notebooks/01_data_pipeline.ipynb) | download, prepare, split, quality report, optional DB load | CPU, ~5 min |
+| [`notebooks/02_ml_pipeline.ipynb`](notebooks/02_ml_pipeline.ipynb) | train and compare all models, evaluate, save model and reports | CPU, ~20-40 min |
 
-## Çalışma akışı
+Both clone the repository with the Colab secret `GITHUB_TOKEN` while it is private. Everything
+the notebooks do is also available from the command line:
+
+```bash
+python -m src.data.download && python -m src.data.prepare && python -m src.data.quality
+python -m src.models.train            # --quick for a smoke run, --source db to train on the database
+```
+
+## Repository
+
+| Path | Content | Owner |
+|---|---|---|
+| `src/data` | sources, preparation, split, DB loading, customer import, weather API | Data engineer |
+| `src/features` | past-only features and holiday calendar | Data + ML |
+| `src/models` | rules, detectors, training, evaluation, reports, model registry | ML developer |
+| `src/scoring` | live scoring service | ML + Backend |
+| `src/ingest` | MQTT ingest and a virtual meter for demos | Data + Backend |
+| `src/api` | FastAPI app and data access | Backend |
+| `frontend` | React dashboard | Frontend |
+| `db/init` | database schema | Data + Backend |
+| `notebooks` | Colab entry points for data and ML | Data + ML |
+| `reports` | committed data quality and ML results | Data + ML |
+| `tests` | unit and database integration tests | Everyone |
+| `docs` | architecture, guides, decisions, roadmap | Everyone |
+
+## Documentation
+
+[Architecture](docs/architecture.md) · [Data](docs/data.md) ·
+[Machine learning](docs/machine-learning.md) · [API](docs/api.md) ·
+[Backend](docs/backend.md) · [Frontend](docs/frontend.md) · [Security](docs/security.md) ·
+[Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md) · [Handover](docs/handover.md) ·
+[Commercial readiness](docs/commercial-readiness.md)
+
+## Workflow
 
 ```bash
 git checkout main && git pull
-git checkout -b feature/kisa-aciklama
-# ... çalış ...
-git add . && git commit -m "Açıklama"
-git push -u origin feature/kisa-aciklama
-# GitHub'da PR aç, eşin onaylasın
+git checkout -b feature/short-description
+pytest -q && ruff check .
+git push -u origin feature/short-description   # then open a PR for review
 ```
 
-- main dalına doğrudan push yok; her değişiklik PR ve eş onayıyla girer.
-- PR'lar küçük tutulur (en fazla 1–3 günlük iş).
-- `data/`, `.env` ve model dosyaları repoya girmez.
-- Herkes aynı bölme listesini (`data/splits.json`) ve `random_state=42` kullanır.
-- Her perşembe main dalı sıfırdan çekilip `docker compose up` ile test edilir.
-
-## Dal isimleri
-
-`feature/...` yeni iş · `fix/...` hata düzeltme · `docs/...` doküman
+- No direct pushes to `main`; every change goes through a reviewed PR. Keep PRs small.
+- Never commit `data/raw`, `data/processed`, `models_out/`, `.env` or any password or key.
+- Everyone uses the committed building split (`data/splits.json`) and seed 42.
+- Branch names: `feature/...`, `fix/...`, `docs/...`.
