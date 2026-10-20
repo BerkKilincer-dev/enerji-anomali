@@ -1,4 +1,5 @@
-# Local stack on 127.0.0.1; `--profile live` adds scoring and MQTT ingest (needs a model).
+# Local stack on 127.0.0.1. `docker compose up -d` fills the database on first start (setup);
+# `--profile live` adds live scoring and MQTT ingest.
 x-app: &app
   build: .
   env_file:
@@ -50,6 +51,26 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # Fills the database without anyone installing Python or training: downloads LEAD, loads it
+  # and publishes the committed model in models_out/. The first start takes a few minutes, later
+  # ones seconds. Watch it with: docker compose logs -f setup
+  setup:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-energy}
+      DATA_DIR: /app/cache
+    command: ["sh", "-c", "python -m src.data.load_db && python -m src.models.publish --if-missing"]
+    volumes:
+      - datacache:/app/cache
+      - ./models_out:/app/models_out:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: "no"
+
   api:
     <<: *app
     ports:
@@ -83,4 +104,5 @@ services:
 
 volumes:
   dbdata:
+  datacache:
   frontend_modules:

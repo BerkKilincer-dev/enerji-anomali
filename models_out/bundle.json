@@ -1,0 +1,61 @@
+{
+  "name": "anomaly-scorer",
+  "version": "20261020-2308-fce3336",
+  "thresholds": {
+    "detector": 0.8159176006107561,
+    "residual": 4.072021007537842,
+    "rule": 0.5
+  },
+  "metrics": {
+    "version": "20261020-2308-fce3336",
+    "chosen_detector": "lgbm",
+    "quick": false,
+    "source": "files",
+    "buildings": {
+      "test": 30,
+      "train": 140,
+      "val": 30
+    },
+    "rows": 1756800,
+    "labeled_rows": 1641841,
+    "tariff_tl_per_kwh": 3.5,
+    "thresholds": {
+      "detector": 0.8159176006107561,
+      "residual": 4.072021007537842,
+      "rule": 0.5
+    },
+    "expected_model": {
+      "mae_kwh": 9.53302001953125,
+      "median_ape": 0.07003247737884521,
+      "wape": 0.09084158390760422
+    },
+    "combined_on_test": {
+      "combined": {
+        "precision": 0.26277850589777196,
+        "recall": 0.7379462642620538,
+        "f1": 0.3875519474243742,
+        "event_recall": 0.5551558752997602,
+        "event_precision": 0.22262396694214875,
+        "alarms_per_building_week": 1.3230445058230587,
+        "false_alarms_per_building_week": 1.0285030894957146
+      },
+      "source_share_rule": 0.8169069462647445,
+      "source_share_ml_sup": 0.029357798165137616,
+      "source_share_ml_unsup": 0.15373525557011797
+    },
+    "timings_s": {
+      "expected_model": 167.1,
+      "rules": 0.5,
+      "random_forest": 56.2,
+      "isolation_forest": 2.7,
+      "lgbm": 46.9,
+      "lgbm_no_weather": 20.4,
+      "lgbm_hybrid": 30.4
+    },
+    "test_events": {
+      "count": 1936,
+      "excess_kwh": 154354.328125,
+      "est_cost_tl": 540240.125
+    }
+  }
+}

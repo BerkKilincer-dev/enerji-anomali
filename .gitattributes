@@ -1,0 +1,2 @@
+# The trained model is read byte for byte by LightGBM; never convert its line endings.
+models_out/** -text

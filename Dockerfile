@@ -10,6 +10,8 @@ RUN pip install -r requirements.txt
 COPY src ./src
 COPY db ./db
 COPY data/splits.json ./data/splits.json
+# Downloaded datasets go to a volume the app user can write (DATA_DIR in docker-compose.yml).
+RUN mkdir -p /app/cache && chown app /app/cache
 USER app
 EXPOSE 8000
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

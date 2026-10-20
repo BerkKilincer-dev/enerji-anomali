@@ -14,29 +14,51 @@ sayaç verisi ──► anomali modeli ──► olay + TL maliyeti ──► ö
 
 ## Hızlı başlangıç
 
-Gerekenler: Docker Desktop, Python 3.11+, Node 22.
+Gereken tek şey Docker Desktop. Model eğitmek yok: eğitilmiş model repoda (`models_out/`).
 
 ```bash
 cp .env.example .env                      # olduğu gibi çalışır, değiştirmen gerekmez
-docker compose up -d --build              # veritabanı, MQTT, API, panel
-
-python -m venv .venv
-.venv\Scripts\activate                    # macOS/Linux: source .venv/bin/activate
-pip install -r requirements-dev.txt
-
-python -m src.data.load_db                # LEAD verisini indirir ve yükler (ilk sefer birkaç dk)
-python -m src.models.train --publish --no-mlflow   # modeli eğitir, sonuçları yazar (~6 dk)
+docker compose up -d --build              # veritabanı, MQTT, API, panel + otomatik kurulum
+docker compose logs -f setup              # ilk açılışta ~1 dk: veri iner, yüklenir, model yayınlanır
 ```
 
 Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pass`
 · API belgeleri: http://localhost:8000/docs
 
+`setup` servisi LEAD verisini indirip veritabanına yükler ve repodaki modelle anomalileri
+yazar. Sonraki açılışlarda her şeyi yerinde bulur, birkaç saniyede biter.
+
 Bilgisayarında kurulu bir PostgreSQL 5432'yi kullanıyorsa `.env` içinde `DB_PORT=55432` yap
 ve `DATABASE_URL`'deki portu da `55432` olarak değiştir.
 
+### Kod yazacaksan (Python)
+
+Python 3.11+ ile bir kere:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate                    # macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest -q                                 # testler
+```
+
+PowerShell "running scripts is disabled" derse bir kere:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Panelde çalışacaksan Node 22 de gerekir.
+
+### Modeli yeniden eğitmek (sadece ML geliştirici)
+
+```bash
+python -m src.models.train --publish --no-mlflow   # ~6 dk; models_out/ ve reports/ güncellenir
+git add models_out reports && git commit -m "Yeni model: ..." && git push
+```
+
+Diğerleri `git pull` ve `docker compose up -d` ile yeni modeli alır; `setup` yeni sürümü görüp
+yayınlar.
+
 ### Canlı demo
 
-Sanal sayaçlar MQTT üzerinden veri gönderir; birine gece israfı eklenir ve panelde görünür:
+Sanal sayaçlar MQTT üzerinden veri gönderir; birine gece israfı eklenir ve panelde görünür
+(Python kurulu olmalı):
 
 ```bash
 docker compose --profile live up -d       # canlı skorlama ve MQTT alıcısı
@@ -81,6 +103,7 @@ enerji-anomali/
 │   │   ├── rules.py            kurallar: gece yükü, hafta sonu, sıçrama, takılı sayaç
 │   │   ├── detector.py         canlı ve toplu skorlamanın tek giriş noktası
 │   │   ├── events.py           alarm saatlerini olaya çevirir: kWh, TL, Türkçe açıklama
+│   │   ├── publish.py          repodaki modelle sonuçları veritabanına yazar (eğitimsiz)
 │   │   └── report.py           sonuç tabloları ve grafikler (reports/ml/)
 │   ├── scoring/              (ML + Backend) canlı skorlama
 │   │   ├── service.py          yeni saatleri 5 dakikada bir skorlar
@@ -103,6 +126,7 @@ enerji-anomali/
 │       ├── i18n.tsx            Türkçe / İngilizce metinler
 │       └── components/         Login, Overview (sayaç listesi), BuildingDetail
 │                               (sayaç sayfası), EnergyChart, AnomalyTable
+├── models_out/               (ML) eğitilmiş model; herkes bunu kullanır, eğitim gerekmez
 ├── db/init/001_schema.sql    (Veri + Backend) veritabanı şeması: core, telemetry, ml, ops
 ├── tests/                    (Herkes) otomatik testler, `pytest -q`
 ├── notebooks/                (Veri + ML) Colab: 01 veri hattı, 02 ML hattı
@@ -111,7 +135,7 @@ enerji-anomali/
 ├── data/                     indirilen veri; sadece splits.json commit edilir
 ├── docker/                   MQTT (Mosquitto) ayarı
 ├── .github/workflows/ci.yml  her push'ta lint, test ve panel derlemesi
-├── docker-compose.yml        veritabanı, MQTT, API, panel, skorlama
+├── docker-compose.yml        veritabanı, MQTT, API, panel, otomatik kurulum (setup), skorlama
 ├── Dockerfile                API ve servislerin Python imajı
 ├── .env.example              yerel ayarlar; `.env` olarak kopyala
 └── requirements*.txt         Python paketleri (dev: test ve ML araçları, colab: notebook)
@@ -135,6 +159,7 @@ git push
 ```
 
 - Push'tan sonra GitHub'daki **Actions** sekmesine bak: kırmızıysa ilk iş onu düzelt.
-- `.env`, şifre, API anahtarı, `data/raw`, `data/processed`, `models_out/` asla commit edilmez.
+- `.env`, şifre, API anahtarı, `data/raw`, `data/processed` asla commit edilmez. `models_out/`
+  commit edilir ama sadece ML geliştirici yeni model eğitince.
 - Veritabanı şemasını veya API alanlarını değiştireceksen önce o alanın sahibine haber ver.
 - Herkes aynı bölmeyi (`data/splits.json`) ve seed 42'yi kullanır.

@@ -129,7 +129,8 @@ The CLI and the notebook log through the same `train.save_run`: params, metrics,
 the bundle. View the runs with `mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db`.
 `mlflow` is in the Colab and dev requirements only; without it tracking is skipped.
 
-Outputs: `models_out/` (bundle: `expected.txt`, `detector.txt`, `bundle.json`, never committed)
+Outputs: `models_out/` (bundle: `expected.txt`, `detector.txt`, `bundle.json`, committed so the
+team needs no training; `python -m src.models.publish` loads it into a database)
 and `reports/ml/` (tables, figures, `results.md`, committed).
 
 ## Known limitations and next steps

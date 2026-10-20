@@ -3,7 +3,7 @@ data/*
 !data/.gitkeep
 !data/splits.json
 mlruns/
-models_out/
+# models_out/ is committed: the trained model everyone uses without training.
 *.pkl
 *.joblib
 
