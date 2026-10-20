@@ -4,16 +4,17 @@ Finds anomalies in hourly electricity meter data of commercial buildings, estima
 in TL and explains them in plain language. SofITo AI training capstone project (Project 14).
 
 The system learns on public data (LEAD 1.0 + Building Data Genome 2 weather and metadata) and
-is built for real customers: buildings register with a location, meter exports or MQTT
-messages flow into a shared Postgres, a scoring service turns new hours into alarms, and the
-dashboard shows them with cost and a feedback button that becomes training labels.
+is built for real customers. Tenants register their buildings with a segment, location and
+operating hours; meter exports or MQTT messages flow into a shared Postgres; a scoring service
+turns new hours into alarms; and the dashboard shows them with cost and a feedback button that
+becomes training labels.
 
 ## Quick start
 
 Local stack (Postgres + TimescaleDB, MQTT, API, dashboard):
 
 ```bash
-cp .env.example .env          # set POSTGRES_PASSWORD, DB_TEAM_PASSWORD, DB_READER_PASSWORD, API_KEY
+cp .env.example .env          # set the three passwords, API_KEY and the password in DATABASE_URL
 docker compose up -d --build
 ```
 
@@ -21,7 +22,7 @@ docker compose up -d --build
 |---|---|
 | Dashboard | http://localhost:5173 |
 | API docs | http://localhost:8000/docs |
-| Postgres | `localhost:5432`, database `energy` |
+| Postgres | `localhost:5432`, database `energy`, schemas `core`, `telemetry`, `ml`, `ops` |
 | MQTT | `localhost:1883` |
 
 Load the public dataset into the database once (owner role from `.env`):
@@ -60,14 +61,14 @@ python -m src.models.train            # --quick for a smoke run, --source db to 
 
 | Path | Content | Owner |
 |---|---|---|
-| `src/data` | sources, preparation, split, DB loading, customer import, weather API | Data engineer |
+| `src/data` | sources, preparation, split, DB loading, tenants and buildings, imports, weather API | Data engineer |
 | `src/features` | past-only features and holiday calendar | Data + ML |
 | `src/models` | rules, detectors, training, evaluation, reports, model registry | ML developer |
 | `src/scoring` | live scoring service | ML + Backend |
 | `src/ingest` | MQTT ingest and a virtual meter for demos | Data + Backend |
 | `src/api` | FastAPI app and data access | Backend |
 | `frontend` | React dashboard | Frontend |
-| `db/init` | database schema | Data + Backend |
+| `db/init` | database schema in `core`, `telemetry`, `ml` and `ops` | Data + Backend |
 | `notebooks` | Colab entry points for data and ML | Data + ML |
 | `reports` | committed data quality and ML results | Data + ML |
 | `tests` | unit and database integration tests | Everyone |
