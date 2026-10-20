@@ -1,0 +1,363 @@
+{
+  "version": "20261019-2152-2012a51",
+  "chosen_detector": "lgbm",
+  "quick": true,
+  "source": "files",
+  "buildings": {
+    "test": 6,
+    "train": 28,
+    "val": 6
+  },
+  "rows": 351360,
+  "labeled_rows": 289791,
+  "tariff_tl_per_kwh": 3.5,
+  "thresholds": {
+    "detector": 0.731156,
+    "residual": 3.904989,
+    "rule": 0.5
+  },
+  "expected_model": {
+    "mae_kwh": 8.508655,
+    "median_ape": 0.090368,
+    "wape": 0.102205
+  },
+  "combined_on_test": {
+    "combined": {
+      "precision": 0.525801,
+      "recall": 0.638229,
+      "f1": 0.576585,
+      "event_recall": 0.574468,
+      "event_precision": 0.300578,
+      "alarms_per_building_week": 0.710785,
+      "false_alarms_per_building_week": 0.497139
+    },
+    "source_share_rule": 0.793594,
+    "source_share_ml_sup": 0.038256,
+    "source_share_ml_unsup": 0.168149
+  },
+  "timings_s": {
+    "expected_model": 16.7,
+    "rules": 0.1,
+    "random_forest": 81.5,
+    "isolation_forest": 1.0,
+    "lgbm": 5.2,
+    "lgbm_no_weather": 3.3,
+    "lgbm_hybrid": 5.6
+  },
+  "test_events": {
+    "count": 173,
+    "excess_kwh": 5478.070312,
+    "est_cost_tl": 19173.246094
+  },
+  "models": [
+    {
+      "model": "lgbm",
+      "family": "supervised",
+      "val_pr_auc": 0.662578,
+      "pr_auc": 0.821372,
+      "roc_auc": 0.960309,
+      "pr_auc_ci_low": 0.447773,
+      "pr_auc_ci_high": 0.943949,
+      "threshold": 0.731156,
+      "precision": 0.979938,
+      "recall": 0.685745,
+      "f1": 0.806861,
+      "event_recall": 0.510638,
+      "event_precision": 0.810345,
+      "alarms_per_building_week": 0.238298,
+      "false_alarms_per_building_week": 0.045194,
+      "day_pr_auc": 0.641359,
+      "day_precision": 0.806452,
+      "day_recall": 0.47619,
+      "day_f1": 0.598802
+    },
+    {
+      "model": "lgbm_hybrid",
+      "family": "supervised",
+      "val_pr_auc": 0.647231,
+      "pr_auc": 0.821089,
+      "roc_auc": 0.962677,
+      "pr_auc_ci_low": 0.446891,
+      "pr_auc_ci_high": 0.941917,
+      "threshold": 0.655171,
+      "precision": 0.969466,
+      "recall": 0.685745,
+      "f1": 0.803289,
+      "event_recall": 0.553191,
+      "event_precision": 0.78125,
+      "alarms_per_building_week": 0.262949,
+      "false_alarms_per_building_week": 0.05752,
+      "day_pr_auc": 0.633686,
+      "day_precision": 0.782609,
+      "day_recall": 0.514286,
+      "day_f1": 0.62069
+    },
+    {
+      "model": "lgbm_no_weather",
+      "family": "supervised",
+      "val_pr_auc": 0.655385,
+      "pr_auc": 0.806175,
+      "roc_auc": 0.943503,
+      "pr_auc_ci_low": 0.444618,
+      "pr_auc_ci_high": 0.928649,
+      "threshold": 0.699592,
+      "precision": 0.967643,
+      "recall": 0.678186,
+      "f1": 0.79746,
+      "event_recall": 0.531915,
+      "event_precision": 0.757576,
+      "alarms_per_building_week": 0.271167,
+      "false_alarms_per_building_week": 0.065737,
+      "day_pr_auc": 0.624214,
+      "day_precision": 0.776119,
+      "day_recall": 0.495238,
+      "day_f1": 0.604651
+    },
+    {
+      "model": "random_forest",
+      "family": "supervised",
+      "val_pr_auc": 0.613015,
+      "pr_auc": 0.797194,
+      "roc_auc": 0.942378,
+      "pr_auc_ci_low": 0.403095,
+      "pr_auc_ci_high": 0.92976,
+      "threshold": 0.515432,
+      "precision": 0.951399,
+      "recall": 0.697624,
+      "f1": 0.804984,
+      "event_recall": 0.595745,
+      "event_precision": 0.779412,
+      "alarms_per_building_week": 0.279384,
+      "false_alarms_per_building_week": 0.061629,
+      "day_pr_auc": 0.66426,
+      "day_precision": 0.776316,
+      "day_recall": 0.561905,
+      "day_f1": 0.651934
+    },
+    {
+      "model": "rules",
+      "family": "rules",
+      "val_pr_auc": 0.342494,
+      "pr_auc": 0.571874,
+      "roc_auc": 0.846517,
+      "pr_auc_ci_low": 0.178349,
+      "pr_auc_ci_high": 0.726762,
+      "threshold": 0.665358,
+      "precision": 0.850148,
+      "recall": 0.61879,
+      "f1": 0.71625,
+      "event_recall": 0.319149,
+      "event_precision": 0.454545,
+      "alarms_per_building_week": 0.271167,
+      "false_alarms_per_building_week": 0.147909,
+      "day_pr_auc": 0.306183,
+      "day_precision": 0.514706,
+      "day_recall": 0.333333,
+      "day_f1": 0.404624
+    },
+    {
+      "model": "isolation_forest",
+      "family": "unsupervised",
+      "val_pr_auc": 0.449368,
+      "pr_auc": 0.557927,
+      "roc_auc": 0.924715,
+      "pr_auc_ci_low": 0.230989,
+      "pr_auc_ci_high": 0.727708,
+      "threshold": 0.64459,
+      "precision": 0.991379,
+      "recall": 0.37257,
+      "f1": 0.541601,
+      "event_recall": 0.297872,
+      "event_precision": 0.903226,
+      "alarms_per_building_week": 0.127366,
+      "false_alarms_per_building_week": 0.012326,
+      "day_pr_auc": 0.4718,
+      "day_precision": 0.903226,
+      "day_recall": 0.266667,
+      "day_f1": 0.411765
+    },
+    {
+      "model": "expected_residual",
+      "family": "unsupervised",
+      "val_pr_auc": 0.396337,
+      "pr_auc": 0.473246,
+      "roc_auc": 0.726335,
+      "pr_auc_ci_low": 0.169068,
+      "pr_auc_ci_high": 0.57312,
+      "threshold": 16.599888,
+      "precision": 1.0,
+      "recall": 0.349892,
+      "f1": 0.5184,
+      "event_recall": 0.191489,
+      "event_precision": 1.0,
+      "alarms_per_building_week": 0.073955,
+      "false_alarms_per_building_week": 0.0,
+      "day_pr_auc": 0.442133,
+      "day_precision": 1.0,
+      "day_recall": 0.171429,
+      "day_f1": 0.292683
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "spike",
+      "detector": "rules",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.944444,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "spike",
+      "detector": "ml_sup",
+      "injections": 6,
+      "detection_rate": 0.833333,
+      "hourly_recall": 0.388889,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "spike",
+      "detector": "ml_unsup",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "spike",
+      "detector": "combined",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "dropout",
+      "detector": "rules",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "dropout",
+      "detector": "ml_sup",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.979167,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "dropout",
+      "detector": "ml_unsup",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "dropout",
+      "detector": "combined",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 0.0
+    },
+    {
+      "scenario": "stuck",
+      "detector": "rules",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.791667,
+      "median_hours_to_detect": 5.0
+    },
+    {
+      "scenario": "stuck",
+      "detector": "ml_sup",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.763889,
+      "median_hours_to_detect": 6.0
+    },
+    {
+      "scenario": "stuck",
+      "detector": "ml_unsup",
+      "injections": 6,
+      "detection_rate": 0.166667,
+      "hourly_recall": 0.076389,
+      "median_hours_to_detect": 10.0
+    },
+    {
+      "scenario": "stuck",
+      "detector": "combined",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.791667,
+      "median_hours_to_detect": 5.0
+    },
+    {
+      "scenario": "drift",
+      "detector": "rules",
+      "injections": 6,
+      "detection_rate": 0.5,
+      "hourly_recall": 0.013393,
+      "median_hours_to_detect": 208.0
+    },
+    {
+      "scenario": "drift",
+      "detector": "ml_sup",
+      "injections": 6,
+      "detection_rate": 0.0,
+      "hourly_recall": 0.0,
+      "median_hours_to_detect": null
+    },
+    {
+      "scenario": "drift",
+      "detector": "ml_unsup",
+      "injections": 6,
+      "detection_rate": 0.166667,
+      "hourly_recall": 0.000992,
+      "median_hours_to_detect": 299.0
+    },
+    {
+      "scenario": "drift",
+      "detector": "combined",
+      "injections": 6,
+      "detection_rate": 0.5,
+      "hourly_recall": 0.012401,
+      "median_hours_to_detect": 208.0
+    },
+    {
+      "scenario": "night_base_load",
+      "detector": "rules",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 1.0,
+      "median_hours_to_detect": 2.5
+    },
+    {
+      "scenario": "night_base_load",
+      "detector": "ml_sup",
+      "injections": 6,
+      "detection_rate": 0.833333,
+      "hourly_recall": 0.083333,
+      "median_hours_to_detect": 17.0
+    },
+    {
+      "scenario": "night_base_load",
+      "detector": "ml_unsup",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.642857,
+      "median_hours_to_detect": 2.5
+    },
+    {
+      "scenario": "night_base_load",
+      "detector": "combined",
+      "injections": 6,
+      "detection_rate": 1.0,
+      "hourly_recall": 0.996032,
+      "median_hours_to_detect": 2.5
+    }
+  ]
+}

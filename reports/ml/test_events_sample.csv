@@ -1,0 +1,174 @@
+building_id,ts_start,ts_end,score,source,rule_type,excess_kwh,est_cost_tl,explanation
+108,2016-09-24 14:00:00,2016-09-24 18:00:00,0.5373425,rule,weekend_usage,688.69727,2410.4404,"2016-09-24 14:00-19:00: Weekend or holiday load was 1.6x the same hour in recent weeks. About 689 kWh above expected (2,410 TL at 3.5 TL/kWh)."
+149,2016-06-18 18:00:00,2016-06-19 23:00:00,1.0,rule,flatline,294.48734,1030.7057,"2016-06-18 18:00-00:00: Meter repeated the same value for at least 35 hours; it may be stuck. About 294 kWh above expected (1,031 TL at 3.5 TL/kWh)."
+136,2016-03-05 16:00:00,2016-03-05 23:00:00,1.0,rule,weekend_usage,229.88026,804.58093,2016-03-05 16:00-00:00: Weekend or holiday load was 5.4x the same hour in recent weeks. About 230 kWh above expected (805 TL at 3.5 TL/kWh).
+108,2016-08-14 01:00:00,2016-08-14 02:00:00,0.513026,rule,night_base_load,207.99112,727.96893,2016-08-14 01:00-03:00: Night load was 1.5x the same hour in recent weeks. About 208 kWh above expected (728 TL at 3.5 TL/kWh).
+108,2016-06-08 02:00:00,2016-06-08 03:00:00,0.51350474,rule,night_base_load,199.78607,699.2512,2016-06-08 02:00-04:00: Night load was 1.5x the same hour in recent weeks. About 200 kWh above expected (699 TL at 3.5 TL/kWh).
+108,2016-06-18 17:00:00,2016-06-19 23:00:00,1.0,rule,flatline,193.02223,675.5778,2016-06-18 17:00-00:00: Meter repeated the same value for at least 35 hours; it may be stuck. About 193 kWh above expected (676 TL at 3.5 TL/kWh).
+108,2016-10-15 05:00:00,2016-10-16 23:00:00,1.0,rule,flatline,182.64133,639.2446,2016-10-15 05:00-00:00: Meter repeated the same value for at least 48 hours; it may be stuck. About 183 kWh above expected (639 TL at 3.5 TL/kWh).
+108,2016-10-30 01:00:00,2016-10-30 01:00:00,0.98340505,ml_sup,,176.6882,618.4087,2016-10-30 01:00-02:00: Pattern matches anomalies labeled in historical data. About 177 kWh above expected (618 TL at 3.5 TL/kWh).
+108,2016-06-26 16:00:00,2016-06-26 17:00:00,0.51232415,rule,weekend_usage,174.0493,609.17255,2016-06-26 16:00-18:00: Weekend or holiday load was 1.5x the same hour in recent weeks. About 174 kWh above expected (609 TL at 3.5 TL/kWh).
+136,2016-03-04 17:00:00,2016-03-04 22:00:00,0.09517848,ml_unsup,,155.62817,544.6986,2016-03-04 17:00-23:00: Consumption was 2.1x the expected level. About 156 kWh above expected (545 TL at 3.5 TL/kWh).
+136,2016-02-23 22:00:00,2016-02-24 23:00:00,1.0,rule,flatline,150.88054,528.0819,2016-02-23 22:00-00:00: Meter repeated the same value for at least 31 hours; it may be stuck. About 151 kWh above expected (528 TL at 3.5 TL/kWh).
+108,2016-03-02 10:00:00,2016-03-02 10:00:00,0.083333336,ml_unsup,,121.27994,424.4798,2016-03-02 10:00-11:00: Consumption was 1.6x the expected level. About 121 kWh above expected (424 TL at 3.5 TL/kWh).
+235,2016-06-29 00:00:00,2016-06-29 08:00:00,0.34440288,ml_unsup,,120.107956,420.37784,2016-06-29 00:00-09:00: Consumption was 1.9x the expected level. About 120 kWh above expected (420 TL at 3.5 TL/kWh).
+235,2016-07-24 08:00:00,2016-07-24 20:00:00,0.61186516,rule,weekend_usage,115.65145,404.7801,2016-07-24 08:00-21:00: Weekend or holiday load was 1.8x the same hour in recent weeks. About 116 kWh above expected (405 TL at 3.5 TL/kWh).
+136,2016-02-06 03:00:00,2016-02-06 23:00:00,1.0,rule,flatline,108.799835,380.79944,2016-02-06 03:00-00:00: Meter repeated the same value for at least 26 hours; it may be stuck. About 109 kWh above expected (381 TL at 3.5 TL/kWh).
+235,2016-07-23 08:00:00,2016-07-23 20:00:00,0.6231847,rule,weekend_usage,108.61169,380.1409,2016-07-23 08:00-21:00: Weekend or holiday load was 1.9x the same hour in recent weeks. About 109 kWh above expected (380 TL at 3.5 TL/kWh).
+136,2016-01-17 16:00:00,2016-01-17 20:00:00,0.5616238,rule,weekend_usage,98.104294,343.36502,2016-01-17 16:00-21:00: Weekend or holiday load was 1.7x the same hour in recent weeks. About 98 kWh above expected (343 TL at 3.5 TL/kWh).
+136,2016-10-02 17:00:00,2016-10-02 20:00:00,0.5836982,rule,weekend_usage,80.62869,282.20044,2016-10-02 17:00-21:00: Weekend or holiday load was 1.8x the same hour in recent weeks. About 81 kWh above expected (282 TL at 3.5 TL/kWh).
+136,2016-09-25 19:00:00,2016-09-25 22:00:00,0.55895,ml_unsup,,77.87413,272.55945,2016-09-25 19:00-23:00: Consumption was 1.7x the expected level. About 78 kWh above expected (273 TL at 3.5 TL/kWh).
+136,2016-06-18 18:00:00,2016-06-19 23:00:00,1.0,rule,flatline,60.600925,212.10324,2016-06-18 18:00-00:00: Meter repeated the same value for at least 35 hours; it may be stuck. About 61 kWh above expected (212 TL at 3.5 TL/kWh).
+55,2016-09-10 08:00:00,2016-09-10 20:00:00,0.7756607,rule,weekend_usage,57.964237,202.87483,2016-09-10 08:00-21:00: Weekend or holiday load was 2.3x the same hour in recent weeks. About 58 kWh above expected (203 TL at 3.5 TL/kWh).
+108,2016-10-06 00:00:00,2016-10-06 23:00:00,1.0,rule,flatline,57.40854,200.92989,2016-10-06 00:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck. About 57 kWh above expected (201 TL at 3.5 TL/kWh).
+55,2016-05-28 08:00:00,2016-05-28 18:00:00,0.8000091,rule,weekend_usage,56.6868,198.4038,2016-05-28 08:00-19:00: Weekend or holiday load was 2.4x the same hour in recent weeks. About 57 kWh above expected (198 TL at 3.5 TL/kWh).
+108,2016-05-06 02:00:00,2016-05-06 05:00:00,1.0,rule,night_base_load,54.810394,191.83638,2016-05-06 02:00-06:00: Night load was 11.3x the same hour in recent weeks. About 55 kWh above expected (192 TL at 3.5 TL/kWh).
+136,2016-09-24 19:00:00,2016-09-24 21:00:00,0.5465192,ml_unsup,,50.844177,177.95462,2016-09-24 19:00-22:00: Consumption was 1.6x the expected level. About 51 kWh above expected (178 TL at 3.5 TL/kWh).
+235,2016-07-19 00:00:00,2016-07-19 05:00:00,0.6020291,rule,night_base_load,48.93162,171.26068,2016-07-19 00:00-06:00: Night load was 1.8x the same hour in recent weeks. About 49 kWh above expected (171 TL at 3.5 TL/kWh).
+91,2016-12-31 04:00:00,2016-12-31 06:00:00,0.5403028,rule,night_base_load,48.364857,169.277,2016-12-31 04:00-07:00: Night load was 1.6x the same hour in recent weeks. About 48 kWh above expected (169 TL at 3.5 TL/kWh).
+235,2016-07-18 01:00:00,2016-07-18 05:00:00,1.0,rule,night_base_load,47.326668,165.64334,2016-07-18 01:00-06:00: Night load was 4.3x the same hour in recent weeks. About 47 kWh above expected (166 TL at 3.5 TL/kWh).
+55,2016-07-23 09:00:00,2016-07-23 19:00:00,0.6984424,rule,weekend_usage,47.011723,164.54103,2016-07-23 09:00-20:00: Weekend or holiday load was 2.1x the same hour in recent weeks. About 47 kWh above expected (165 TL at 3.5 TL/kWh).
+235,2016-05-24 00:00:00,2016-05-24 03:00:00,0.5418444,rule,night_base_load,42.664116,149.3244,2016-05-24 00:00-04:00: Night load was 1.6x the same hour in recent weeks. About 43 kWh above expected (149 TL at 3.5 TL/kWh).
+235,2016-07-23 00:00:00,2016-07-23 05:00:00,0.72998875,rule,night_base_load,41.40628,144.92198,2016-07-23 00:00-06:00: Night load was 2.2x the same hour in recent weeks. About 41 kWh above expected (145 TL at 3.5 TL/kWh).
+55,2016-06-01 00:00:00,2016-06-01 05:00:00,0.7621022,rule,night_base_load,39.831398,139.4099,2016-06-01 00:00-06:00: Night load was 2.3x the same hour in recent weeks. About 40 kWh above expected (139 TL at 3.5 TL/kWh).
+235,2016-07-24 00:00:00,2016-07-24 05:00:00,0.5589339,rule,night_base_load,37.72734,132.04568,2016-07-24 00:00-06:00: Night load was 1.7x the same hour in recent weeks. About 38 kWh above expected (132 TL at 3.5 TL/kWh).
+55,2016-11-06 13:00:00,2016-11-06 20:00:00,0.67081267,rule,weekend_usage,36.745415,128.60895,2016-11-06 13:00-21:00: Weekend or holiday load was 2.0x the same hour in recent weeks. About 37 kWh above expected (129 TL at 3.5 TL/kWh).
+55,2016-06-03 00:00:00,2016-06-03 05:00:00,0.70748496,rule,night_base_load,34.258896,119.906136,2016-06-03 00:00-06:00: Night load was 2.1x the same hour in recent weeks. About 34 kWh above expected (120 TL at 3.5 TL/kWh).
+235,2016-07-25 00:00:00,2016-07-25 05:00:00,1.0,rule,night_base_load,34.233612,119.81764,2016-07-25 00:00-06:00: Night load was 4.8x the same hour in recent weeks. About 34 kWh above expected (120 TL at 3.5 TL/kWh).
+235,2016-08-10 10:00:00,2016-08-10 12:00:00,0.73854953,ml_sup,,34.211155,119.739044,2016-08-10 10:00-13:00: Pattern matches anomalies labeled in historical data. About 34 kWh above expected (120 TL at 3.5 TL/kWh).
+55,2016-11-17 00:00:00,2016-11-17 04:00:00,0.6708879,rule,night_base_load,33.054264,115.689926,2016-11-17 00:00-05:00: Night load was 2.0x the same hour in recent weeks. About 33 kWh above expected (116 TL at 3.5 TL/kWh).
+55,2016-11-05 15:00:00,2016-11-05 20:00:00,0.6787918,rule,weekend_usage,32.80005,114.80017,2016-11-05 15:00-21:00: Weekend or holiday load was 2.0x the same hour in recent weeks. About 33 kWh above expected (115 TL at 3.5 TL/kWh).
+55,2016-08-12 00:00:00,2016-08-12 05:00:00,0.702966,rule,night_base_load,32.77022,114.69578,2016-08-12 00:00-06:00: Night load was 2.1x the same hour in recent weeks. About 33 kWh above expected (115 TL at 3.5 TL/kWh).
+55,2016-06-02 00:00:00,2016-06-02 05:00:00,0.66943216,rule,night_base_load,32.762154,114.66754,2016-06-02 00:00-06:00: Night load was 2.0x the same hour in recent weeks. About 33 kWh above expected (115 TL at 3.5 TL/kWh).
+136,2016-09-25 15:00:00,2016-09-25 16:00:00,0.47253427,ml_unsup,,32.584717,114.04651,2016-09-25 15:00-17:00: Consumption was 1.6x the expected level. About 33 kWh above expected (114 TL at 3.5 TL/kWh).
+55,2016-09-15 00:00:00,2016-09-15 05:00:00,0.69416565,rule,night_base_load,32.033535,112.11737,2016-09-15 00:00-06:00: Night load was 2.1x the same hour in recent weeks. About 32 kWh above expected (112 TL at 3.5 TL/kWh).
+91,2016-11-08 06:00:00,2016-11-08 06:00:00,0.1767328,ml_unsup,,31.880205,111.58072,2016-11-08 06:00-07:00: Consumption was 2.2x the expected level. About 32 kWh above expected (112 TL at 3.5 TL/kWh).
+91,2016-12-31 09:00:00,2016-12-31 09:00:00,0.4833338,ml_unsup,,31.545177,110.40812,2016-12-31 09:00-10:00: Consumption was 1.8x the expected level. About 32 kWh above expected (110 TL at 3.5 TL/kWh).
+108,2016-02-24 00:00:00,2016-02-24 23:00:00,1.0,rule,flatline,30.49318,106.72613,2016-02-24 00:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck. About 30 kWh above expected (107 TL at 3.5 TL/kWh).
+91,2016-11-07 06:00:00,2016-11-07 06:00:00,0.2492392,ml_unsup,,29.147312,102.015594,2016-11-07 06:00-07:00: Consumption was 2.1x the expected level. About 29 kWh above expected (102 TL at 3.5 TL/kWh).
+55,2016-11-08 00:00:00,2016-11-08 04:00:00,0.6314463,rule,night_base_load,28.763596,100.672585,2016-11-08 00:00-05:00: Night load was 1.9x the same hour in recent weeks. About 29 kWh above expected (101 TL at 3.5 TL/kWh).
+235,2016-07-16 08:00:00,2016-07-16 09:00:00,0.5442757,rule,weekend_usage,28.731709,100.56098,2016-07-16 08:00-10:00: Weekend or holiday load was 1.6x the same hour in recent weeks. About 29 kWh above expected (101 TL at 3.5 TL/kWh).
+235,2016-04-27 00:00:00,2016-04-27 02:00:00,0.54044074,rule,night_base_load,28.403185,99.41115,2016-04-27 00:00-03:00: Night load was 1.6x the same hour in recent weeks. About 28 kWh above expected (99 TL at 3.5 TL/kWh).
+136,2016-09-25 00:00:00,2016-09-25 01:00:00,0.5915265,ml_unsup,,28.284348,98.99522,2016-09-25 00:00-02:00: Consumption was 1.5x the expected level. About 28 kWh above expected (99 TL at 3.5 TL/kWh).
+55,2016-11-05 00:00:00,2016-11-05 04:00:00,0.65650433,rule,night_base_load,28.017633,98.061714,2016-11-05 00:00-05:00: Night load was 2.0x the same hour in recent weeks. About 28 kWh above expected (98 TL at 3.5 TL/kWh).
+91,2016-11-06 06:00:00,2016-11-06 06:00:00,0.132743,ml_unsup,,27.36791,95.78769,2016-11-06 06:00-07:00: Consumption was 2.1x the expected level. About 27 kWh above expected (96 TL at 3.5 TL/kWh).
+55,2016-11-06 00:00:00,2016-11-06 03:00:00,0.6099431,rule,night_base_load,25.842466,90.44863,2016-11-06 00:00-04:00: Night load was 1.8x the same hour in recent weeks. About 26 kWh above expected (90 TL at 3.5 TL/kWh).
+55,2016-11-07 00:00:00,2016-11-07 03:00:00,0.6538969,rule,night_base_load,25.76395,90.17383,2016-11-07 00:00-04:00: Night load was 2.0x the same hour in recent weeks. About 26 kWh above expected (90 TL at 3.5 TL/kWh).
+55,2016-08-06 00:00:00,2016-08-06 04:00:00,0.6253331,rule,night_base_load,25.663237,89.82133,2016-08-06 00:00-05:00: Night load was 1.9x the same hour in recent weeks. About 26 kWh above expected (90 TL at 3.5 TL/kWh).
+91,2016-11-21 04:00:00,2016-11-21 05:00:00,0.57261103,rule,night_base_load,25.521349,89.32472,2016-11-21 04:00-06:00: Night load was 1.7x the same hour in recent weeks. About 26 kWh above expected (89 TL at 3.5 TL/kWh).
+55,2016-11-11 14:00:00,2016-11-11 20:00:00,0.646788,rule,weekend_usage,24.182514,84.6388,2016-11-11 14:00-21:00: Weekend or holiday load was 1.9x the same hour in recent weeks. About 24 kWh above expected (85 TL at 3.5 TL/kWh).
+136,2016-02-21 22:00:00,2016-02-21 23:00:00,0.9864634,rule,flatline,23.83096,83.408356,2016-02-21 22:00-00:00: Meter repeated the same value for at least 7 hours; it may be stuck. About 24 kWh above expected (83 TL at 3.5 TL/kWh).
+149,2016-01-27 02:00:00,2016-01-27 05:00:00,1.0,rule,night_base_load,23.312073,81.592255,2016-01-27 02:00-06:00: Night load was 108.0x the same hour in recent weeks. About 23 kWh above expected (82 TL at 3.5 TL/kWh).
+136,2016-02-22 22:00:00,2016-02-22 23:00:00,0.98424906,rule,flatline,22.170967,77.59839,2016-02-22 22:00-00:00: Meter repeated the same value for at least 7 hours; it may be stuck. About 22 kWh above expected (78 TL at 3.5 TL/kWh).
+235,2016-07-20 04:00:00,2016-07-20 05:00:00,0.51684546,rule,night_base_load,22.09177,77.3212,2016-07-20 04:00-06:00: Night load was 1.6x the same hour in recent weeks. About 22 kWh above expected (77 TL at 3.5 TL/kWh).
+55,2016-06-05 00:00:00,2016-06-05 05:00:00,0.6135228,rule,night_base_load,22.087105,77.30487,2016-06-05 00:00-06:00: Night load was 1.8x the same hour in recent weeks. About 22 kWh above expected (77 TL at 3.5 TL/kWh).
+91,2016-12-30 06:00:00,2016-12-30 06:00:00,0.083333336,ml_unsup,,20.593838,72.07843,2016-12-30 06:00-07:00: Consumption was 1.9x the expected level. About 21 kWh above expected (72 TL at 3.5 TL/kWh).
+136,2016-09-27 20:00:00,2016-09-27 20:00:00,0.31233895,ml_unsup,,20.473103,71.65586,2016-09-27 20:00-21:00: Consumption was 1.6x the expected level. About 20 kWh above expected (72 TL at 3.5 TL/kWh).
+235,2016-05-25 02:00:00,2016-05-25 03:00:00,0.5795346,rule,night_base_load,19.19487,67.182045,2016-05-25 02:00-04:00: Night load was 1.7x the same hour in recent weeks. About 19 kWh above expected (67 TL at 3.5 TL/kWh).
+136,2016-02-26 22:00:00,2016-02-26 23:00:00,0.978932,rule,flatline,18.955791,66.34527,2016-02-26 22:00-00:00: Meter repeated the same value for at least 7 hours; it may be stuck. About 19 kWh above expected (66 TL at 3.5 TL/kWh).
+235,2016-04-29 01:00:00,2016-04-29 03:00:00,0.57338315,rule,night_base_load,17.813786,62.34825,2016-04-29 01:00-04:00: Night load was 1.7x the same hour in recent weeks. About 18 kWh above expected (62 TL at 3.5 TL/kWh).
+235,2016-05-26 02:00:00,2016-05-26 03:00:00,0.5761973,rule,night_base_load,16.16919,56.592163,2016-05-26 02:00-04:00: Night load was 1.7x the same hour in recent weeks. About 16 kWh above expected (57 TL at 3.5 TL/kWh).
+136,2016-01-30 23:00:00,2016-01-30 23:00:00,0.6833463,rule,flatline,15.905823,55.67038,2016-01-30 23:00-00:00: Meter repeated the same value for at least 6 hours; it may be stuck. About 16 kWh above expected (56 TL at 3.5 TL/kWh).
+235,2016-06-06 00:00:00,2016-06-06 04:00:00,1.0,rule,night_base_load,15.145346,53.00871,2016-06-06 00:00-05:00: Night load was 3.0x the same hour in recent weeks. About 15 kWh above expected (53 TL at 3.5 TL/kWh).
+149,2016-01-22 02:00:00,2016-01-22 05:00:00,1.0,rule,night_base_load,15.035072,52.622753,2016-01-22 02:00-06:00: Night load was 7.8x the same hour in recent weeks. About 15 kWh above expected (53 TL at 3.5 TL/kWh).
+235,2016-06-28 16:00:00,2016-06-28 16:00:00,0.1306749,ml_unsup,,14.481781,50.686234,2016-06-28 16:00-17:00: Consumption was 1.8x the expected level. About 14 kWh above expected (51 TL at 3.5 TL/kWh).
+235,2016-10-15 21:00:00,2016-10-15 22:00:00,0.9664251,ml_sup,,14.427216,50.495255,2016-10-15 21:00-23:00: Pattern matches anomalies labeled in historical data. About 14 kWh above expected (50 TL at 3.5 TL/kWh).
+55,2016-09-11 01:00:00,2016-09-11 05:00:00,0.54125905,rule,night_base_load,13.5521,47.43235,2016-09-11 01:00-06:00: Night load was 1.6x the same hour in recent weeks. About 14 kWh above expected (47 TL at 3.5 TL/kWh).
+235,2016-07-26 00:00:00,2016-07-26 05:00:00,0.57345766,rule,night_base_load,12.808472,44.82965,2016-07-26 00:00-06:00: Night load was 1.7x the same hour in recent weeks. About 13 kWh above expected (45 TL at 3.5 TL/kWh).
+136,2016-09-24 00:00:00,2016-09-24 00:00:00,0.75422657,ml_sup,,12.216667,42.758335,2016-09-24 00:00-01:00: Pattern matches anomalies labeled in historical data. About 12 kWh above expected (43 TL at 3.5 TL/kWh).
+235,2016-04-28 01:00:00,2016-04-28 02:00:00,0.539659,rule,night_base_load,12.128664,42.450325,2016-04-28 01:00-03:00: Night load was 1.6x the same hour in recent weeks. About 12 kWh above expected (42 TL at 3.5 TL/kWh).
+235,2016-08-11 02:00:00,2016-08-11 02:00:00,0.7725805,ml_sup,,12.126308,42.442078,2016-08-11 02:00-03:00: Pattern matches anomalies labeled in historical data. About 12 kWh above expected (42 TL at 3.5 TL/kWh).
+55,2016-06-07 00:00:00,2016-06-07 05:00:00,0.63157684,rule,night_base_load,11.668901,40.841156,2016-06-07 00:00-06:00: Night load was 1.9x the same hour in recent weeks. About 12 kWh above expected (41 TL at 3.5 TL/kWh).
+55,2016-11-20 17:00:00,2016-11-20 18:00:00,0.5280492,rule,weekend_usage,11.445951,40.06083,2016-11-20 17:00-19:00: Weekend or holiday load was 1.6x the same hour in recent weeks. About 11 kWh above expected (40 TL at 3.5 TL/kWh).
+55,2016-06-06 00:00:00,2016-06-06 05:00:00,0.6201436,rule,night_base_load,11.118612,38.915142,2016-06-06 00:00-06:00: Night load was 1.9x the same hour in recent weeks. About 11 kWh above expected (39 TL at 3.5 TL/kWh).
+235,2016-05-23 01:00:00,2016-05-23 05:00:00,0.9816343,ml_sup,,10.393986,36.378952,2016-05-23 01:00-06:00: Pattern matches anomalies labeled in historical data. About 10 kWh above expected (36 TL at 3.5 TL/kWh).
+55,2016-06-27 23:00:00,2016-06-27 23:00:00,0.1339761,ml_unsup,,9.928104,34.748367,2016-06-27 23:00-00:00: Consumption was 2.7x the expected level. About 10 kWh above expected (35 TL at 3.5 TL/kWh).
+136,2016-02-11 23:00:00,2016-02-11 23:00:00,0.721277,rule,flatline,9.922874,34.73006,2016-02-11 23:00-00:00: Meter repeated the same value for at least 6 hours; it may be stuck. About 10 kWh above expected (35 TL at 3.5 TL/kWh).
+55,2016-11-21 00:00:00,2016-11-21 01:00:00,0.5387384,rule,night_base_load,8.8536415,30.987745,2016-11-21 00:00-02:00: Night load was 1.6x the same hour in recent weeks. About 9 kWh above expected (31 TL at 3.5 TL/kWh).
+235,2016-05-27 02:00:00,2016-05-27 03:00:00,0.5066729,rule,night_base_load,8.609489,30.133213,2016-05-27 02:00-04:00: Night load was 1.5x the same hour in recent weeks. About 9 kWh above expected (30 TL at 3.5 TL/kWh).
+235,2016-02-09 02:00:00,2016-02-09 03:00:00,0.6955518,rule,night_base_load,8.287897,29.00764,2016-02-09 02:00-04:00: Night load was 2.1x the same hour in recent weeks. About 8 kWh above expected (29 TL at 3.5 TL/kWh).
+55,2016-06-20 01:00:00,2016-06-20 02:00:00,0.5205553,rule,night_base_load,7.957906,27.85267,2016-06-20 01:00-03:00: Night load was 1.6x the same hour in recent weeks. About 8 kWh above expected (28 TL at 3.5 TL/kWh).
+235,2016-11-06 14:00:00,2016-11-06 15:00:00,0.9619622,ml_sup,,7.9027786,27.659725,2016-11-06 14:00-16:00: Pattern matches anomalies labeled in historical data. About 8 kWh above expected (28 TL at 3.5 TL/kWh).
+55,2016-06-19 19:00:00,2016-06-19 20:00:00,0.5809668,rule,weekend_usage,7.799116,27.296906,2016-06-19 19:00-21:00: Weekend or holiday load was 1.7x the same hour in recent weeks. About 8 kWh above expected (27 TL at 3.5 TL/kWh).
+235,2016-06-02 02:00:00,2016-06-02 03:00:00,0.53470397,rule,night_base_load,7.5159893,26.305962,2016-06-02 02:00-04:00: Night load was 1.6x the same hour in recent weeks. About 8 kWh above expected (26 TL at 3.5 TL/kWh).
+235,2016-08-15 01:00:00,2016-08-15 05:00:00,0.98059374,ml_sup,,7.2385178,25.334812,2016-08-15 01:00-06:00: Pattern matches anomalies labeled in historical data. About 7 kWh above expected (25 TL at 3.5 TL/kWh).
+55,2016-08-06 08:00:00,2016-08-06 09:00:00,0.61744714,rule,weekend_usage,7.1655912,25.079569,2016-08-06 08:00-10:00: Weekend or holiday load was 1.9x the same hour in recent weeks. About 7 kWh above expected (25 TL at 3.5 TL/kWh).
+55,2016-08-05 08:00:00,2016-08-05 08:00:00,0.5138471,rule,spike,7.0645657,24.725979,2016-08-05 08:00-09:00: Consumption spiked to 2.2x the weekly median. About 7 kWh above expected (25 TL at 3.5 TL/kWh).
+55,2016-06-04 19:00:00,2016-06-04 20:00:00,0.5880455,rule,weekend_usage,6.796918,23.789213,2016-06-04 19:00-21:00: Weekend or holiday load was 1.8x the same hour in recent weeks. About 7 kWh above expected (24 TL at 3.5 TL/kWh).
+136,2016-02-11 00:00:00,2016-02-11 00:00:00,0.7452708,ml_sup,,6.558075,22.953262,2016-02-11 00:00-01:00: Pattern matches anomalies labeled in historical data. About 7 kWh above expected (23 TL at 3.5 TL/kWh).
+235,2016-06-01 02:00:00,2016-06-01 03:00:00,0.5557847,rule,night_base_load,5.8182125,20.363743,2016-06-01 02:00-04:00: Night load was 1.7x the same hour in recent weeks. About 6 kWh above expected (20 TL at 3.5 TL/kWh).
+235,2016-05-31 00:00:00,2016-05-31 01:00:00,0.5157776,rule,night_base_load,5.4072895,18.925514,2016-05-31 00:00-02:00: Night load was 1.5x the same hour in recent weeks. About 5 kWh above expected (19 TL at 3.5 TL/kWh).
+55,2016-06-05 19:00:00,2016-06-05 20:00:00,0.6140699,rule,weekend_usage,3.8938112,13.62834,2016-06-05 19:00-21:00: Weekend or holiday load was 1.8x the same hour in recent weeks. About 4 kWh above expected (14 TL at 3.5 TL/kWh).
+55,2016-08-06 17:00:00,2016-08-06 18:00:00,0.50213295,rule,weekend_usage,3.1678877,11.087606,2016-08-06 17:00-19:00: Weekend or holiday load was 1.5x the same hour in recent weeks. About 3 kWh above expected (11 TL at 3.5 TL/kWh).
+136,2016-09-30 01:00:00,2016-09-30 01:00:00,0.79372144,ml_sup,,2.6583939,9.3043785,2016-09-30 01:00-02:00: Pattern matches anomalies labeled in historical data. About 3 kWh above expected (9 TL at 3.5 TL/kWh).
+235,2016-01-22 01:00:00,2016-01-22 03:00:00,0.71146464,rule,night_base_load,2.2065678,7.722987,2016-01-22 01:00-04:00: Night load was 2.1x the same hour in recent weeks. About 2 kWh above expected (8 TL at 3.5 TL/kWh).
+136,2016-02-03 02:00:00,2016-02-03 05:00:00,1.0,rule,night_base_load,1.2702217,4.445776,2016-02-03 02:00-06:00: Night load was 4.7x the same hour in recent weeks. About 1 kWh above expected (4 TL at 3.5 TL/kWh).
+55,2016-06-11 11:00:00,2016-06-11 15:00:00,0.7751205,rule,weekend_usage,1.0437288,3.653051,2016-06-11 11:00-16:00: Weekend or holiday load was 2.3x the same hour in recent weeks. About 1 kWh above expected (4 TL at 3.5 TL/kWh).
+55,2016-06-05 08:00:00,2016-06-05 09:00:00,0.64131147,rule,weekend_usage,0.40392494,1.4137373,2016-06-05 08:00-10:00: Weekend or holiday load was 1.9x the same hour in recent weeks. About 0 kWh above expected (1 TL at 3.5 TL/kWh).
+55,2016-06-10 23:00:00,2016-06-10 23:00:00,0.18951868,ml_unsup,,0.0,0.0,2016-06-10 23:00-00:00: Consumption was 0.3x the expected level.
+55,2016-06-11 23:00:00,2016-06-11 23:00:00,0.1887464,ml_unsup,,0.0,0.0,2016-06-11 23:00-00:00: Consumption was 0.3x the expected level.
+55,2016-06-12 23:00:00,2016-06-12 23:00:00,0.09016569,ml_unsup,,0.0,0.0,2016-06-12 23:00-00:00: Consumption was 0.3x the expected level.
+55,2016-06-13 22:00:00,2016-06-13 23:00:00,0.1832731,ml_unsup,,0.0,0.0,2016-06-13 22:00-00:00: Consumption was 0.4x the expected level.
+55,2016-06-14 23:00:00,2016-06-14 23:00:00,0.08865724,ml_unsup,,0.0,0.0,2016-06-14 23:00-00:00: Consumption was 0.4x the expected level.
+55,2016-06-16 23:00:00,2016-06-16 23:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-06-16 23:00-00:00: Consumption was 0.4x the expected level.
+55,2016-09-24 03:00:00,2016-09-24 04:00:00,0.8848334,ml_sup,,0.0,0.0,2016-09-24 03:00-05:00: Pattern matches anomalies labeled in historical data.
+55,2016-09-24 11:00:00,2016-09-24 11:00:00,0.34725195,ml_unsup,,0.0,0.0,2016-09-24 11:00-12:00: Consumption was 0.3x the expected level.
+91,2016-06-04 11:00:00,2016-06-04 13:00:00,0.91254175,ml_sup,,0.0,0.0,2016-06-04 11:00-14:00: Pattern matches anomalies labeled in historical data.
+91,2016-06-12 07:00:00,2016-06-12 13:00:00,0.19937508,ml_unsup,,0.0,0.0,2016-06-12 07:00-14:00: Consumption was 0.6x the expected level.
+91,2016-06-12 20:00:00,2016-06-12 20:00:00,0.16550693,ml_unsup,,0.0,0.0,2016-06-12 20:00-21:00: Consumption was 0.6x the expected level.
+91,2016-06-13 07:00:00,2016-06-13 07:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-06-13 07:00-08:00: Consumption was 0.5x the expected level.
+91,2016-09-23 18:00:00,2016-09-23 22:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-09-23 18:00-23:00: Consumption was 0.6x the expected level.
+91,2016-09-24 07:00:00,2016-09-24 08:00:00,0.18098949,ml_unsup,,0.0,0.0,2016-09-24 07:00-09:00: Consumption was 0.5x the expected level.
+91,2016-11-06 22:00:00,2016-11-06 22:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-11-06 22:00-23:00: Consumption was 0.6x the expected level.
+91,2016-11-07 22:00:00,2016-11-07 22:00:00,0.10753671,ml_unsup,,0.0,0.0,2016-11-07 22:00-23:00: Consumption was 0.5x the expected level.
+108,2016-01-22 02:00:00,2016-01-22 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-01-22 02:00-06:00: Night load was 10.7x the same hour in recent weeks.
+108,2016-04-29 02:00:00,2016-04-29 23:00:00,1.0,rule,flatline,0.0,0.0,2016-04-29 02:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck.
+108,2016-07-24 10:00:00,2016-07-24 10:00:00,0.47395408,ml_unsup,,0.0,0.0,2016-07-24 10:00-11:00: Consumption was 0.6x the expected level.
+108,2016-10-19 01:00:00,2016-10-19 23:00:00,1.0,rule,flatline,0.0,0.0,2016-10-19 01:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+108,2016-10-25 01:00:00,2016-10-26 00:00:00,1.0,rule,flatline,0.0,0.0,2016-10-25 01:00-01:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+108,2016-11-16 02:00:00,2016-11-16 23:00:00,1.0,rule,flatline,0.0,0.0,2016-11-16 02:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck.
+108,2016-11-24 00:00:00,2016-11-24 00:00:00,0.9325538,ml_sup,,0.0,0.0,2016-11-24 00:00-01:00: Pattern matches anomalies labeled in historical data.
+108,2016-11-24 10:00:00,2016-11-24 11:00:00,0.9535425,ml_sup,,0.0,0.0,2016-11-24 10:00-12:00: Pattern matches anomalies labeled in historical data.
+108,2016-12-30 01:00:00,2016-12-30 23:00:00,1.0,rule,flatline,0.0,0.0,2016-12-30 01:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+136,2016-01-20 02:00:00,2016-01-20 23:00:00,1.0,rule,flatline,0.0,0.0,2016-01-20 02:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+136,2016-01-22 02:00:00,2016-01-22 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-01-22 02:00-06:00: Night load was 4.8x the same hour in recent weeks.
+136,2016-01-22 13:00:00,2016-01-22 23:00:00,0.99803364,rule,flatline,0.0,0.0,2016-01-22 13:00-00:00: Meter repeated the same value for at least 6 hours; it may be stuck.
+136,2016-01-27 02:00:00,2016-01-27 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-01-27 02:00-06:00: Night load was 36.4x the same hour in recent weeks.
+136,2016-01-29 14:00:00,2016-01-29 23:00:00,0.9979128,rule,dropout,0.0,0.0,2016-01-29 14:00-00:00: Meter reported near-zero consumption; check the meter or supply.
+136,2016-02-13 16:00:00,2016-02-13 23:00:00,0.99887353,rule,dropout,0.0,0.0,2016-02-13 16:00-00:00: Meter reported near-zero consumption; check the meter or supply.
+136,2016-02-27 14:00:00,2016-02-27 23:00:00,0.9989043,rule,dropout,0.0,0.0,2016-02-27 14:00-00:00: Meter reported near-zero consumption; check the meter or supply.
+136,2016-03-01 11:00:00,2016-03-01 23:00:00,1.0,rule,flatline,0.0,0.0,2016-03-01 11:00-00:00: Meter repeated the same value for at least 8 hours; it may be stuck.
+136,2016-03-02 17:00:00,2016-03-02 23:00:00,0.9977946,rule,dropout,0.0,0.0,2016-03-02 17:00-00:00: Meter reported near-zero consumption; check the meter or supply.
+136,2016-03-03 16:00:00,2016-03-03 23:00:00,0.9977306,rule,dropout,0.0,0.0,2016-03-03 16:00-00:00: Meter reported near-zero consumption; check the meter or supply.
+136,2016-04-27 02:00:00,2016-04-27 23:00:00,1.0,rule,flatline,0.0,0.0,2016-04-27 02:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+136,2016-04-29 02:00:00,2016-04-29 23:00:00,1.0,rule,flatline,0.0,0.0,2016-04-29 02:00-00:00: Meter repeated the same value for at least 17 hours; it may be stuck.
+136,2016-05-04 02:00:00,2016-05-04 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-05-04 02:00-06:00: Night load was 32.6x the same hour in recent weeks.
+136,2016-05-06 02:00:00,2016-05-06 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-05-06 02:00-06:00: Night load was 4.6x the same hour in recent weeks.
+136,2016-05-11 02:00:00,2016-05-11 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-05-11 02:00-06:00: Night load was 4.6x the same hour in recent weeks.
+136,2016-09-12 23:00:00,2016-09-12 23:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-09-12 23:00-00:00: Consumption was 0.7x the expected level.
+136,2016-09-13 23:00:00,2016-09-13 23:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-09-13 23:00-00:00: Consumption was 0.7x the expected level.
+136,2016-12-19 19:00:00,2016-12-19 20:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-12-19 19:00-21:00: Consumption was 0.6x the expected level.
+136,2016-12-21 20:00:00,2016-12-21 20:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-12-21 20:00-21:00: Consumption was 0.6x the expected level.
+149,2016-01-20 02:00:00,2016-01-20 23:00:00,1.0,rule,flatline,0.0,0.0,2016-01-20 02:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck.
+149,2016-02-03 02:00:00,2016-02-03 05:00:00,1.0,rule,night_base_load,0.0,0.0,2016-02-03 02:00-06:00: Night load was 8.0x the same hour in recent weeks.
+149,2016-02-06 02:00:00,2016-02-06 23:00:00,1.0,rule,flatline,0.0,0.0,2016-02-06 02:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck.
+149,2016-02-08 13:00:00,2016-02-08 17:00:00,0.083333336,ml_unsup,,0.0,0.0,2016-02-08 13:00-18:00: Consumption was 0.6x the expected level.
+149,2016-02-24 02:00:00,2016-02-24 23:00:00,1.0,rule,flatline,0.0,0.0,2016-02-24 02:00-00:00: Meter repeated the same value for at least 16 hours; it may be stuck.
+149,2016-04-21 00:00:00,2016-04-21 00:00:00,0.7812524,ml_sup,,0.0,0.0,2016-04-21 00:00-01:00: Pattern matches anomalies labeled in historical data.
+149,2016-08-17 23:00:00,2016-08-18 11:00:00,0.5874746,ml_unsup,,0.0,0.0,2016-08-17 23:00-12:00: Consumption was 0.7x the expected level.
+149,2016-09-30 00:00:00,2016-09-30 01:00:00,0.9941917,ml_sup,,0.0,0.0,2016-09-30 00:00-02:00: Pattern matches anomalies labeled in historical data.
+149,2016-10-01 20:00:00,2016-10-01 21:00:00,0.2211919,ml_unsup,,0.0,0.0,2016-10-01 20:00-22:00: Consumption was 0.7x the expected level.
+149,2016-12-26 12:00:00,2016-12-26 16:00:00,0.51374006,ml_unsup,,0.0,0.0,2016-12-26 12:00-17:00: Consumption was 0.5x the expected level.
+149,2016-12-27 11:00:00,2016-12-27 11:00:00,0.5284951,ml_unsup,,0.0,0.0,2016-12-27 11:00-12:00: Consumption was 0.5x the expected level.
+235,2016-01-08 04:00:00,2016-01-08 05:00:00,0.83859324,rule,night_base_load,0.0,0.0,2016-01-08 04:00-06:00: Night load was 2.5x the same hour in recent weeks.
+235,2016-01-23 02:00:00,2016-01-23 04:00:00,0.64483947,rule,night_base_load,0.0,0.0,2016-01-23 02:00-05:00: Night load was 1.9x the same hour in recent weeks.
+235,2016-01-29 01:00:00,2016-01-29 03:00:00,0.6162135,rule,night_base_load,0.0,0.0,2016-01-29 01:00-04:00: Night load was 1.8x the same hour in recent weeks.
+235,2016-05-09 01:00:00,2016-05-09 01:00:00,0.88928235,ml_sup,,0.0,0.0,2016-05-09 01:00-02:00: Pattern matches anomalies labeled in historical data.
+235,2016-05-16 02:00:00,2016-05-16 03:00:00,0.9839413,ml_sup,,0.0,0.0,2016-05-16 02:00-04:00: Pattern matches anomalies labeled in historical data.
+235,2016-05-30 01:00:00,2016-05-30 04:00:00,0.86762375,rule,night_base_load,0.0,0.0,2016-05-30 01:00-05:00: Night load was 2.6x the same hour in recent weeks.
+235,2016-06-24 11:00:00,2016-06-28 09:00:00,0.8452839,ml_sup,,0.0,0.0,2016-06-24 11:00-10:00: Pattern matches anomalies labeled in historical data.
+235,2016-07-04 04:00:00,2016-07-04 04:00:00,0.74778587,ml_sup,,0.0,0.0,2016-07-04 04:00-05:00: Pattern matches anomalies labeled in historical data.
+235,2016-07-11 03:00:00,2016-07-11 05:00:00,0.8869968,ml_sup,,0.0,0.0,2016-07-11 03:00-06:00: Pattern matches anomalies labeled in historical data.
+235,2016-08-08 02:00:00,2016-08-08 03:00:00,0.8857112,ml_sup,,0.0,0.0,2016-08-08 02:00-04:00: Pattern matches anomalies labeled in historical data.
+235,2016-09-25 14:00:00,2016-09-25 14:00:00,0.87283057,ml_sup,,0.0,0.0,2016-09-25 14:00-15:00: Pattern matches anomalies labeled in historical data.
+235,2016-12-15 08:00:00,2016-12-15 08:00:00,0.7867829,ml_sup,,0.0,0.0,2016-12-15 08:00-09:00: Pattern matches anomalies labeled in historical data.
