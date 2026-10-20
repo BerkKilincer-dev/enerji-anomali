@@ -1,0 +1,242 @@
+{
+  "rows": 1756800,
+  "buildings": 200,
+  "period": [
+    "2016-01-01T00:00:00",
+    "2016-12-31T23:00:00"
+  ],
+  "missing_rate": 0.065437,
+  "rows_added_to_complete_grid": 7306,
+  "anomaly_rate": 0.022716,
+  "anomaly_on_missing_readings": 0,
+  "zero_reading_share": 1.5e-05,
+  "flatline_share": 0.106418,
+  "anomaly_rate_on_flatline": 0.133407,
+  "kbtu_converted_buildings": 8,
+  "label_events": {
+    "count": 5811,
+    "length_hours": {
+      "count": 5811.0,
+      "mean": 6.418172,
+      "std": 12.170248,
+      "min": 1.0,
+      "50%": 2.0,
+      "75%": 7.0,
+      "90%": 21.0,
+      "95%": 24.0,
+      "99%": 78.0,
+      "max": 167.0
+    }
+  },
+  "value_vs_building_median": {
+    "normal": {
+      "0.05": 0.552632,
+      "0.25": 0.864,
+      "0.5": 1.0,
+      "0.75": 1.220428,
+      "0.95": 2.25
+    },
+    "anomaly": {
+      "0.05": 0.003234,
+      "0.25": 0.019231,
+      "0.5": 0.469563,
+      "0.75": 1.014791,
+      "0.95": 1.689771
+    }
+  },
+  "anomaly_rate_by_split": {
+    "test": {
+      "buildings": 30,
+      "anomaly_rate": 0.0221
+    },
+    "train": {
+      "buildings": 140,
+      "anomaly_rate": 0.0229
+    },
+    "val": {
+      "buildings": 30,
+      "anomaly_rate": 0.0225
+    }
+  },
+  "anomaly_rate_by_primary_use": {
+    "Education": {
+      "buildings": 80,
+      "anomaly_rate": 0.0218
+    },
+    "Entertainment/public assembly": {
+      "buildings": 23,
+      "anomaly_rate": 0.0221
+    },
+    "Food sales and service": {
+      "buildings": 1,
+      "anomaly_rate": 0.0199
+    },
+    "Healthcare": {
+      "buildings": 5,
+      "anomaly_rate": 0.0221
+    },
+    "Lodging/residential": {
+      "buildings": 13,
+      "anomaly_rate": 0.0234
+    },
+    "Manufacturing/industrial": {
+      "buildings": 2,
+      "anomaly_rate": 0.0171
+    },
+    "Office": {
+      "buildings": 62,
+      "anomaly_rate": 0.0247
+    },
+    "Other": {
+      "buildings": 1,
+      "anomaly_rate": 0.0374
+    },
+    "Parking": {
+      "buildings": 2,
+      "anomaly_rate": 0.0231
+    },
+    "Public services": {
+      "buildings": 7,
+      "anomaly_rate": 0.0225
+    },
+    "Religious worship": {
+      "buildings": 1,
+      "anomaly_rate": 0.0206
+    },
+    "Services": {
+      "buildings": 3,
+      "anomaly_rate": 0.0121
+    }
+  },
+  "anomaly_rate_by_site": {
+    "Bear": {
+      "buildings": 2,
+      "anomaly_rate": 0.0225
+    },
+    "Bobcat": {
+      "buildings": 2,
+      "anomaly_rate": 0.0288
+    },
+    "Bull": {
+      "buildings": 52,
+      "anomaly_rate": 0.017
+    },
+    "Cockatoo": {
+      "buildings": 1,
+      "anomaly_rate": 0.0206
+    },
+    "Eagle": {
+      "buildings": 47,
+      "anomaly_rate": 0.0307
+    },
+    "Fox": {
+      "buildings": 21,
+      "anomaly_rate": 0.0194
+    },
+    "Gator": {
+      "buildings": 3,
+      "anomaly_rate": 0.0162
+    },
+    "Hog": {
+      "buildings": 11,
+      "anomaly_rate": 0.0158
+    },
+    "Lamb": {
+      "buildings": 24,
+      "anomaly_rate": 0.0198
+    },
+    "Moose": {
+      "buildings": 1,
+      "anomaly_rate": 0.0232
+    },
+    "Panther": {
+      "buildings": 8,
+      "anomaly_rate": 0.0168
+    },
+    "Rat": {
+      "buildings": 11,
+      "anomaly_rate": 0.0261
+    },
+    "Robin": {
+      "buildings": 16,
+      "anomaly_rate": 0.0336
+    },
+    "Wolf": {
+      "buildings": 1,
+      "anomaly_rate": 0.0332
+    }
+  },
+  "anomaly_rate_by_month": {
+    "1": 0.031783,
+    "2": 0.028079,
+    "3": 0.016481,
+    "4": 0.010399,
+    "5": 0.020999,
+    "6": 0.013676,
+    "7": 0.051177,
+    "8": 0.021791,
+    "9": 0.015128,
+    "10": 0.024228,
+    "11": 0.016808,
+    "12": 0.021927
+  },
+  "anomaly_rate_by_hour": {
+    "0": 0.024479,
+    "1": 0.02122,
+    "2": 0.023318,
+    "3": 0.023584,
+    "4": 0.023868,
+    "5": 0.024596,
+    "6": 0.024343,
+    "7": 0.023717,
+    "8": 0.023236,
+    "9": 0.024042,
+    "10": 0.02426,
+    "11": 0.024214,
+    "12": 0.023783,
+    "13": 0.023331,
+    "14": 0.023467,
+    "15": 0.02279,
+    "16": 0.020641,
+    "17": 0.020887,
+    "18": 0.019539,
+    "19": 0.020362,
+    "20": 0.020115,
+    "21": 0.020131,
+    "22": 0.022832,
+    "23": 0.022439
+  },
+  "weather_missing_rate": {
+    "air_temp": 0.000363,
+    "dew_temp": 0.000367,
+    "wind_speed": 0.000364,
+    "cloud_cover": 0.27992,
+    "precip_1h": 0.215727
+  },
+  "air_temp_peak_hour_by_site": {
+    "Bear": 14,
+    "Bobcat": 15,
+    "Bull": 15,
+    "Cockatoo": 15,
+    "Eagle": 15,
+    "Fox": 16,
+    "Gator": 14,
+    "Hog": 15,
+    "Lamb": 14,
+    "Moose": 15,
+    "Panther": 14,
+    "Rat": 15,
+    "Robin": 14,
+    "Wolf": 14
+  },
+  "per_building_anomaly_rate": {
+    "count": 200.0,
+    "mean": 0.023228,
+    "std": 0.013492,
+    "min": 0.008997,
+    "25%": 0.013249,
+    "50%": 0.019891,
+    "75%": 0.02924,
+    "max": 0.102229
+  }
+}

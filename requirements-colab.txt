@@ -1,0 +1,7 @@
+# Packages Colab does not ship (pandas, numpy, scikit-learn, pyarrow and matplotlib are preinstalled).
+lightgbm>=4.3,<5
+holidays>=0.50,<1
+psycopg[binary]>=3.2,<4
+python-dotenv>=1.0,<2
+optuna>=3.6,<6
+mlflow>=2.14,<4
