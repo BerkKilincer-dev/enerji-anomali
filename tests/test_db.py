@@ -576,3 +576,27 @@ def test_roles_get_the_right_rights(db, monkeypatch):
                 conn.execute(f"GRANT {role} TO CURRENT_USER")
                 conn.execute(f"DROP OWNED BY {role}")
                 conn.execute(f"DROP ROLE {role}")
+
+
+def test_meter_stuck_for_weeks_with_nightly_breaks_stays_one_data_issue(db, scorer):
+    # Stuck every day from 05:00, longer than the scoring context, and still going.
+    tables = make_tables(building_ids=(100000,), days=80)
+    r = tables.readings
+    stuck = (r.ts >= "2026-01-26") & (r.ts.dt.hour >= 5)
+    r.loc[stuck, "kwh"] = 40.0
+    first = r.ts <= "2026-03-20 03:00"
+    ids = load_customer(db, replace(tables, readings=r[first]))
+    run_once(db, scorer)
+    with connect(db) as conn:
+        upsert_readings(conn, ids[100000], r[~first].assign(quality=None), "mqtt")
+    run_once(db, scorer)
+
+    with connect(db) as conn:
+        rows = conn.execute(
+            "SELECT ts_start, ts_end, category, est_cost_tl FROM anomalies "
+            "WHERE rule_type = 'flatline' AND ts_end >= '2026-03-01'"
+        ).fetchall()
+    assert len(rows) == 1
+    start, end, category, cost = rows[0]
+    assert category == "data_issue" and cost is None
+    assert start < pd.Timestamp("2026-01-27") and end.date() == r.ts.max().date()

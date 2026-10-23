@@ -15,6 +15,7 @@ sayaç verisi ──► anomali modeli ──► olay + TL maliyeti ──► ö
 ## Hızlı başlangıç
 
 Gereken tek şey Docker Desktop. Model eğitmek yok: eğitilmiş model repoda (`models_out/`).
+İlk kez kuruyorsan adım adım anlatım ve sorun çözme için **[KURULUM.md](KURULUM.md)**.
 
 ```bash
 cp .env.example .env                      # olduğu gibi çalışır, değiştirmen gerekmez
@@ -22,7 +23,7 @@ docker compose up -d --build              # veritabanı, MQTT, API, panel + otom
 docker compose logs -f setup              # ilk açılışta ~1 dk: veri iner, yüklenir, model yayınlanır
 ```
 
-Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pass`
+Panel: **http://localhost:5173** (127.0.0.1 değil) · giriş `admin@enerji.local` / `admin-demo-pass`
 · API belgeleri: http://localhost:8000/docs
 
 `setup` servisi LEAD verisini indirip veritabanına yükler ve repodaki modelle anomalileri

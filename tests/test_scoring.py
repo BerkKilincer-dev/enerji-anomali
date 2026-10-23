@@ -111,4 +111,80 @@ def test_flatline_explanation_counts_the_equal_hours_before_the_rule_fired():
         }
     )
     event = build_events(scored, tariff=4.0).iloc[0]
-    assert FLATLINE_HOURS == 6 and "en az 8 saat" in event.explanation
+    assert FLATLINE_HOURS == 6 and "toplam en az 8 saat" in event.explanation
+
+
+def hours(start: str, n: int, **columns) -> pd.DataFrame:
+    """Alarm hours shaped like AnomalyScorer.score output."""
+    base = {
+        "building_id": 1,
+        "ts": pd.date_range(start, periods=n, freq="h"),
+        "alarm": True,
+        "kwh": 40.0,
+        "expected_kwh": 40.0,
+        "detector_score": 0.0,
+        "rule_score": 0.6,
+        "source": "rule",
+        "rule_type": "flatline",
+        "rule_ratio": 1.0,
+    }
+    return pd.DataFrame({**base, **columns})
+
+
+def on_grid(*parts: pd.DataFrame) -> pd.DataFrame:
+    """Alarm hours on a complete hourly grid with quiet hours between, as the scorer returns."""
+    alarms = pd.concat(parts, ignore_index=True)
+    span = pd.date_range(alarms["ts"].min(), alarms["ts"].max(), freq="h")
+    quiet = hours(
+        str(span[0]),
+        len(span),
+        alarm=False,
+        rule_score=0.0,
+        source=None,
+        rule_type=None,
+        rule_ratio=None,
+    )
+    quiet = quiet[~quiet["ts"].isin(alarms["ts"])]
+    return pd.concat([quiet, alarms]).sort_values("ts", ignore_index=True)
+
+
+def test_stuck_meter_days_are_one_data_issue_without_cost():
+    # Stuck for three days; each night a few readings move and break the run.
+    scored = on_grid(
+        hours("2026-02-05 05:00", 19, kwh=90.0),
+        hours("2026-02-06 05:00", 19),
+        hours("2026-02-07 05:00", 19),
+    )
+    events = build_events(scored, tariff=4.0)
+    assert len(events) == 1
+    event = events.iloc[0]
+    assert event.category == "data_issue" and event.rule_type == "flatline"
+    assert event.ts_start == pd.Timestamp("2026-02-05 05:00")
+    assert event.ts_end == pd.Timestamp("2026-02-07 23:00")
+    assert pd.isna(event.excess_kwh) and pd.isna(event.est_cost_tl)
+    assert event.explanation.startswith("2026-02-05 05:00-2026-02-08 00:00: Sayaç")
+    assert "TL" not in event.explanation
+
+
+def test_data_issues_further_apart_stay_separate():
+    scored = on_grid(hours("2026-02-05 00:00", 8), hours("2026-02-07 00:00", 8))
+    assert len(build_events(scored, tariff=4.0)) == 2
+
+
+def test_waste_without_excess_is_dropped():
+    below = hours(
+        "2026-02-08 10:00",
+        4,
+        kwh=20.0,
+        rule_score=0.0,
+        source="ml_unsup",
+        rule_type=None,
+        rule_ratio=None,
+    )
+    tiny = hours("2026-02-09 01:00", 2, kwh=40.3, rule_type="night_base_load", rule_ratio=1.6)
+    waste = hours("2026-02-10 01:00", 3, kwh=60.0, rule_type="night_base_load", rule_ratio=1.5)
+    events = build_events(on_grid(below, tiny, waste), tariff=4.0)
+    assert len(events) == 1
+    event = events.iloc[0]
+    assert event.category == "waste" and event.excess_kwh == 60.0
+    assert event.est_cost_tl == 240.0

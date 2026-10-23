@@ -59,7 +59,12 @@ residual threshold allows one alarm event per building per week on validation.
 3. otherwise residual score ≥ threshold.
 
 Rules start after 7 days of history in the scored frame, models after 14 days. Alarm hours
-with gaps of at most one hour form one event (`src/models/events.py`).
+with gaps of at most one hour form one event (`src/models/events.py`). Each event is
+`waste` (TL cost) or `data_issue` (flatline or dropout, no cost). Data issues of one rule on
+one meter less than 24 hours apart merge into one event; waste events under 1 kWh above
+expected are dropped, which also removes alarms on consumption below the expected level
+(the residual score is two-sided). Model metrics are computed on hourly alarms and do not
+change with these event rules.
 
 Live scoring passes `CONTEXT_HOURS` (4 weeks for the longest feature plus 2 weeks for the
 residual scale) before the new hours, so it gives the same scores as a full rescore. It also

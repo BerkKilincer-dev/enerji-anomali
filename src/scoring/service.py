@@ -27,7 +27,7 @@ from src.data.dataset import model_frame
 from src.data.store import fetch_tables, upsert_frame
 from src.models import registry
 from src.models.detector import CONTEXT_HOURS, REVISION_HOURS, AnomalyScorer
-from src.models.events import MAX_GAP_HOURS, build_events
+from src.models.events import MERGE_GAP_HOURS, build_events
 from src.models.publish import anomaly_rows, prediction_rows
 from src.scoring.advice import Advisor, advisor_from_settings, write_advice
 
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 REVISION = timedelta(hours=REVISION_HOURS)
 CONTEXT = timedelta(hours=CONTEXT_HOURS) + REVISION
-OPEN_EVENT_GAP = REVISION + timedelta(hours=MAX_GAP_HOURS)
+OPEN_EVENT_GAP = REVISION + timedelta(hours=MERGE_GAP_HOURS)
 
 
 @dataclass(frozen=True)

@@ -169,7 +169,7 @@ class PostgresRepository:
         return self._query(
             f"""
             SELECT a.id, a.building_id, a.ts_start, a.ts_end, a.score, a.source, a.rule_type,
-                   a.excess_kwh, a.est_cost_tl, a.explanation, a.advice, a.origin,
+                   a.excess_kwh, a.est_cost_tl, a.category, a.explanation, a.advice, a.origin,
                    (SELECT f.verdict FROM anomaly_feedback f
                     WHERE f.anomaly_id = a.id OR (f.anomaly_id IS NULL
                         AND f.building_id = a.building_id
@@ -471,6 +471,7 @@ class DemoRepository:
             "explanation": "2026-10-19 01:00-06:00: Gece tüketimi son haftalardaki aynı saatin "
             "1,6 katına çıktı. Beklenenden yaklaşık 270 kWh fazla (3,50 TL/kWh ile 945 TL).",
             "advice": None,
+            "category": "waste",
             "origin": "live",
             "verdict": None,
         }

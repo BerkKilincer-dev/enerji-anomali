@@ -59,9 +59,3 @@ dev server.
 - Show write controls by role (`canWrite(me)`, `me.role === "admin"`); the API checks again.
 - Keep components small and typed; no `any`.
 - Run `npm run build` before you push; CI runs it again on every push.
-
-## Phones
-
-Below 640 px the padding shrinks, the cards go two per row and the chart is 300 px high. Tables sit in `.table-wrap` and scroll sideways instead of
-widening the page; timestamps (`.nowrap`) stay on one line. Check a change at 375 px width
-(browser device mode): the page must not scroll horizontally.

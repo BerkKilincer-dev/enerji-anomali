@@ -1,13 +1,13 @@
 {
   "name": "anomaly-scorer",
-  "version": "20261020-2308-fce3336",
+  "version": "20261023-1958-0e010a3",
   "thresholds": {
     "detector": 0.8159176006107561,
     "residual": 4.072021007537842,
     "rule": 0.5
   },
   "metrics": {
-    "version": "20261020-2308-fce3336",
+    "version": "20261023-1958-0e010a3",
     "chosen_detector": "lgbm",
     "quick": false,
     "source": "files",
@@ -44,18 +44,20 @@
       "source_share_ml_unsup": 0.15373525557011797
     },
     "timings_s": {
-      "expected_model": 167.1,
-      "rules": 0.5,
-      "random_forest": 56.2,
-      "isolation_forest": 2.7,
-      "lgbm": 46.9,
-      "lgbm_no_weather": 20.4,
-      "lgbm_hybrid": 30.4
+      "expected_model": 245.3,
+      "rules": 0.9,
+      "random_forest": 78.7,
+      "isolation_forest": 4.4,
+      "lgbm": 75.1,
+      "lgbm_no_weather": 30.8,
+      "lgbm_hybrid": 41.7
     },
     "test_events": {
-      "count": 1936,
-      "excess_kwh": 154354.328125,
-      "est_cost_tl": 540240.125
+      "count": 1095,
+      "waste": 857,
+      "data_issue": 238,
+      "excess_kwh": 121777.6796875,
+      "est_cost_tl": 426221.84375
     }
   }
 }

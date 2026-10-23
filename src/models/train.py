@@ -448,6 +448,8 @@ def summarize(
         "timings_s": ctx.timings,
         "test_events": {
             "count": len(ev.events),
+            "waste": int((ev.events["category"] == "waste").sum()),
+            "data_issue": int((ev.events["category"] == "data_issue").sum()),
             "excess_kwh": float(ev.events["excess_kwh"].sum()),
             "est_cost_tl": float(ev.events["est_cost_tl"].sum()),
         },

@@ -49,6 +49,7 @@ export type Anomaly = {
   est_cost_tl: number | null;
   explanation: string | null;
   advice: string | null;
+  category: "waste" | "data_issue" | null;
   origin: string;
   verdict: Verdict | null;
 };

@@ -69,6 +69,7 @@ class Anomaly(BaseModel):
     est_cost_tl: float | None
     explanation: str | None
     advice: str | None
+    category: str | None
     origin: str
     verdict: str | None
 

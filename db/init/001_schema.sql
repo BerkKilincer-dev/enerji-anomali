@@ -210,6 +210,9 @@ CREATE TABLE IF NOT EXISTS ml.anomalies (
 );
 -- Optional Turkish advice written by an LLM once an event has ended (src/scoring/advice.py).
 ALTER TABLE ml.anomalies ADD COLUMN IF NOT EXISTS advice TEXT CHECK (length(advice) <= 2000);
+-- waste = consumption above expected, with a TL cost; data_issue = stuck or silent meter, no cost.
+ALTER TABLE ml.anomalies ADD COLUMN IF NOT EXISTS category TEXT
+    CHECK (category IN ('waste', 'data_issue'));
 
 -- Operator verdicts (training labels); the time range survives a re-published anomaly.
 CREATE TABLE IF NOT EXISTS ml.anomaly_feedback (

@@ -187,8 +187,9 @@ def _markdown(
             "",
             "![example](figures/example_building.png)",
             "",
-            f"## Costliest test events ({summary['test_events']['count']} events, "
-            f"{summary['test_events']['excess_kwh']:,.0f} kWh above expected)",
+            f"## Costliest test events ({summary['test_events']['waste']} waste events, "
+            f"{summary['test_events']['excess_kwh']:,.0f} kWh above expected; "
+            f"{summary['test_events']['data_issue']} meter faults without cost)",
             "",
             md_table(sample),
             "",

@@ -77,6 +77,8 @@ Any signed-in role.
 - `active_alerts` counts events that ended within 24 hours of the building's latest reading.
 - `summary` covers active buildings only, the same set as `GET /buildings`.
 - Tax numbers and contacts are not returned by any endpoint.
+- Anomalies carry `category`: `waste` (consumption above expected, with `excess_kwh` and
+  `est_cost_tl`) or `data_issue` (stuck or silent meter; both cost fields `null`).
 - Anomalies carry `explanation` (built-in Turkish text) and `advice` (Turkish advice from
   Claude when `ANTHROPIC_API_KEY` is set; `null` until written, empty when the model declined).
 

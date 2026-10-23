@@ -1,6 +1,6 @@
 # ML results
 
-Version `20261020-2308-fce3336`, chosen detector `lgbm`. Every number below is measured on the 30 held-out test buildings; thresholds were picked on the 30 validation buildings.
+Version `20261023-1958-0e010a3`, chosen detector `lgbm`. Every number below is measured on the 30 held-out test buildings; thresholds were picked on the 30 validation buildings.
 
 ## Model comparison
 
@@ -112,17 +112,17 @@ Waste and meter faults injected into test buildings (LEAD labels are mostly drop
 
 ![example](figures/example_building.png)
 
-## Costliest test events (1936 events, 154,354 kWh above expected)
+## Costliest test events (857 waste events, 121,778 kWh above expected; 238 meter faults without cost)
 
 | building_id | ts_start | source | explanation |
 |---|---|---|---|
-| 1172 | 2016-09-21 23:00:00 | rule | 2016-09-21 23:00-13:00: Sayaç en az 157 saat aynı değeri gönderdi; takılmış olabilir. Beklenenden yaklaşık 6.622 kWh fazla (3,50 TL/kWh ile 23.176 TL). |
-| 687 | 2016-11-07 09:00:00 | rule | 2016-11-07 09:00-15:00: Gece tüketimi son haftalardaki aynı saatin 9,3 katına çıktı. Beklenenden yaklaşık 4.335 kWh fazla (3,50 TL/kWh ile 15.171 TL). |
+| 687 | 2016-11-07 09:00:00 | rule | 2016-11-07 09:00-2016-11-10 15:00: Gece tüketimi son haftalardaki aynı saatin 9,3 katına çıktı. Beklenenden yaklaşık 4.335 kWh fazla (3,50 TL/kWh ile 15.171 TL). |
 | 1318 | 2016-08-12 14:00:00 | ml_sup | 2016-08-12 14:00-14:00: Tüketim deseni geçmişte etiketlenmiş anomalilere benziyor. Beklenenden yaklaşık 2.932 kWh fazla (3,50 TL/kWh ile 10.262 TL). |
-| 248 | 2016-10-28 13:00:00 | rule | 2016-10-28 13:00-13:00: Sayaç en az 101 saat aynı değeri gönderdi; takılmış olabilir. Beklenenden yaklaşık 2.563 kWh fazla (3,50 TL/kWh ile 8.972 TL). |
-| 1226 | 2016-08-19 23:00:00 | rule | 2016-08-19 23:00-06:00: Sayaç en az 134 saat aynı değeri gönderdi; takılmış olabilir. Beklenenden yaklaşık 2.375 kWh fazla (3,50 TL/kWh ile 8.312 TL). |
-| 827 | 2016-01-23 00:00:00 | rule | 2016-01-23 00:00-00:00: Sayaç en az 58 saat aynı değeri gönderdi; takılmış olabilir. Beklenenden yaklaşık 1.963 kWh fazla (3,50 TL/kWh ile 6.869 TL). |
 | 890 | 2016-05-11 15:00:00 | rule | 2016-05-11 15:00-17:00: Tüketim haftalık medyanın 5,6 katına sıçradı. Beklenenden yaklaşık 1.731 kWh fazla (3,50 TL/kWh ile 6.057 TL). |
 | 1068 | 2016-09-11 06:00:00 | rule | 2016-09-11 06:00-21:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,0 katı oldu. Beklenenden yaklaşık 1.707 kWh fazla (3,50 TL/kWh ile 5.973 TL). |
 | 1068 | 2016-07-03 04:00:00 | rule | 2016-07-03 04:00-22:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 2,4 katı oldu. Beklenenden yaklaşık 1.595 kWh fazla (3,50 TL/kWh ile 5.583 TL). |
 | 1068 | 2016-09-03 06:00:00 | rule | 2016-09-03 06:00-22:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,0 katı oldu. Beklenenden yaklaşık 1.585 kWh fazla (3,50 TL/kWh ile 5.547 TL). |
+| 1068 | 2016-04-03 06:00:00 | rule | 2016-04-03 06:00-21:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,6 katı oldu. Beklenenden yaklaşık 1.569 kWh fazla (3,50 TL/kWh ile 5.492 TL). |
+| 1068 | 2016-12-04 05:00:00 | rule | 2016-12-04 05:00-21:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,0 katı oldu. Beklenenden yaklaşık 1.522 kWh fazla (3,50 TL/kWh ile 5.327 TL). |
+| 1247 | 2016-01-17 11:00:00 | rule | 2016-01-17 11:00-21:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,1 katı oldu. Beklenenden yaklaşık 1.519 kWh fazla (3,50 TL/kWh ile 5.317 TL). |
+| 1068 | 2016-04-10 08:00:00 | rule | 2016-04-10 08:00-21:00: Hafta sonu veya tatil tüketimi son haftalardaki aynı saatin 3,8 katı oldu. Beklenenden yaklaşık 1.475 kWh fazla (3,50 TL/kWh ile 5.164 TL). |
