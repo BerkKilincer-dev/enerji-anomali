@@ -157,20 +157,98 @@ if "api" not in st.session_state:
 api = st.session_state.api
 
 if "me" not in st.session_state:
-    st.title(f"⚡ {BRAND}")
-    st.caption(BRAND_SUB)
-    with st.form("giris"):
-        email = st.text_input("E-posta")
-        sifre = st.text_input("Şifre", type="password")
-        gonder = st.form_submit_button("Giriş yap")
-    if gonder:
-        try:
-            st.session_state.me = api.login(email, sifre)
-            st.rerun()
-        except ApiError as e:
-            st.error(f"Giriş başarısız: {e}")
-        except Exception as e:
-            st.error(f"API'ye ulaşılamadı: {e}")
+    st.markdown(
+        """<style>
+        .stApp{background:radial-gradient(1100px 560px at 8% -10%,#DBEAFE 0%,transparent 60%),
+               radial-gradient(900px 500px at 100% 110%,#D1FAE5 0%,transparent 55%),#F4F7FC;}
+        [data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{display:none !important;}
+        .block-container{zoom:1 !important;max-width:1060px !important;padding:7vh 1rem 2rem !important;}
+        .st-key-login_wrap{background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(15,23,42,.14);
+               overflow:hidden;padding:0 !important;gap:0 !important;}
+        .st-key-login_wrap [data-testid="stHorizontalBlock"]{gap:0 !important;}
+        .st-key-login_wrap [data-testid="stColumn"]:last-child,
+        .st-key-login_wrap [data-testid="column"]:last-child{padding:36px 56px !important;}
+        .st-key-login_wrap [data-testid="stForm"]{border:0 !important;padding:0 !important;}
+        .st-key-login_wrap [data-baseweb="input"]{border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;min-height:48px;}
+        .st-key-login_wrap [data-baseweb="input"]:focus-within{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.15);}
+        .st-key-login_wrap [data-baseweb="input"] > div{background:transparent;}
+        .st-key-login_wrap label p{font-size:14px;font-weight:600;color:#334155;}
+        .st-key-login_wrap [data-testid="stFormSubmitButton"] button{
+            min-height:50px;border:0;border-radius:12px;font-size:16px;font-weight:600;color:#fff;
+            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.28);}
+        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.08);color:#fff;}
+        .lg-left{position:relative;min-height:600px;padding:44px 44px 36px;color:#fff;display:flex;flex-direction:column;
+            background:radial-gradient(420px 320px at 85% 8%,rgba(74,222,128,.22),transparent 70%),
+                       linear-gradient(160deg,#0F172A 0%,#1E3A8A 100%);}
+        .lg-brand{display:flex;align-items:center;gap:12px;font-size:24px;font-weight:700;letter-spacing:-.3px;}
+        .lg-hero{margin-top:auto;margin-bottom:28px;}
+        .lg-hero h1{font-size:34px;line-height:1.15;font-weight:800;letter-spacing:-.8px;margin:0 0 14px;color:#fff;padding:0;}
+        .lg-hero p{font-size:15.5px;line-height:1.55;color:#CBD5E1;margin:0;max-width:340px;}
+        .lg-feats{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:14px;}
+        .lg-feats li{display:flex;align-items:center;gap:12px;font-size:15px;color:#E2E8F0;}
+        .lg-feats li i{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.12);
+            display:inline-flex;align-items:center;justify-content:center;flex:none;}
+        .lg-title{font-size:30px;font-weight:800;letter-spacing:-.6px;color:#0F172A;margin-bottom:6px;}
+        .lg-sub{font-size:15px;color:#64748B;margin-bottom:22px;}
+        .lg-note{margin-top:18px;font-size:13px;color:#94A3B8;text-align:center;}
+        @media (max-width:768px){
+            .block-container{padding:3.5rem .75rem 1.5rem !important;}
+            .lg-left{min-height:auto;padding:26px 24px;}
+            .lg-hero{margin:18px 0 0;}.lg-hero h1{font-size:24px;}.lg-hero p,.lg-feats{display:none;}
+            .st-key-login_wrap [data-testid="stColumn"]:last-child,
+            .st-key-login_wrap [data-testid="column"]:last-child{padding:26px 22px !important;}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+    def _oz(ikon, metin):
+        return f'<li><i>{svg(ikon, 20, "#FFFFFF")}</i>{metin}</li>'
+
+    sol_html = (
+        '<div class="lg-left">'
+        f'<div class="lg-brand">{LOGO}<span>{BRAND}</span></div>'
+        '<div class="lg-hero"><h1>Enerjinizi akıllıca izleyin.</h1>'
+        '<p>Tüketimi canlıya yakın takip edin, anomalileri erken yakalayın ve tasarruf fırsatlarını raporlayın.</p></div>'
+        '<ul class="lg-feats">'
+        + _oz("zap", "Canlıya yakın tüketim takibi")
+        + _oz("alert", "Anomalilerin erken tespiti")
+        + _oz("leaf", "Tasarruf raporları ve dışa aktarma")
+        + "</ul></div>"
+    )
+
+    giris_ok = False
+    with st.container(key="login_wrap"):
+        sol, sag = st.columns([1.1, 1], vertical_alignment="center", gap="small")
+        sol.markdown(sol_html, unsafe_allow_html=True)
+        with sag:
+            st.markdown(
+                '<div class="lg-title">Tekrar hoş geldiniz</div>'
+                '<div class="lg-sub">Hesabınızla giriş yaparak devam edin.</div>',
+                unsafe_allow_html=True,
+            )
+            with st.form("giris"):
+                email = st.text_input("E-posta", placeholder="ornek@sirket.com")
+                sifre = st.text_input("Şifre", type="password", placeholder="Şifrenizi girin")
+                giris_btn = st.form_submit_button("Giriş yap", use_container_width=True)
+            if giris_btn:
+                if not email or not sifre:
+                    st.warning("E-posta ve şifre gerekli.")
+                else:
+                    try:
+                        with st.spinner("Giriş yapılıyor..."):
+                            st.session_state.me = api.login(email.strip(), sifre)
+                        giris_ok = True
+                    except ApiError as e:
+                        st.error(f"Giriş başarısız: {e}")
+                    except Exception as e:
+                        st.error(f"API'ye ulaşılamadı: {e}")
+            st.markdown(
+                '<div class="lg-note">Giriş yapamıyorsanız sistem yöneticinize başvurun.</div>',
+                unsafe_allow_html=True,
+            )
+    if giris_ok:
+        st.rerun()
     st.stop()
 
 me = st.session_state.me
