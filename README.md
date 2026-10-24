@@ -23,7 +23,7 @@ docker compose up -d --build              # veritabanı, MQTT, API, panel + otom
 docker compose logs -f setup              # ilk açılışta ~1 dk: veri iner, yüklenir, model yayınlanır
 ```
 
-Panel: **http://localhost:5173** (127.0.0.1 değil) · giriş `admin@enerji.local` / `admin-demo-pass`
+Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pass`
 · API belgeleri: http://localhost:8000/docs
 
 `setup` servisi LEAD verisini indirip veritabanına yükler ve repodaki modelle anomalileri
@@ -44,7 +44,7 @@ pytest -q                                 # testler
 ```
 
 PowerShell "running scripts is disabled" derse bir kere:
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Panelde çalışacaksan Node 22 de gerekir.
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 ### Modeli yeniden eğitmek (sadece ML geliştirici)
 
@@ -120,13 +120,13 @@ enerji-anomali/
 │   │   └── users.py            komut satırından kullanıcı ekleme
 │   ├── common/               ortak yardımcılar (veritabanı bağlantısı vb.)
 │   └── config.py             .env ayarlarını okur
-├── frontend/                 (Frontend) React CRM paneli
-│   └── src/
-│       ├── App.tsx             giriş kontrolü ve sayfa geçişleri
-│       ├── api.ts              API istemcisi; backend şemasıyla aynı tipler
-│       ├── i18n.tsx            Türkçe / İngilizce metinler
-│       └── components/         Login, Overview (sayaç listesi), BuildingDetail
-│                               (sayaç sayfası), EnergyChart, AnomalyTable
+├── dashboard/                (Frontend) Streamlit CRM paneli
+│   ├── app.py                  giriş ve sayfalar: genel bakış, tüketim, anomaliler, raporlar
+│   ├── api_client.py           API istemcisi (oturum çerezi dahil)
+│   ├── charts.py               grafikler
+│   ├── reports.py              CSV / Excel / PDF raporları
+│   └── style.css               görünüm
+├── oldfrontend/              eski React paneli; kullanılmıyor, sadece başvuru için
 ├── models_out/               (ML) eğitilmiş model; herkes bunu kullanır, eğitim gerekmez
 ├── db/init/001_schema.sql    (Veri + Backend) veritabanı şeması: core, telemetry, ml, ops
 ├── tests/                    (Herkes) otomatik testler, `pytest -q`
@@ -144,7 +144,7 @@ enerji-anomali/
 
 Ayrıntılı rehberler (İngilizce): [Mimari](docs/architecture.md) · [Veri](docs/data.md) ·
 [ML](docs/machine-learning.md) · [API](docs/api.md) · [Backend](docs/backend.md) ·
-[Frontend](docs/frontend.md)
+[Panel](docs/dashboard.md)
 
 ## Çalışma şekli
 
@@ -154,7 +154,7 @@ Ayrıntılı rehberler (İngilizce): [Mimari](docs/architecture.md) · [Veri](do
 git pull --rebase                         # işe başlamadan ve push'tan önce
 # ... değişiklik ...
 pytest -q                                 # Python'a dokunduysan
-cd frontend && npm run build              # panele dokunduysan
+docker compose up -d --build             # panele dokunduysan: aç ve dene
 git add -A && git commit -m "Kısa ve net açıklama"
 git push
 ```

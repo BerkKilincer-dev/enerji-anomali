@@ -59,7 +59,7 @@ With Docker:
 
 ```bash
 cp .env.example .env              # fill in every password
-docker compose up -d --build      # db, mqtt, init, api, frontend
+docker compose up -d --build      # db, mqtt, init, setup, api, dashboard
 docker compose --profile live up -d
 docker compose logs -f api scoring ingest
 ```
@@ -202,7 +202,7 @@ event shows up within a minute after the backlog ends. Check each hop if it does
 2. Method on the `Repository` protocol and both implementations.
 3. Route in `main.py`; write routes use `dependencies=Writer`.
 4. A test in `tests/test_api.py` (demo mode) and, for SQL, in `tests/test_db.py`.
-5. Types in `frontend/src/api.ts` and the table in [api.md](api.md).
+5. The client in `dashboard/api_client.py` and the table in [api.md](api.md).
 
 ## Database changes
 

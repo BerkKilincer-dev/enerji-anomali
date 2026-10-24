@@ -2,7 +2,7 @@
 
 FastAPI app in `src/api/main.py`. Interactive docs at `http://localhost:8000/docs` and the
 OpenAPI schema at `/openapi.json`. Request and response bodies are defined in
-`src/api/schemas.py`; the frontend mirrors them in `frontend/src/api.ts`.
+`src/api/schemas.py`; the dashboard calls them through `dashboard/api_client.py`.
 
 ```bash
 uvicorn src.api.main:app --reload        # demo data without DATABASE_URL
@@ -61,17 +61,19 @@ Any signed-in role.
 | Method and path | Query | Returns |
 |---|---|---|
 | `GET /health` | | `{"status": "ok", "mode": "demo" \| "database"}`; `mode` tells which repository serves the data |
-| `GET /buildings` | | active buildings with `segment`, `last_scored_ts` and `anomaly_count` |
+| `GET /buildings` | | active buildings with `segment`, `tariff_tl_per_kwh` (the meter's own or the default), `last_scored_ts` and `anomaly_count` |
 | `GET /buildings/{id}/operating-hours` | | weekly periods `weekday`, `opens`, `closes` |
 | `GET /buildings/{id}/downtime` | | planned downtime windows, earliest first |
-| `GET /buildings/{id}/readings` | `hours` 1-2160, default 48 | hourly `kwh` and label `anomaly` |
-| `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48 | `expected_kwh`, `alarm`, `source`, `origin` |
+| `GET /buildings/{id}/readings` | `hours` 1-2160, default 48; `end` optional | hourly `kwh` and label `anomaly` |
+| `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48; `end` optional | `expected_kwh`, `alarm`, `source`, `origin` |
 | `GET /anomalies` | `building_id` optional, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) |
 | `GET /summary` | | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings` |
 | `GET /tenants` | | `tenant_id`, `name`, `status`, `city`; tenant users see their own |
 
 - The `hours` window ends at the building's latest reading, not at the current time, so a
-  building that stopped sending data still shows its last period.
+  building that stopped sending data still shows its last period. `end` (building local time
+  without an offset, e.g. `2016-12-30T05:00:00`) ends it at that hour instead, to look at an
+  older anomaly.
 - Once the scoring service covers a building, `forecast`, `anomalies`, `anomaly_count` and
   `summary` use its live output only; before that they show the batch output from training.
 - `active_alerts` counts events that ended within 24 hours of the building's latest reading.
@@ -242,4 +244,5 @@ origins only. Methods `GET`, `POST`, `PUT` and `DELETE`, headers `Content-Type` 
    `src/api/repository.py`.
 3. Add the route in `src/api/main.py` with the repository from `Repo` (already limited to the
    user's tenant); writes get `dependencies=Writer` or an `Admin` parameter.
-4. Update the types in `frontend/src/api.ts`, this file and `tests/test_api.py`.
+4. Update `dashboard/api_client.py` when the dashboard needs it, this file and
+   `tests/test_api.py`.

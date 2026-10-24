@@ -600,3 +600,17 @@ def test_meter_stuck_for_weeks_with_nightly_breaks_stays_one_data_issue(db, scor
     start, end, category, cost = rows[0]
     assert category == "data_issue" and cost is None
     assert start < pd.Timestamp("2026-01-27") and end.date() == r.ts.max().date()
+
+
+def test_readings_window_can_end_before_the_latest_reading(db):
+    building = load_customer(db, make_tables(building_ids=(100000,), days=20))[100000]
+    repo = PostgresRepository(db)
+    end = datetime(2026, 1, 10, 5)
+    rows = repo.readings(building, 24, end)
+    assert len(rows) == 24 and rows[0]["ts"] == datetime(2026, 1, 9, 6) and rows[-1]["ts"] == end
+    assert repo.readings(building, 24)[-1]["ts"] == datetime(2026, 1, 24, 23)
+    with connect(db) as conn:
+        conn.execute(
+            "UPDATE buildings SET tariff_tl_per_kwh = 4.2 WHERE building_id = %s", (building,)
+        )
+    assert repo.buildings()[0]["tariff_tl_per_kwh"] == 4.2

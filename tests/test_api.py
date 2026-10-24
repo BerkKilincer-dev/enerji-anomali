@@ -195,3 +195,14 @@ def test_login_throttle_blocks_after_repeated_failures():
     assert throttle.blocked("a@b.co") and not throttle.blocked("c@d.co")
     throttle.succeeded("a@b.co")
     assert not throttle.blocked("a@b.co")
+
+
+def test_buildings_carry_a_tariff_and_windows_can_end_earlier(client):
+    assert {b["tariff_tl_per_kwh"] for b in client.get("/buildings").json()} == {3.5}
+    params = {"hours": 24, "end": "2026-10-19T05:00:00"}
+    readings = client.get("/buildings/100000/readings", params=params).json()
+    forecast = client.get("/buildings/100000/forecast", params=params).json()
+    assert len(readings) == len(forecast) == 24
+    assert readings[-1]["ts"] == forecast[-1]["ts"] == "2026-10-19T05:00:00"
+    with_offset = {"hours": 24, "end": "2026-10-19T05:00:00+03:00"}
+    assert client.get("/buildings/100000/readings", params=with_offset).status_code == 422

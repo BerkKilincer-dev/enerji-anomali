@@ -31,6 +31,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import NaiveDatetime
 
 from src.api import auth, schemas
 from src.api.auth import User
@@ -120,6 +121,8 @@ Repo = Annotated[Repository, Depends(scoped_repository)]
 Operator = Annotated[User, Depends(require_operator)]
 Admin = Annotated[User, Depends(require_admin)]
 Hours = Annotated[int, Query(ge=1, le=MAX_HOURS)]
+# Last hour of a window, building local time; without it the window ends at the latest reading.
+End = Annotated[NaiveDatetime | None, Query()]
 # Ids outside the Postgres INT and BIGINT ranges are rejected before they reach SQL.
 BuildingId = Annotated[int, Path(ge=0, le=schemas.INT_MAX)]
 RowId = Annotated[int, Path(ge=1, le=schemas.BIGINT_MAX)]
@@ -202,17 +205,27 @@ def create_user(body: schemas.UserIn, user: Admin, repo: Repo) -> schemas.Create
 
 @app.get("/buildings")
 def buildings(repo: Repo) -> list[schemas.Building]:
-    return repo.buildings()
+    # A meter without its own tariff uses the default, so clients never guess one.
+    default = get_settings().tariff_tl_per_kwh
+    rows = [dict(b) for b in repo.buildings()]
+    for b in rows:
+        if b["tariff_tl_per_kwh"] is None:
+            b["tariff_tl_per_kwh"] = default
+    return rows
 
 
 @app.get("/buildings/{building_id}/readings")
-def readings(building_id: BuildingId, repo: Repo, hours: Hours = 48) -> list[schemas.Reading]:
-    return repo.readings(building_id, hours)
+def readings(
+    building_id: BuildingId, repo: Repo, hours: Hours = 48, end: End = None
+) -> list[schemas.Reading]:
+    return repo.readings(building_id, hours, end)
 
 
 @app.get("/buildings/{building_id}/forecast")
-def forecast(building_id: BuildingId, repo: Repo, hours: Hours = 48) -> list[schemas.ForecastPoint]:
-    return repo.forecast(building_id, hours)
+def forecast(
+    building_id: BuildingId, repo: Repo, hours: Hours = 48, end: End = None
+) -> list[schemas.ForecastPoint]:
+    return repo.forecast(building_id, hours, end)
 
 
 @app.get("/anomalies")

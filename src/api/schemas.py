@@ -37,6 +37,7 @@ class Building(BaseModel):
     lat: float | None
     lng: float | None
     tenant_id: int | None
+    tariff_tl_per_kwh: float
     last_scored_ts: datetime | None
     anomaly_count: int
 

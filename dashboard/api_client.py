@@ -43,11 +43,14 @@ class Api:
     def buildings(self):
         return self._req("GET", "/buildings")
 
-    def readings(self, bid, hours):
-        return self._req("GET", f"/buildings/{bid}/readings", params={"hours": hours})
+    def readings(self, bid, hours, end=None):
+        # end: pencerenin son saati (bina yerel saati, ISO); yoksa son okumada biter.
+        params = {"hours": hours, **({"end": end} if end else {})}
+        return self._req("GET", f"/buildings/{bid}/readings", params=params)
 
-    def forecast(self, bid, hours):
-        return self._req("GET", f"/buildings/{bid}/forecast", params={"hours": hours})
+    def forecast(self, bid, hours, end=None):
+        params = {"hours": hours, **({"end": end} if end else {})}
+        return self._req("GET", f"/buildings/{bid}/forecast", params=params)
 
     def anomalies(self, bid, limit=50):
         return self._req("GET", "/anomalies", params={"building_id": bid, "limit": limit})

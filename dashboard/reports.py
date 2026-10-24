@@ -4,10 +4,9 @@ from datetime import timedelta
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from matplotlib.backends.backend_pdf import PdfPages
-
 from api_client import ApiError
 from charts import tr_tarih, tr_tarih_saat
+from matplotlib.backends.backend_pdf import PdfPages
 
 KATEGORI = {"waste": "İsraf", "data_issue": "Veri sorunu"}
 DURUM = {"confirmed": "Onaylandı", "false_alarm": "Yanlış alarm", "planned": "Planlı"}
@@ -22,9 +21,10 @@ def _kwh(x):
 
 
 def collect(api, bina, hours, tariff):
-    """bina: {building_id: ad}. Seçili dönem ve bir önceki dönem için özet döndürür."""
+    """bina: {building_id: ad}, tariff: {building_id: TL/kWh}.
+    Seçili dönem ve bir önceki dönem için özet döndürür."""
     bina_rows, an_rows = [], []
-    toplam_kwh = toplam_onceki = 0.0
+    toplam_kwh = toplam_onceki = toplam_maliyet = 0.0
     son_zaman = None
 
     for bid, ad in bina.items():
@@ -68,11 +68,12 @@ def collect(api, bina, hours, tariff):
                 )
         toplam_kwh += kwh
         toplam_onceki += onceki
+        toplam_maliyet += kwh * tariff[bid]
         bina_rows.append(
             {
                 "Bina": ad,
                 "Tüketim (kWh)": round(kwh, 1),
-                "Tahmini maliyet (TL)": round(kwh * tariff, 2),
+                "Tahmini maliyet (TL)": round(kwh * tariff[bid], 2),
                 "Anomali sayısı": say,
                 "Tasarruf potansiyeli (TL)": round(tasarruf, 2),
             }
@@ -96,10 +97,11 @@ def collect(api, bina, hours, tariff):
     ozet = {
         "kwh": toplam_kwh,
         "kwh_onceki": toplam_onceki,
-        "maliyet": toplam_kwh * tariff,
+        "maliyet": toplam_maliyet,
         "anomali": int(binalar["Anomali sayısı"].sum()) if not binalar.empty else 0,
         "tasarruf": float(binalar["Tasarruf potansiyeli (TL)"].sum()) if not binalar.empty else 0.0,
-        "tarife": tariff,
+        # Tek tarife varsa o, sayaçlar farklıysa None ("sayaç bazında").
+        "tarife": next(iter(set(tariff.values()))) if len(set(tariff.values())) == 1 else None,
         "donem": f"{tr_tarih(baslangic)} – {tr_tarih(son_zaman)}" if son_zaman is not None else "-",
         "bina_sayisi": len(bina),
     }
@@ -120,7 +122,7 @@ def _ozet_tablosu(o):
             ("Tahmini maliyet (TL)", round(o["maliyet"], 2)),
             ("Tespit edilen anomali", o["anomali"]),
             ("Tasarruf potansiyeli (TL)", round(o["tasarruf"], 2)),
-            ("Tarife varsayımı (TL/kWh)", o["tarife"]),
+            ("Tarife (TL/kWh)", o["tarife"] if o["tarife"] is not None else "sayaç bazında"),
         ],
         columns=["Alan", "Değer"],
     )
@@ -195,7 +197,8 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
                 fig.text(0.07, y, f"• {_kisalt(r['Bina'], 28)}  {r['Başlangıç']}  —  {_tl(r['Tahmini maliyet (TL)'])}",
                          fontsize=8.5, color="#0F172A")
                 y -= 0.025
-        fig.text(0.07, 0.04, f"Tarife varsayımı: {o['tarife']:.2f} TL/kWh. Maliyetler tahminidir.", fontsize=7.5, color="#64748B")
+        tarife = f"{o['tarife']:.2f} TL/kWh" if o["tarife"] is not None else "sayaç bazında"
+        fig.text(0.07, 0.04, f"Tarife: {tarife}. Maliyetler tahminidir.", fontsize=7.5, color="#64748B")
         pdf.savefig(fig)
         plt.close(fig)
 

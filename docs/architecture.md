@@ -23,7 +23,7 @@
  src.models.train ──bundle──▶ src.scoring.service            src.api.main (FastAPI)
  (Colab or local)            (every 5 min, new hours)                 │
                                                                        ▼
-                                                              frontend (React)
+                                                              dashboard (Streamlit)
 ```
 
 Everything that turns readings into alarms goes through one class,
@@ -49,7 +49,7 @@ reporting, work order) and the tables each one owns is in
 | Virtual meters | `src.ingest.replay` | demo CLI: replays LEAD buildings over MQTT, optional injected anomaly |
 | API | `src.api.main`, `repository`, `schemas`, `auth` | container `api` |
 | User admin | `src.api.users` | CLI: create users, reset passwords |
-| Dashboard | `frontend/` | container `frontend` or `npm run dev` |
+| Dashboard | `dashboard/` (Streamlit) | container `dashboard` on port 5173 |
 
 ## Scoring pipeline
 

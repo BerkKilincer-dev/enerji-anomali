@@ -49,8 +49,8 @@ class Repository(Protocol):
 
     def scoped(self, tenant_id: int | None) -> Repository: ...
     def buildings(self) -> list[dict]: ...
-    def readings(self, building_id: int, hours: int) -> list[dict]: ...
-    def forecast(self, building_id: int, hours: int) -> list[dict]: ...
+    def readings(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]: ...
+    def forecast(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]: ...
     def anomalies(self, building_id: int | None, limit: int) -> list[dict]: ...
     def summary(self) -> dict: ...
     def tenants(self) -> list[dict]: ...
@@ -121,11 +121,15 @@ class PostgresRepository:
             raise NotFoundError(f"building {building_id} not found")
         return row[0]
 
-    def _window(self, conn: psycopg.Connection, building_id: int, hours: int) -> tuple:
+    def _window(
+        self, conn: psycopg.Connection, building_id: int, hours: int, end: datetime | None
+    ) -> tuple:
+        """`hours` hours ending at `end`, or at the building's latest reading."""
         self._require_building(conn, building_id)
-        end = conn.execute(
-            "SELECT max(ts) FROM readings WHERE building_id = %s", (building_id,)
-        ).fetchone()[0]
+        if end is None:
+            end = conn.execute(
+                "SELECT max(ts) FROM readings WHERE building_id = %s", (building_id,)
+            ).fetchone()[0]
         if end is None:
             raise NotFoundError(f"building {building_id} has no readings")
         return end - timedelta(hours=hours - 1), end
@@ -135,6 +139,7 @@ class PostgresRepository:
             f"""
             SELECT b.building_id, b.external_id, b.name, b.source, b.primary_use, b.segment,
                    b.square_feet, b.timezone, b.country, b.lat, b.lng, b.tenant_id,
+                   b.tariff_tl_per_kwh,
                    s.last_scored_ts,
                    (SELECT count(*) FROM current_anomalies a
                     WHERE a.building_id = b.building_id) AS anomaly_count
@@ -144,9 +149,9 @@ class PostgresRepository:
             self._params(),
         )
 
-    def readings(self, building_id: int, hours: int) -> list[dict]:
+    def readings(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]:
         with connect(self.url) as conn:
-            start, end = self._window(conn, building_id, hours)
+            start, end = self._window(conn, building_id, hours, end)
             return self._rows(
                 conn,
                 "SELECT building_id, ts, kwh, anomaly FROM readings "
@@ -154,9 +159,9 @@ class PostgresRepository:
                 (building_id, start, end),
             )
 
-    def forecast(self, building_id: int, hours: int) -> list[dict]:
+    def forecast(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]:
         with connect(self.url) as conn:
-            start, end = self._window(conn, building_id, hours)
+            start, end = self._window(conn, building_id, hours, end)
             return self._rows(
                 conn,
                 "SELECT building_id, ts, expected_kwh, alarm, source, origin "
@@ -393,6 +398,7 @@ class DemoRepository:
             "lat": 41.0082,
             "lng": 28.9784,
             "tenant_id": None,
+            "tariff_tl_per_kwh": None,
             "last_scored_ts": END,
             "anomaly_count": 1,
         },
@@ -409,6 +415,7 @@ class DemoRepository:
             "lat": 40.99,
             "lng": 29.03,
             "tenant_id": None,
+            "tariff_tl_per_kwh": None,
             "last_scored_ts": END,
             "anomaly_count": 0,
         },
@@ -417,9 +424,9 @@ class DemoRepository:
     def scoped(self, tenant_id: int | None) -> DemoRepository:
         return self
 
-    def _series(self, building_id: int, hours: int) -> pd.DataFrame:
+    def _series(self, building_id: int, hours: int, end: datetime | None = None) -> pd.DataFrame:
         self._building(building_id)
-        ts = pd.date_range(end=self.END, periods=hours, freq="h")
+        ts = pd.date_range(end=min(end or self.END, self.END), periods=hours, freq="h")
         rng = np.random.default_rng(building_id)
         day = ts.hour.isin(range(8, 19)) & (ts.dayofweek < 5)
         expected = np.where(day, 140.0, 90.0) * (1 + (building_id % 2) * 0.6)
@@ -447,12 +454,12 @@ class DemoRepository:
     def buildings(self) -> list[dict]:
         return self.BUILDINGS
 
-    def readings(self, building_id: int, hours: int) -> list[dict]:
+    def readings(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]:
         cols = ["building_id", "ts", "kwh", "anomaly"]
-        return self._series(building_id, hours)[cols].to_dict("records")
+        return self._series(building_id, hours, end)[cols].to_dict("records")
 
-    def forecast(self, building_id: int, hours: int) -> list[dict]:
-        frame = self._series(building_id, hours).assign(origin="live")
+    def forecast(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]:
+        frame = self._series(building_id, hours, end).assign(origin="live")
         frame["source"] = pd.Series("rule", index=frame.index, dtype=object).where(frame["alarm"])
         cols = ["building_id", "ts", "expected_kwh", "alarm", "source", "origin"]
         return frame[cols].astype(object).where(frame[cols].notna(), None).to_dict("records")

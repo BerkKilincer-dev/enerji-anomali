@@ -45,10 +45,9 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 
 ## 3. Paneli aç
 
-1. Tarayıcıda **http://localhost:5173** adresini aç. `127.0.0.1` değil, mutlaka `localhost`
-   yaz; diğeriyle giriş yapılamaz.
+1. Tarayıcıda **http://localhost:5173** adresini aç.
 2. Giriş: `admin@enerji.local` / `admin-demo-pass`
-3. Sayaç listesi ve üstte "Tahmini israf" kartı görünüyorsa kurulum tamam.
+3. Solda menü, üstte "Toplam Enerji Tüketimi" kartı görünüyorsa kurulum tamam.
 
 API'nin tüm uç noktaları: http://localhost:8000/docs
 
@@ -69,7 +68,7 @@ API'nin tüm uç noktaları: http://localhost:8000/docs
 | `error during connect` veya `docker` komutu bulunamadı | Docker Desktop açık değil. Aç, "Engine running" yazısını bekle. |
 | `port is already allocated` ve hata `5432` diyor | Bilgisayarında PostgreSQL kurulu. `notepad .env` ile dosyayı aç, `DB_PORT=5432` satırını `DB_PORT=55432` yap, `DATABASE_URL` satırındaki `5432`'yi de `55432` yap, kaydet ve `docker compose up -d` çalıştır. |
 | `port is already allocated` ve hata `8000`, `5173` ya da `1883` diyor | Başka bir program o portu kullanıyor. O programı kapat ya da bilgisayarı yeniden başlat. |
-| Giriş yapıyorum ama tekrar giriş ekranına dönüyor | Adres `127.0.0.1` ile açılmış. `http://localhost:5173` ile aç. |
+| Şifre doğru ama giriş olmuyor, "çok fazla" deneme diyor | 5 yanlış denemeden sonra o e-posta 15 dakika kilitlenir. Bekle ya da `docker compose restart api` çalıştır. |
 | "API'ye ulaşılamıyor" yazıyor | `docker compose ps` çalıştır; `api` satırı `running` olmalı. Değilse `docker compose logs api` çıktısını grupta paylaş. |
 | Panel açılıyor ama anomali yok, israf 0 | Kurulum bitmemiş. `docker compose logs setup` ile kontrol et, bir dakika bekle. |
 | Hiçbiri değil | Çalıştırdığın komutu ve hata mesajının tamamını grupta paylaş. |

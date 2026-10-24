@@ -40,17 +40,24 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
 
-  frontend:
+  dashboard:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: dashboard
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@v5
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run build
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: dashboard/requirements.txt
+      - run: pip install -r requirements.txt
+      # Runs app.py headless: the login page must render without an error.
+      - run: |
+          python -c "
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('app.py').run(timeout=60)
+          assert not at.exception, at.exception
+          assert [t.label for t in at.text_input] == ['E-posta', 'Şifre']
+          "

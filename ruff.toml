@@ -3,3 +3,7 @@ target-version = "py311"
 
 [lint]
 select = ["E", "F", "I", "B"]
+
+[lint.per-file-ignores]
+# The Streamlit dashboard builds HTML and CSS in long strings.
+"dashboard/**" = ["E501"]

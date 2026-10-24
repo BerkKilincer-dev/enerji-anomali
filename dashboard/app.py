@@ -1,25 +1,23 @@
 import base64
 import html
 import io
-
-from datetime import timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-import time
-import matplotlib.dates as mdates
-
-from datetime import datetime, timedelta, timezone
-from reports import collect, to_csv, to_pdf, to_xlsx
 from api_client import API_URL, Api, ApiError
 from charts import build_events, consumption_chart, donut_chart, tr_tarih, tr_tarih_saat
 from icons import LOGO, sidebar_css, svg
 
+from reports import collect, to_csv, to_pdf, to_xlsx
+
 BRAND = "Wattwise"  # tasarım görselindeki ad: EnerjiVista
 BRAND_SUB = "Daha verimli bir yarın"
-TARIFF_TL = 3.5  # backend'in anomali açıklamalarındaki tarife (3,50 TL/kWh)
+TARIFF_TL = 3.5  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
 
 st.set_page_config(page_title=BRAND, page_icon="⚡", layout="wide")
 css = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
@@ -81,7 +79,7 @@ def anomaly_panel(items, bina, pct_by_id):
             else:
                 ad = severity(pct, a["est_cost_tl"])
                 tone = {"Yüksek": "high", "Orta": "mid", "Düşük": "low"}[ad]
-            if pct is not None:
+            if pct is not None and a["category"] != "data_issue":
                 desc = f"Beklenen değerin %{pct:.0f} üzerinde tüketim tespit edildi."
             else:
                 desc = (a["explanation"] or "Beklenenden yüksek tüketim tespit edildi.")[:110]
@@ -132,9 +130,9 @@ def kwh_by_building(_api, user_id, ids, hours):
         out[i] = sum((r["kwh"] or 0) for r in rows)
     return out
 @st.cache_data(ttl=300, show_spinner="Rapor hazırlanıyor...")
-def report_data(_api, user_id, items, hours, tariff):
+def report_data(_api, user_id, items, hours, tariffs):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi karışmasın.
-    return collect(_api, dict(items), hours, tariff)
+    return collect(_api, dict(items), hours, dict(tariffs))
 
 @st.cache_data(ttl=300, show_spinner="Karşılaştırma verisi yükleniyor...")
 def readings_multi(_api, user_id, ids, hours):
@@ -270,6 +268,8 @@ if not buildings:
     st.stop()
 
 names = {b["building_id"]: (b["name"] or b["external_id"]) for b in buildings}
+# Her sayacın kendi tarifesi; eski API alanı vermezse varsayılan.
+tarife = {b["building_id"]: b.get("tariff_tl_per_kwh") or TARIFF_TL for b in buildings}
 ids = list(names)
 en_cok = max(range(len(buildings)), key=lambda i: buildings[i]["anomaly_count"])
 
@@ -374,8 +374,11 @@ if st.session_state.sayfa == "anomali":
         st.markdown(f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{vb}</div>', unsafe_allow_html=True)
 
         try:
-            ham = pd.DataFrame(api.readings(bid, 720))
-            tah = pd.DataFrame(api.forecast(bid, 720))
+            pay = timedelta(hours=36)
+            son_saat = pd.Timestamp(a["ts_end"]) + pay
+            saat = int((son_saat - pd.Timestamp(a["ts_start"]) + pay) / timedelta(hours=1)) + 1
+            ham = pd.DataFrame(api.readings(bid, min(saat, 2160), son_saat.isoformat()))
+            tah = pd.DataFrame(api.forecast(bid, min(saat, 2160), son_saat.isoformat()))
         except ApiError as err:
             st.error(f"Veri alınamadı: {err}")
             st.stop()
@@ -392,7 +395,10 @@ if st.session_state.sayfa == "anomali":
             tah_p = tah[(tah["ts"] >= s - timedelta(hours=36)) & (tah["ts"] <= e + timedelta(hours=36))]
 
         sure = (e - s).total_seconds() / 3600 + 1
-        fark = f"%{(gercek / beklenen - 1) * 100:.0f} fazla" if gercek is not None and beklenen else "-"
+        fark = "-"
+        if gercek is not None and beklenen:
+            oran = (gercek / beklenen - 1) * 100
+            fark = f"%{abs(oran):.0f} {'fazla' if oran >= 0 else 'az'}"
         d1, d2, d3, d4 = st.columns(4)
         d1.markdown(kpi_card(svg("calendar", 24), "blue", "Süre", f"{sure:.0f} saat", "<span>(anomali penceresi)</span>"), unsafe_allow_html=True)
         d2.markdown(kpi_card(svg("zap", 24), "red", "Gerçekleşen", f"{num(gercek)} kWh" if gercek is not None else "-", f"<span>({fark})</span>"), unsafe_allow_html=True)
@@ -403,7 +409,7 @@ if st.session_state.sayfa == "anomali":
         with st.container(key="card_detay_grafik"):
             st.markdown('<div class="card-title">Beklenen ve gerçekleşen tüketim</div>', unsafe_allow_html=True)
             if pencere.empty:
-                st.info("Bu anomali son 30 günün dışında kaldığı için grafik gösterilemiyor.")
+                st.info("Bu anomali için ölçüm verisi bulunamadı.")
             else:
                 ev = build_events(pencere, tah_p, [a])
                 fig = consumption_chart(pencere, tah_p, ev, "Hafta")
@@ -499,7 +505,8 @@ if st.session_state.sayfa == "ayar":
             f'<div class="set-row"><span>E-posta</span><span>{html.escape(me["email"])}</span></div>'
             f'<div class="set-row"><span>Rol</span><span>{html.escape(me["role"])}</span></div>'
             f'<div class="set-row"><span>API adresi</span><span>{html.escape(API_URL)}</span></div>'
-            f'<div class="set-row"><span>Tarife (varsayım)</span><span>{num(TARIFF_TL, 2)} TL/kWh</span></div>',
+            f'<div class="set-row"><span>Tarife ({html.escape(names[bid])})</span>'
+            f'<span>{num(tarife[bid], 2)} TL/kWh</span></div>',
             unsafe_allow_html=True,
         )
     st.stop()
@@ -545,7 +552,7 @@ if st.session_state.sayfa == "tuketim":
                     fig, ax = plt.subplots(figsize=(9, 3.8))
                     fig.patch.set_alpha(0)
                     ax.set_facecolor("none")
-                    for renk, i in zip(PAL, secili):
+                    for renk, i in zip(PAL, secili, strict=False):
                         if i not in veri:
                             continue
                         s = veri[i].set_index("ts")["kwh"].resample("h" if saatlik else "D").sum()
@@ -601,7 +608,7 @@ if st.session_state.sayfa == "tuketim":
                             "Kullanım": bmap[i]["primary_use"] or "-",
                             "Toplam (kWh)": round(toplam[i], 1),
                             "Saatlik ort. (kWh)": round(toplam[i] / n_saat, 2),
-                            "Tahmini maliyet (TL)": round(toplam[i] * TARIFF_TL, 2),
+                            "Tahmini maliyet (TL)": round(toplam[i] * tarife[i], 2),
                             "Anomali (toplam)": bmap[i]["anomaly_count"],
                         }
                     )
@@ -637,7 +644,8 @@ if st.session_state.sayfa == "rapor":
     else:
         en_cok_20 = sorted(buildings, key=lambda b: b["anomaly_count"], reverse=True)[:20]
         r_items = tuple(sorted((b["building_id"], names[b["building_id"]]) for b in en_cok_20))
-    rapor = report_data(api, me["user_id"], r_items, r_hours, TARIFF_TL)
+    r_tarife = tuple((i, tarife[i]) for i, _ in r_items)
+    rapor = report_data(api, me["user_id"], r_items, r_hours, r_tarife)
     o, r_bina, r_an = rapor["ozet"], rapor["binalar"], rapor["anomaliler"]
     st.caption(f"Dönem: {o['donem']} · {o['bina_sayisi']} bina")
 
@@ -648,7 +656,11 @@ if st.session_state.sayfa == "rapor":
         unsafe_allow_html=True,
     )
     k2.markdown(
-        kpi_card(svg("coins", 24), "orange", "Tahmini Maliyet", tl(o["maliyet"]), f"<span>({num(o['tarife'], 2)} TL/kWh varsayımı)</span>"),
+        kpi_card(
+            svg("coins", 24), "orange", "Tahmini Maliyet", tl(o["maliyet"]),
+            f"<span>({num(o['tarife'], 2)} TL/kWh)</span>" if o["tarife"] is not None
+            else "<span>(sayaç bazında tarife)</span>",
+        ),
         unsafe_allow_html=True,
     )
     k3.markdown(
@@ -778,7 +790,8 @@ with h2:
                 )
 with h3:
     st.markdown(
-        f'<div class="chip"><div class="bell">{svg("bell", 20)}<b>{summary["active_alerts"]}</b></div>'
+        f'<div class="chip"><div class="bell" title="Tüm binalarda son 24 saatteki alarmlar">'
+        f'{svg("bell", 20)}<b>{summary["active_alerts"]}</b></div>'
         f'<div class="avatar">{initials}</div>'
         f'<div class="who"><div class="n">{html.escape(who)}</div><div class="r">{me["role"]}</div></div>'
         f'{svg("chevron-down", 16, "#64748B")}</div>',
@@ -797,13 +810,13 @@ c1.markdown(
 )
 c2.markdown(
     kpi_card(
-        svg("coins", 24), "orange", "Tahmini Maliyet", tl(kwh_cur * TARIFF_TL),
-        delta_html(kwh_cur * TARIFF_TL, kwh_prev * TARIFF_TL, karsilas),
+        svg("coins", 24), "orange", "Tahmini Maliyet", tl(kwh_cur * tarife[bid]),
+        delta_html(kwh_cur * tarife[bid], kwh_prev * tarife[bid], karsilas),
     ),
     unsafe_allow_html=True,
 )
 c3.markdown(
-    kpi_card(svg("alert", 24), "red", "Tespit Edilen Anomali", str(n_an), f"<span>({donem})</span>"),
+    kpi_card(svg("alert", 24), "red", "Tespit Edilen Anomali", str(n_an), f"<span>({donem}, bu bina)</span>"),
     unsafe_allow_html=True,
 )
 c4.markdown(
