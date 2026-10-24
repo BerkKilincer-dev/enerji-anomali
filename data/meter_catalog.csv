@@ -1,0 +1,31 @@
+external_id,tenant,plan,segment,location,asset_name,equipment_type
+Lamb_education_Hellen,Özel Kolej,izleme,education,A Blok Derslikler,Derslik aydınlatması,aydinlatma
+Lamb_education_Philomena,Özel Kolej,izleme,education,B Blok Derslikler,Derslik klimaları,klima
+Fox_education_Melvin,Özel Kolej,izleme,education,Ana Bina,Ana bina genel tüketim,genel
+Wolf_education_Bobby,Özel Kolej,izleme,education,Spor Salonu,Spor salonu iklimlendirme,klima
+Bull_education_Tracey,Özel Kolej,izleme,education,Laboratuvar Binası,Laboratuvar genel tüketim,genel
+Robin_education_Megan,Özel Kolej,izleme,education,Yemekhane,Yemekhane soğuk oda,sogutma
+Lamb_office_Caitlin,Ofis Plazası,analiz,office,Ofis Katları,Kat aydınlatması,aydinlatma
+Robin_office_Zelma,Ofis Plazası,analiz,office,Kat 1-5,Kat 1-5 iklimlendirme,klima
+Fox_office_Bernard,Ofis Plazası,analiz,office,Kat 6-10,Kat 6-10 iklimlendirme,klima
+Eagle_office_Flossie,Ofis Plazası,analiz,office,Ortak Alanlar,Ortak alanlar genel tüketim,genel
+Eagle_office_Mandi,Ofis Plazası,analiz,office,Otopark ve Asansörler,Otopark ve asansörler,genel
+Eagle_office_Bridgett,Ofis Plazası,analiz,office,Sunucu Odası,Sunucu odası soğutma,sogutma
+Bull_lodging_Lettie,Otel,uzman,hotel,A Blok Odalar,A blok oda katları,genel
+Robin_lodging_Armand,Otel,uzman,hotel,B Blok Odalar,B blok oda katları,genel
+Eagle_food_Kay,Otel,uzman,hotel,Restoran Mutfağı,Mutfak soğuk oda,sogutma
+Eagle_health_Vincenza,Otel,uzman,hotel,Spa ve Havuz,Spa ve havuz iklimlendirme,klima
+Eagle_assembly_Josie,Otel,uzman,hotel,Lobi,Lobi ve dış cephe aydınlatma,aydinlatma
+Gator_assembly_Erich,Otel,uzman,hotel,Çamaşırhane,Çamaşırhane genel tüketim,genel
+Rat_assembly_Gerald,Kongre Merkezi,operasyon,public,Dış Alan,Dış cephe ve otopark aydınlatma,aydinlatma
+Rat_assembly_Kelley,Kongre Merkezi,operasyon,public,Fuaye,Fuaye aydınlatması,aydinlatma
+Eagle_assembly_Benny,Kongre Merkezi,operasyon,public,Ana Salon,Ana salon iklimlendirme,klima
+Fox_assembly_Johnnie,Kongre Merkezi,operasyon,public,Sergi Salonu,Sergi salonu iklimlendirme,klima
+Eagle_education_Eileen,Kongre Merkezi,operasyon,public,Toplantı Salonları,Toplantı salonları genel tüketim,genel
+Panther_office_Christian,Kongre Merkezi,operasyon,public,Catering Mutfağı,Catering mutfağı genel tüketim,genel
+Hog_industrial_Jay,Üniversite Kampüsü,kurumsal,education,Teknik Atölye,Teknik atölye PLC hattı,plc
+Bull_education_Kristal,Üniversite Kampüsü,kurumsal,education,Mühendislik Fakültesi,Laboratuvar basınçlı hava kompresörü,kompresor
+Fox_education_Virgil,Üniversite Kampüsü,kurumsal,education,Fen Fakültesi,Fakülte binası genel tüketim,genel
+Fox_education_Ashli,Üniversite Kampüsü,kurumsal,education,Kütüphane,Kütüphane iklimlendirme,klima
+Gator_office_Betty,Üniversite Kampüsü,kurumsal,education,Rektörlük,Rektörlük genel tüketim,genel
+Panther_education_Emily,Üniversite Kampüsü,kurumsal,education,Öğrenci Yurdu,Yurt genel tüketim,genel

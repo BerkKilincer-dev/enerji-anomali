@@ -168,6 +168,33 @@ Operators mark events as `confirmed`, `false_alarm` or `planned` (`POST /anomali
 planned are 0, and the latest verdict wins. `python -m src.models.train --source db` trains on
 LEAD labels plus this feedback.
 
+### Demo tenants
+
+`data/meter_catalog.csv` turns the 30 LEAD buildings with anomalies into five demo
+customers. Each row maps one building to a tenant, its plan, a segment, the location used as
+the building name, an asset and the asset's equipment type. An optional
+`tariff_tl_per_kwh` column sets the building tariff; without it `TARIFF_TL_PER_KWH` applies.
+
+```bash
+python -m src.data.catalog [--file data/meter_catalog.csv]
+```
+
+The catalog is checked first (columns, equipment types from the `core.assets` CHECK,
+segments, one plan per tenant, no repeated location within a tenant) and every building must
+already be loaded; otherwise nothing is written. The run then registers the tenants with their
+plan, sets each building's tenant, name and segment without touching its location or weather,
+creates one asset per building (`zone` for `genel`, `machine` for the rest) and points the
+building's main meter at it. With `DEMO_TENANT_PASSWORD` set, every tenant gets a demo user
+`<tenant name in ASCII>@enerji.local`, e.g. `otel@enerji.local`; the role follows the plan:
+
+| Plan | Role |
+|---|---|
+| `izleme` | `viewer` |
+| `operasyon`, `analiz`, `uzman`, `kurumsal` | `operator` |
+
+The plan is stored on the tenant only; no feature is gated by it yet. Running the command again
+updates the same rows and keeps existing passwords.
+
 ## Weather and seasonality
 
 Load depends on outdoor temperature through heating and cooling, so features include

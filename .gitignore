@@ -2,6 +2,7 @@
 data/*
 !data/.gitkeep
 !data/splits.json
+!data/meter_catalog.csv
 mlruns/
 # models_out/ is committed: the trained model everyone uses without training.
 *.pkl

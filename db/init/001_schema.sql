@@ -126,6 +126,8 @@ CREATE TABLE IF NOT EXISTS core.assets (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_assets_building ON core.assets (building_id);
+ALTER TABLE core.assets ADD COLUMN IF NOT EXISTS equipment_type TEXT
+    CHECK (equipment_type IN ('klima', 'kompresor', 'aydinlatma', 'sogutma', 'plc', 'genel'));
 
 -- Physical meters; readings hold the main meter of each building, submeters come later.
 CREATE TABLE IF NOT EXISTS core.meters (
