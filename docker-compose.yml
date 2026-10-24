@@ -88,21 +88,18 @@ services:
     profiles: ["live"]
     command: ["python", "-m", "src.ingest.mqtt_ingest"]
 
-  frontend:
-    image: node:22.23.2-alpine
-    working_dir: /app
+  dashboard:
+    build: ./dashboard
     environment:
-      VITE_API_URL: http://localhost:8000
-    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
+      API_URL: http://api:8000
     ports:
-      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:5173:8501"
     volumes:
-      - ./frontend:/app
-      - frontend_modules:/app/node_modules
+      - ./dashboard:/app
     depends_on:
       - api
+    restart: unless-stopped
 
 volumes:
   dbdata:
   datacache:
-  frontend_modules:

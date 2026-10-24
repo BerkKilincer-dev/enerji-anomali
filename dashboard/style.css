@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, .stApp, [class*="css"] { font-family: 'Inter', sans-serif; }
+.stApp { background: #F4F7FC; }
+header[data-testid="stHeader"] { background: transparent; }
+.block-container { padding-top: 1.5rem; max-width: 1500px; }
+
+/* ---------- Sol menü ---------- */
+[data-testid="stSidebar"] { background: #0F172A; }
+[data-testid="stSidebar"] * { color: #E2E8F0; }
+
+.brand { display: flex; align-items: center; gap: 10px; padding: 8px 4px 22px; }
+.brand .bolt { font-size: 30px; }
+.brand-name { font-size: 20px; font-weight: 700; color: #FFFFFF; }
+.brand-sub { font-size: 12px; color: #94A3B8; }
+
+
+[data-testid="stSidebar"] [data-baseweb="select"],
+[data-testid="stSidebar"] [data-baseweb="select"] * {
+  background: #1E293B !important; color: #E2E8F0 !important;
+  -webkit-text-fill-color: #E2E8F0 !important; border-color: #334155 !important;
+}
+[data-testid="stSidebar"] [data-baseweb="select"] svg { fill: #E2E8F0 !important; }
+
+[data-testid="stSidebar"] .stButton button {
+  background: transparent; border: 1px solid #334155; color: #E2E8F0; border-radius: 10px; width: 100%;
+}
+[data-testid="stSidebar"] .stButton button:hover { background: #1E293B; border-color: #475569; }
+
+/* ---------- Üst bar ---------- */
+.hello { font-size: 26px; font-weight: 700; color: #0F172A; line-height: 1.2; }
+.hello-sub { color: #475569; font-size: 14px; margin-top: 2px; }
+.chip { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+.bell {
+  position: relative; width: 42px; height: 42px; background: #FFFFFF; border: 1px solid #E2E8F0;
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+}
+.bell b {
+  position: absolute; top: -6px; right: -6px; background: #EF4444; color: #FFFFFF; font-size: 11px;
+  border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+}
+.avatar {
+  width: 42px; height: 42px; border-radius: 50%; background: #0F172A; color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.who { line-height: 1.2; }
+.who .n { font-size: 13px; font-weight: 600; color: #0F172A; }
+.who .r { font-size: 11px; color: #64748B; }
+
+/* ---------- KPI kartları ---------- */
+.kpi {
+  background: #FFFFFF; border: 1px solid #E8EDF5; border-radius: 16px; padding: 20px 22px;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, .06); height: 100%;
+}
+.kpi-icon {
+  width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 22px; margin-bottom: 12px;
+}
+.kpi-icon.blue { background: #E0EAFF; }
+.kpi-icon.orange { background: #FEF0D6; }
+.kpi-icon.red { background: #FDE4E4; }
+.kpi-icon.green { background: #DCF5EA; }
+.kpi-title { font-size: 14px; font-weight: 600; color: #1E293B; }
+.kpi-value { font-size: 30px; font-weight: 700; color: #0F172A; margin: 4px 0; }
+.kpi-sub { font-size: 13px; color: #64748B; }
+.kpi-sub .down { color: #10B981; font-weight: 600; }
+.kpi-sub .up { color: #EF4444; font-weight: 600; }
+
+/* ---------- Tarih kutusu ---------- */
+.daterange {
+  background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;
+  font-size: 13px; color: #1E293B; text-align: center; margin-top: 2px;
+}
+
+/* ---------- Ana grafik kartı ---------- */
+.st-key-chart_card, [class*="st-key-card_"] {
+  background: #FFFFFF; border: 1px solid #E8EDF5; border-radius: 16px; padding: 20px 22px;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, .06);
+}
+.card-title { font-size: 17px; font-weight: 700; color: #0F172A; padding-top: 6px; }
+.legend { display: flex; gap: 20px; font-size: 12px; color: #475569; margin: 2px 0 6px; flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.legend .ln { width: 16px; border-top: 2px dashed #94A3B8; display: inline-block; }
+
+.stAppDeployButton { display: none; }
+
+/* ---------- Son anomaliler paneli ---------- */
+.an-panel { background: #FFF1F1; border: 1px solid #FBD5D5; border-radius: 16px; padding: 18px 18px 8px; }
+.an-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.an-title { font-size: 17px; font-weight: 700; color: #0F172A; }
+.an-all { font-size: 12px; color: #EF4444; font-weight: 600; }
+.an-list { max-height: 415px; overflow-y: auto; padding-right: 4px; }
+.an-item { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid #F8DCDC; }
+.an-item:first-child { border-top: none; }
+.an-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
+.an-body { flex: 1; min-width: 0; }
+.an-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.badge { color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 6px; }
+.an-time { font-size: 11px; color: #64748B; }
+.an-name { font-size: 14px; font-weight: 700; color: #0F172A; margin: 6px 0 2px; }
+.an-desc { font-size: 12px; color: #475569; line-height: 1.4; }
+.an-cost { font-size: 12px; color: #475569; margin-top: 4px; }
+.an-cost b { color: #EF4444; }
+.an-chev { color: #94A3B8; font-size: 18px; align-self: center; }
+.an-empty { padding: 18px 0 14px; color: #475569; font-size: 14px; }
+.sev-high { background: #EF4444; }
+.sev-mid { background: #F59E0B; }
+.sev-low { background: #10B981; }
+.sev-data { background: #64748B; }
+
+/* ---------- Alt kartlar ---------- */
+.lg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; padding: 5px 0; }
+.lg-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.lg-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-v { font-weight: 600; color: #0F172A; white-space: nowrap; }
+
+.br { margin: 10px 0 14px; }
+.br-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 5px; }
+.br-n { color: #334155; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-v { color: #0F172A; font-weight: 600; white-space: nowrap; }
+.br-v em { color: #64748B; font-style: normal; font-weight: 500; margin-left: 8px; }
+.br-bar { height: 7px; background: #EEF2F7; border-radius: 99px; overflow: hidden; }
+.br-bar i { display: block; height: 100%; border-radius: 99px; }
+
+/* ---------- Menü (düğmeler) ---------- */
+.st-key-nav { gap: 0.25rem; }
+[data-testid="stSidebar"] .st-key-nav .stButton button {
+  width: 100%; justify-content: flex-start; background: transparent; border: none;
+  box-shadow: none; color: #E2E8F0; padding: 10px 14px; border-radius: 10px;
+}
+[data-testid="stSidebar"] .st-key-nav .stButton button p { text-align: left; font-size: 14px; }
+[data-testid="stSidebar"] .st-key-nav .stButton button:hover { background: #1E293B; color: #FFFFFF; }
+[data-testid="stSidebar"] .st-key-nav [data-testid="stBaseButton-primary"],
+[data-testid="stSidebar"] .st-key-nav .stButton button[kind="primary"] {
+  background: #2563EB; color: #FFFFFF; font-weight: 600;
+}
+[data-testid="stSidebar"] .st-key-nav [data-testid="stBaseButton-primary"]:hover { background: #1D4ED8; }
+.st-key-nav_anomali button p::after {
+  background: #EF4444; color: #FFFFFF; border-radius: 99px; padding: 1px 8px;
+  font-size: 11px; font-weight: 600; margin-left: 10px;
+}
+
+/* ---------- Eşit yükseklik ve durum çubuğu ---------- */
+.st-key-card_dagilim, .st-key-card_bina, .st-key-card_uyari { min-height: 400px; }
+.statusbar {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  font-size: 12px; color: #64748B; padding: 6px 4px;
+}
+.st-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #10B981; margin-right: 8px; }
+.st-dot.off { background: #EF4444; }
