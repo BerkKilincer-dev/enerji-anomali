@@ -1,6 +1,7 @@
 import base64
 import html
 import io
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 import time
+import matplotlib.dates as mdates
 
 from datetime import datetime, timedelta, timezone
 from reports import collect, to_csv, to_pdf, to_xlsx
@@ -134,6 +136,20 @@ def report_data(_api, user_id, items, hours, tariff):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi karışmasın.
     return collect(_api, dict(items), hours, tariff)
 
+@st.cache_data(ttl=300, show_spinner="Karşılaştırma verisi yükleniyor...")
+def readings_multi(_api, user_id, ids, hours):
+    # user_id önbellek anahtarında: farklı kullanıcıların verisi karışmasın.
+    out = {}
+    for i in ids:
+        try:
+            df = pd.DataFrame(_api.readings(i, hours))
+        except ApiError:
+            continue
+        if df.empty:
+            continue
+        df["ts"] = pd.to_datetime(df["ts"], utc=True)
+        out[i] = df[["ts", "kwh"]]
+    return out
 
 # ---------- Giriş ----------
 if "api" not in st.session_state:
@@ -417,6 +433,102 @@ if st.session_state.sayfa == "tuketim":
         unsafe_allow_html=True,
     )
     st.write("")
+
+    PAL = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"]
+    bmap = {b["building_id"]: b for b in buildings}
+    ilk3 = [b["building_id"] for b in sorted(buildings, key=lambda b: b["anomaly_count"], reverse=True)[:3]]
+
+    k1, k2, k3 = st.columns([3, 1.2, 1.2])
+    secili = k1.multiselect(
+        "Karşılaştırılacak binalar (en fazla 5)", ids, default=ilk3, max_selections=5,
+        format_func=lambda i: names[i], key="kars_bina",
+    )
+    donem_k = k2.selectbox("Dönem", ["Son 24 saat", "Son 7 gün", "Son 30 gün"], index=1, key="kars_donem")
+    esitle = k3.toggle("Ölçeği eşitle", key="kars_esitle", help="Her binanın ortalaması 100 olacak şekilde gösterir; farklı büyüklükteki binaları kıyaslamak için.")
+    k_hours = {"Son 24 saat": 24, "Son 7 gün": 168, "Son 30 gün": 720}[donem_k]
+
+    if not secili:
+        st.info("Karşılaştırmak için en az bir bina seç.")
+    else:
+        veri = readings_multi(api, me["user_id"], tuple(secili), k_hours)
+        if not veri:
+            st.info("Seçilen binalar için bu dönemde veri yok.")
+        else:
+            saatlik = k_hours == 24
+            c_sol, c_sag = st.columns([2, 1])
+
+            with c_sol:
+                with st.container(key="card_kars_cizgi"):
+                    st.markdown(
+                        f'<div class="card-title">Tüketim karşılaştırması'
+                        f'{" (ortalama = 100)" if esitle else " (kWh)"}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    fig, ax = plt.subplots(figsize=(9, 3.8))
+                    fig.patch.set_alpha(0)
+                    ax.set_facecolor("none")
+                    for renk, i in zip(PAL, secili):
+                        if i not in veri:
+                            continue
+                        s = veri[i].set_index("ts")["kwh"].resample("h" if saatlik else "D").sum()
+                        if not saatlik and len(s) > 2:
+                            s = s.iloc[1:]  # ilk gün kısmi olduğu için düşük görünür
+                        if esitle and s.mean():
+                            s = s / s.mean() * 100
+                        ax.plot(s.index, s.values, color=renk, lw=2, label=names[i])
+                    for k in ("top", "right"):
+                        ax.spines[k].set_visible(False)
+                    for k in ("left", "bottom"):
+                        ax.spines[k].set_color("#E2E8F0")
+                    ax.grid(axis="y", color="#EEF2F7")
+                    ax.tick_params(colors="#64748B", labelsize=9)
+                    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M" if saatlik else "%d.%m"))
+                    ax.legend(frameon=False, fontsize=9, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3)
+                    st.pyplot(fig, use_container_width=True)
+                    plt.close(fig)
+
+            toplam = {i: float(veri[i]["kwh"].sum()) for i in secili if i in veri}
+            with c_sag:
+                with st.container(key="card_kars_bar"):
+                    st.markdown('<div class="card-title">Toplam tüketim (kWh)</div>', unsafe_allow_html=True)
+                    sirali_k = sorted(toplam.items(), key=lambda x: x[1])
+                    fig, ax = plt.subplots(figsize=(4.2, 3.8))
+                    fig.patch.set_alpha(0)
+                    ax.set_facecolor("none")
+                    renk_map = {i: PAL[n] for n, i in enumerate(secili)}
+                    yazi = [names[i][:18] for i, _ in sirali_k]
+                    ax.barh(yazi, [v for _, v in sirali_k], color=[renk_map[i] for i, _ in sirali_k], height=0.6)
+                    for n, (_, v) in enumerate(sirali_k):
+                        ax.text(v, n, " " + f"{v:,.0f}".replace(",", "."), va="center", fontsize=9, color="#0F172A")
+                    ax.set_xlim(0, max(toplam.values()) * 1.25)
+                    for k in ("top", "right", "bottom"):
+                        ax.spines[k].set_visible(False)
+                    ax.spines["left"].set_color("#E2E8F0")
+                    ax.set_xticks([])
+                    ax.tick_params(colors="#475569", labelsize=9)
+                    st.pyplot(fig, use_container_width=True)
+                    plt.close(fig)
+
+            st.write("")
+            with st.container(key="card_kars_tablo"):
+                st.markdown('<div class="card-title">Karşılaştırma tablosu</div>', unsafe_allow_html=True)
+                satirlar = []
+                for i in secili:
+                    if i not in toplam:
+                        continue
+                    n_saat = max(veri[i]["ts"].nunique(), 1)
+                    satirlar.append(
+                        {
+                            "Bina": names[i],
+                            "Kullanım": bmap[i]["primary_use"] or "-",
+                            "Toplam (kWh)": round(toplam[i], 1),
+                            "Saatlik ort. (kWh)": round(toplam[i] / n_saat, 2),
+                            "Tahmini maliyet (TL)": round(toplam[i] * TARIFF_TL, 2),
+                            "Anomali (toplam)": bmap[i]["anomaly_count"],
+                        }
+                    )
+                st.dataframe(pd.DataFrame(satirlar), use_container_width=True, hide_index=True)
+            st.write("")
     with st.container(key="card_binalar"):
         st.markdown('<div class="card-title">Binalar</div>', unsafe_allow_html=True)
         df = pd.DataFrame(
