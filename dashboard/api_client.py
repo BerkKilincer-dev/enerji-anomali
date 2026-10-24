@@ -1,4 +1,5 @@
 import os
+
 import requests
 
 API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
@@ -32,7 +33,7 @@ class Api:
 
     def logout(self):
         return self._req("POST", "/auth/logout")
-    
+
     def health(self):
         return self._req("GET", "/health")
 
@@ -50,3 +51,6 @@ class Api:
 
     def anomalies(self, bid, limit=50):
         return self._req("GET", "/anomalies", params={"building_id": bid, "limit": limit})
+
+    def feedback(self, anomaly_id, verdict):
+        return self._req("POST", f"/anomalies/{anomaly_id}/feedback", json={"verdict": verdict})

@@ -11,6 +11,7 @@ GUN = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 def tr_tarih(d):
     return f"{d.day} {AY[d.month - 1]} {d.year}"
 
+
 def tr_tarih_saat(d):
     return f"{d.day} {AY[d.month - 1]} {d.year} {d:%H:%M}"
 
@@ -55,7 +56,7 @@ def build_events(cur, forecast, anomalies):
 
 
 def consumption_chart(cur, forecast, events, aralik):
-    fig, ax = plt.subplots(figsize=(9, 3.8))
+    fig, ax = plt.subplots(figsize=(9, 3.9))
     fig.patch.set_alpha(0)
     ax.set_facecolor("none")
 
@@ -95,7 +96,8 @@ def consumption_chart(cur, forecast, events, aralik):
     fig.tight_layout()
     return fig
 
-def donut_chart(values, colors, center_top, center_bottom, size=3.0):
+
+def donut_chart(values, colors, center_top, center_bottom, size=2.2):
     fig, ax = plt.subplots(figsize=(size, size))
     fig.patch.set_alpha(0)
     if sum(values) <= 0:
@@ -104,8 +106,8 @@ def donut_chart(values, colors, center_top, center_bottom, size=3.0):
         values, colors=colors, startangle=90, counterclock=False,
         wedgeprops=dict(width=0.32, edgecolor="white", linewidth=2),
     )
-    ax.text(0, 0.08, center_top, ha="center", va="center", fontsize=13, fontweight="bold", color="#0F172A")
-    ax.text(0, -0.17, center_bottom, ha="center", va="center", fontsize=9, color=GRAY)
+    ax.text(0, 0.1, center_top, ha="center", va="center", fontsize=12, fontweight="bold", color="#0F172A")
+    ax.text(0, -0.2, center_bottom, ha="center", va="center", fontsize=8, color=GRAY)
     ax.set(aspect="equal")
     fig.tight_layout(pad=0)
     return fig
