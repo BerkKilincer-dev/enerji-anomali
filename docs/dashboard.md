@@ -23,7 +23,7 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 
 | File | Role |
 |---|---|
-| `app.py` | login, sidebar and the pages: Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar |
+| `app.py` | login, sidebar and the pages: Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar (account, weekly operating hours, planned downtime; editing needs operator or admin) |
 | `api_client.py` | API client; one `requests.Session` per signed-in user keeps the cookie |
 | `charts.py` | consumption and donut charts, Turkish date formats |
 | `reports.py` | report data and the CSV, Excel and PDF exports |

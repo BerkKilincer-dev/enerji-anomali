@@ -23,6 +23,8 @@ class Api:
         if not r.ok:
             try:
                 detail = r.json().get("detail", r.reason)
+                if isinstance(detail, list):  # 422 doğrulama hataları liste döner
+                    detail = "; ".join(d.get("msg", str(d)) if isinstance(d, dict) else str(d) for d in detail)
             except Exception:
                 detail = r.reason
             raise ApiError(r.status_code, str(detail))
@@ -55,5 +57,24 @@ class Api:
     def anomalies(self, bid, limit=50):
         return self._req("GET", "/anomalies", params={"building_id": bid, "limit": limit})
 
-    def feedback(self, anomaly_id, verdict):
-        return self._req("POST", f"/anomalies/{anomaly_id}/feedback", json={"verdict": verdict})
+    def operating_hours(self, bid):
+        return self._req("GET", f"/buildings/{bid}/operating-hours")
+
+    def set_operating_hours(self, bid, periods):
+        # periods: [{"weekday": 1-7, "opens": "HH:MM", "closes": "HH:MM"}]; boş liste takvimi siler.
+        return self._req("PUT", f"/buildings/{bid}/operating-hours", json=periods)
+
+    def downtime(self, bid):
+        return self._req("GET", f"/buildings/{bid}/downtime")
+
+    def add_downtime(self, bid, starts_at, ends_at, kind, note=None):
+        # Zamanlar bina yerel saati, offset'siz ISO.
+        body = {"starts_at": starts_at, "ends_at": ends_at, "kind": kind, **({"note": note} if note else {})}
+        return self._req("POST", f"/buildings/{bid}/downtime", json=body)
+
+    def delete_downtime(self, bid, downtime_id):
+        return self._req("DELETE", f"/buildings/{bid}/downtime/{downtime_id}")
+
+    def feedback(self, anomaly_id, verdict, note=None):
+        body = {"verdict": verdict, **({"note": note} if note else {})}
+        return self._req("POST", f"/anomalies/{anomaly_id}/feedback", json=body)

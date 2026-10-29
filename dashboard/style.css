@@ -382,3 +382,6 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
   font-weight: 500;
   justify-content: space-between;
 }
+/* Grafik lejantı: çalışma dışı ve planlı duruş bantları */
+.legend .sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+.legend .sw.hatch { border: 1px solid var(--c); background: repeating-linear-gradient(45deg, var(--c) 0 1.5px, transparent 1.5px 4px); opacity: .8; }

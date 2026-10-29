@@ -3,6 +3,7 @@ import html
 import io
 import time
 from datetime import datetime, timedelta, timezone
+from datetime import time as dtime
 from pathlib import Path
 
 import matplotlib.dates as mdates
@@ -10,7 +11,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 from api_client import API_URL, Api, ApiError
-from charts import build_events, consumption_chart, donut_chart, tr_tarih, tr_tarih_saat
+from charts import (
+    DURUS_RENK,
+    KAPALI,
+    KAPALI_MAX_GUN,
+    build_events,
+    closed_spans,
+    consumption_chart,
+    donut_chart,
+    open_spans,
+    tr_tarih,
+    tr_tarih_saat,
+)
 from icons import LOGO, sidebar_css, svg
 
 from reports import collect, to_csv, to_pdf, to_xlsx
@@ -118,6 +130,101 @@ def bar_rows(items):
     )
 
 
+GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+DURUS = {"holiday": ("🏖️ Tatil", "blue"), "maintenance": ("🔧 Bakım", "mid"), "shutdown": ("⏸️ Duruş", "data")}
+
+
+def _vardiya(gunler, *araliklar):
+    return [(g, dtime.fromisoformat(a), dtime.fromisoformat(k)) for g in gunler for a, k in araliklar]
+
+
+SABLON = {
+    "Hafta içi 08:00–18:00": _vardiya(range(1, 6), ("08:00", "18:00")),
+    "Hafta içi 2 vardiya (06:00–22:00)": _vardiya(range(1, 6), ("06:00", "14:00"), ("14:00", "22:00")),
+    "Pzt–Cmt 2 vardiya (06:00–22:00)": _vardiya(range(1, 7), ("06:00", "14:00"), ("14:00", "22:00")),
+    "7/24, 3 vardiya": _vardiya(range(1, 8), ("00:00", "08:00"), ("08:00", "16:00"), ("16:00", "00:00")),
+    "Boş takvim": [],
+}
+
+
+def saatleri_dogrula(df):
+    """Tablodaki satırları API biçimine çevirir; (hata, periyotlar) döner."""
+    satirlar = df.dropna(how="all")
+    if satirlar.isna().any().any():
+        return "Her satırda gün, açılış ve kapanış dolu olmalı.", None
+    def hhmm(v):
+        # Boş başlayan tabloda yeni satırlar metin ("18:25:00") döner, şablondan gelenler time nesnesi.
+        if isinstance(v, str):
+            v = dtime.fromisoformat(v.strip())
+        return f"{v:%H:%M}"
+
+    try:
+        periyot = [
+            {"weekday": GUNLER.index(r["Gün"]) + 1, "opens": hhmm(r["Açılış"]), "closes": hhmm(r["Kapanış"])}
+            for _, r in satirlar.iterrows()
+        ]
+    except ValueError:
+        return "Saatler SS:DD biçiminde olmalı (örn. 08:00).", None
+
+    # API ile aynı kural: haftalık çemberde saniye; her periyot bir sonrakinin başlangıcından önce bitmeli.
+    def sn(hhmm):
+        return int(hhmm[:2]) * 3600 + int(hhmm[3:]) * 60
+
+    gun, hafta = 86_400, 7 * 86_400
+    sirali = sorted(
+        (((p["weekday"] - 1) * gun + sn(p["opens"]), (sn(p["closes"]) - sn(p["opens"])) % gun or gun, p) for p in periyot),
+        key=lambda t: t[:2],
+    )
+    for i, (bas, sure, p) in enumerate(sirali):
+        sonraki, _, q = sirali[(i + 1) % len(sirali)]
+        if bas + sure > sonraki + (hafta if i + 1 == len(sirali) else 0):
+            return (
+                f"{GUNLER[p['weekday'] - 1]} {p['opens']}–{p['closes']} vardiyası, "
+                f"{GUNLER[q['weekday'] - 1]} {q['opens']}–{q['closes']} ile çakışıyor."
+            ), None
+    return None, periyot
+
+def takvim_bantlari(api, bid, bas, bit):
+    """Grafik penceresi için açık vardiyalar, çalışma dışı ve planlı duruş bantları.
+
+    API hata verirse grafik bantsız çizilsin diye boş döner.
+    """
+    try:
+        saatler = api.operating_hours(bid)
+        duruslar = api.downtime(bid)
+    except ApiError:
+        return None, None, []
+    acik = open_spans(saatler, bas, bit) if saatler else None
+    kapali = closed_spans(acik, bas, bit) if acik is not None and bit - bas <= timedelta(days=KAPALI_MAX_GUN) else None
+    ds = []
+    for d in duruslar:
+        # Okumalarla aynı kural: bina yerel saati, UTC etiketli; kaydırma yok.
+        s, e = pd.Timestamp(d["starts_at"], tz="UTC"), pd.Timestamp(d["ends_at"], tz="UTC")
+        if e > bas and s < bit:
+            ds.append({"start": max(s, bas), "end": min(e, bit), "kind": d["kind"]})
+    return acik, kapali, ds
+
+
+def bant_lejant(kapali, duruslar):
+    parts = [f'<span><i class="sw" style="background:{KAPALI}"></i>Çalışma saatleri dışı</span>'] if kapali else []
+    for kind in dict.fromkeys(d["kind"] for d in duruslar):
+        ad, renk = DURUS_RENK.get(kind, (kind, "#64748B"))
+        parts.append(f'<span><i class="sw hatch" style="--c:{renk}"></i>Planlı {ad.lower()}</span>')
+    return "".join(parts)
+
+
+def mesai_disi(df, acik):
+    """Çalışma saatleri dışındaki tüketim (kWh, toplam içindeki pay); takvim yoksa None."""
+    if not acik or df.empty:
+        return None
+    icerde = pd.Series(False, index=df.index)
+    for s, e in acik:
+        icerde |= (df["ts"] >= s) & (df["ts"] < e)
+    toplam = float(df["kwh"].sum())
+    dis = float(df.loc[~icerde, "kwh"].sum())
+    return dis, (dis / toplam * 100 if toplam else 0.0)
+
+
 @st.cache_data(ttl=600, show_spinner="Binalar yükleniyor...")
 def kwh_by_building(_api, user_id, ids, hours):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi birbirine karışmasın.
@@ -152,6 +259,10 @@ def readings_multi(_api, user_id, ids, hours):
 # ---------- Giriş ----------
 if "api" not in st.session_state:
     st.session_state.api = Api()
+elif not isinstance(st.session_state.api, Api):
+    # api_client.py değişince Streamlit modülü yeniden yükler; eski nesneyi
+    # yeni sınıfa bağla ki yeni metotlar görünsün ve oturum cookie'si kalsın.
+    st.session_state.api.__class__ = Api
 api = st.session_state.api
 
 if "me" not in st.session_state:
@@ -334,9 +445,12 @@ if st.session_state.sayfa == "anomali":
     KAT = {"waste": ("İsraf", "mid"), "data_issue": ("Veri sorunu", "data")}
     VER = {"confirmed": ("Onaylandı", "low"), "false_alarm": ("Yanlış alarm", "data"), "planned": ("Planlı", "blue")}
 
-    def gonder(aid, verdict):
+    def gonder(aid, verdict, not_key=None):
+        note = (st.session_state.get(not_key) or "").strip() if not_key else ""
         try:
-            api.feedback(aid, verdict)
+            api.feedback(aid, verdict, note or None)
+            if not_key:
+                st.session_state[not_key] = ""
             st.session_state.fb_msg = ("ok", "Geri bildirim kaydedildi.")
         except ApiError as e:
             st.session_state.fb_msg = ("err", f"Kaydedilemedi: {e}")
@@ -412,7 +526,13 @@ if st.session_state.sayfa == "anomali":
                 st.info("Bu anomali için ölçüm verisi bulunamadı.")
             else:
                 ev = build_events(pencere, tah_p, [a])
-                fig = consumption_chart(pencere, tah_p, ev, "Hafta")
+                _, kapali_p, durus_p = takvim_bantlari(
+                    api, bid, pencere["ts"].min(), pencere["ts"].max() + timedelta(hours=1)
+                )
+                lejant = bant_lejant(kapali_p, durus_p)
+                if lejant:
+                    st.markdown(f'<div class="legend">{lejant}</div>', unsafe_allow_html=True)
+                fig = consumption_chart(pencere, tah_p, ev, "Hafta", kapali_p, durus_p)
                 st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
 
@@ -424,11 +544,31 @@ if st.session_state.sayfa == "anomali":
                 + (f'<div class="an-advice">💡 {html.escape(a["advice"])}</div>' if a["advice"] else ""),
                 unsafe_allow_html=True,
             )
-            if yazabilir:
+
+        st.write("")
+        with st.container(key="card_detay_geri"):
+            st.markdown('<div class="card-title">Değerlendirme</div>', unsafe_allow_html=True)
+            # API şimdilik notu döndürmüyor; alan eklenince burada görünür.
+            if a.get("note"):
+                st.markdown(f'<div class="an-desc">💬 {html.escape(a["note"])}</div>', unsafe_allow_html=True)
+            if not yazabilir:
+                st.caption("Değerlendirme yapmak için operatör veya yönetici rolü gerekir.")
+            else:
+                if v:
+                    st.caption(f"Mevcut karar: {v[0]}. Yeni bir karar verirseniz son karar geçerli olur.")
+                nk = f"d_not_{a['id']}"
+                st.text_area(
+                    "Not (isteğe bağlı)", key=nk, max_chars=1000, height=90,
+                    placeholder="Örn. kompresör arızası, bakım ekibine iletildi.",
+                )
                 b1, b2, b3, _ = st.columns([1, 1.3, 1, 3])
-                b1.button("✅ Onayla", key=f"d_ok_{a['id']}", on_click=gonder, args=(a["id"], "confirmed"))
-                b2.button("🚫 Yanlış alarm", key=f"d_fa_{a['id']}", on_click=gonder, args=(a["id"], "false_alarm"))
-                b3.button("📅 Planlı", key=f"d_pl_{a['id']}", on_click=gonder, args=(a["id"], "planned"))
+                for col, kod, etiket in (
+                    (b1, "confirmed", "✅ Onayla"), (b2, "false_alarm", "🚫 Yanlış alarm"), (b3, "planned", "📅 Planlı"),
+                ):
+                    col.button(
+                        etiket, key=f"d_{kod}_{a['id']}", on_click=gonder, args=(a["id"], kod, nk),
+                        type="primary" if a["verdict"] == kod else "secondary",
+                    )
         st.stop()
 
     bekleyen = sum(1 for a in tum if a["verdict"] is None)
@@ -486,15 +626,20 @@ if st.session_state.sayfa == "anomali":
             b0, b1, b2, b3, _ = st.columns([1, 1, 1.3, 1, 2])
             b0.button("🔍 Detay", key=f"dt_{a['id']}", on_click=ac_detay, args=(a["id"],))
             if yazabilir:
-                b1.button("✅ Onayla", key=f"ok_{a['id']}", on_click=gonder, args=(a["id"], "confirmed"))
-                b2.button("🚫 Yanlış alarm", key=f"fa_{a['id']}", on_click=gonder, args=(a["id"], "false_alarm"))
-                b3.button("📅 Planlı", key=f"pl_{a['id']}", on_click=gonder, args=(a["id"], "planned"))
+                for col, kod, etiket in (
+                    (b1, "confirmed", "✅ Onayla"), (b2, "false_alarm", "🚫 Yanlış alarm"), (b3, "planned", "📅 Planlı"),
+                ):
+                    col.button(
+                        etiket, key=f"{kod}_{a['id']}", on_click=gonder, args=(a["id"], kod),
+                        type="primary" if a["verdict"] == kod else "secondary",
+                    )
     st.stop()
 
 # ---------- Ayarlar sayfası ----------
 if st.session_state.sayfa == "ayar":
     st.markdown(
-        '<div class="hello">Ayarlar</div><div class="hello-sub">Hesap ve bağlantı bilgileri</div>',
+        '<div class="hello">Ayarlar</div>'
+        f'<div class="hello-sub">Hesap bilgileri · {html.escape(names[bid])} için çalışma saatleri ve planlı duruşlar</div>',
         unsafe_allow_html=True,
     )
     st.write("")
@@ -509,6 +654,159 @@ if st.session_state.sayfa == "ayar":
             f'<span>{num(tarife[bid], 2)} TL/kWh</span></div>',
             unsafe_allow_html=True,
         )
+
+    yazabilir = me["role"] in ("admin", "operator")
+    msg = st.session_state.pop("ayar_msg", None)
+    if msg:
+        (st.success if msg[0] == "ok" else st.error)(msg[1])
+
+    # --- Çalışma saatleri ---
+    st.write("")
+    with st.container(key="card_saatler"):
+        st.markdown('<div class="card-title">Çalışma saatleri (vardiyalar)</div>', unsafe_allow_html=True)
+        st.caption(
+            "Model, bu saatlerin dışındaki tüketimi daha sıkı izler. Kapanış saati açılıştan önceyse "
+            "(örn. 22:00 → 06:00) vardiya gece yarısını geçer."
+        )
+        try:
+            kayitli = [
+                (h["weekday"], dtime.fromisoformat(h["opens"]), dtime.fromisoformat(h["closes"]))
+                for h in api.operating_hours(bid)
+            ]
+        except ApiError as e:
+            st.error(f"Çalışma saatleri alınamadı: {e}")
+            kayitli = None
+
+        if kayitli is not None:
+            ver = st.session_state.get("saat_ver", 0)
+            taslak = st.session_state.get("saat_taslak")
+            satirlar = taslak[1] if taslak and taslak[0] == bid else kayitli
+            if taslak and taslak[0] == bid:
+                st.info("Şablon uygulandı; kalıcı olması için Kaydet'e basın.")
+
+            df = pd.DataFrame(
+                [{"Gün": GUNLER[g - 1], "Açılış": a, "Kapanış": k} for g, a, k in satirlar],
+                columns=["Gün", "Açılış", "Kapanış"],
+            )
+            duzen = st.data_editor(
+                df,
+                key=f"saat_{bid}_{ver}",
+                num_rows="dynamic" if yazabilir else "fixed",
+                disabled=not yazabilir,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Gün": st.column_config.SelectboxColumn(options=GUNLER, required=True),
+                    "Açılış": st.column_config.TimeColumn(format="HH:mm", step=900, required=True),
+                    "Kapanış": st.column_config.TimeColumn(format="HH:mm", step=900, required=True),
+                },
+            )
+            if duzen.empty:
+                st.caption("Tanımlı çalışma saati yok.")
+
+            if yazabilir:
+                c1, c2, c3, _ = st.columns([2.2, 1, 1, 1.5])
+                sablon = c1.selectbox("Şablon", list(SABLON), label_visibility="collapsed", key="saat_sablon")
+                if c2.button("Şablonu uygula", key="saat_uygula"):
+                    st.session_state.saat_taslak = (bid, SABLON[sablon])
+                    st.session_state.saat_ver = ver + 1
+                    st.rerun()
+                if c3.button("💾 Kaydet", key="saat_kaydet", type="primary"):
+                    hata, periyot = saatleri_dogrula(duzen)
+                    if hata:
+                        st.error(hata)
+                    else:
+                        try:
+                            api.set_operating_hours(bid, periyot)
+                            st.session_state.ayar_msg = ("ok", "Çalışma saatleri kaydedildi.")
+                            st.session_state.pop("saat_taslak", None)
+                            st.session_state.saat_ver = ver + 1
+                            st.rerun()
+                        except ApiError as e:
+                            st.error(f"Kaydedilemedi: {e}")
+
+    # --- Planlı duruşlar ---
+    st.write("")
+    with st.container(key="card_durus"):
+        st.markdown('<div class="card-title">Planlı duruşlar</div>', unsafe_allow_html=True)
+        st.caption("Tatil, bakım ve duruş dönemlerindeki düşük tüketim anomali sayılmaz.")
+        try:
+            duruslar = api.downtime(bid)
+        except ApiError as e:
+            st.error(f"Duruşlar alınamadı: {e}")
+            duruslar = None
+
+        if duruslar is not None:
+            # Zamanlar bina yerel saati; karşılaştırma için şimdiki zamanı da o saate çeviriyoruz.
+            tz = next((b["timezone"] for b in buildings if b["building_id"] == bid), "UTC")
+            simdi = pd.Timestamp.now(tz=tz).tz_localize(None)
+            gelecek = [d for d in duruslar if pd.Timestamp(d["ends_at"]) >= simdi]
+            gecmis = [d for d in duruslar if pd.Timestamp(d["ends_at"]) < simdi]
+
+            def sil_iste(did):
+                st.session_state.sil_onay = did
+
+            def sil(did):
+                st.session_state.pop("sil_onay", None)
+                try:
+                    api.delete_downtime(bid, did)
+                    st.session_state.ayar_msg = ("ok", "Duruş silindi.")
+                except ApiError as e:
+                    st.session_state.ayar_msg = ("err", f"Silinemedi: {e}")
+
+            def durus_html(d):
+                ad, ton = DURUS.get(d["kind"], (d["kind"], "data"))
+                bas, bit = pd.Timestamp(d["starts_at"]), pd.Timestamp(d["ends_at"])
+                aktif = bas <= simdi
+                return (
+                    f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>'
+                    + ('<span class="badge sev-low">Devam ediyor</span>' if aktif else "")
+                    + f'<span class="an-time">{tr_tarih_saat(bas)} → {tr_tarih_saat(bit)}</span></div>'
+                    + (f'<div class="an-desc">{html.escape(d["note"])}</div>' if d["note"] else "")
+                )
+
+            if not gelecek:
+                st.caption("Yaklaşan veya devam eden planlı duruş yok.")
+            for d in gelecek:
+                sol, sag = st.columns([5, 1.4], vertical_alignment="center")
+                sol.markdown(durus_html(d), unsafe_allow_html=True)
+                if not yazabilir:
+                    continue
+                if st.session_state.get("sil_onay") == d["id"]:
+                    sag.button("Evet, sil", key=f"sil_ok_{d['id']}", type="primary", on_click=sil, args=(d["id"],))
+                    sag.button("Vazgeç", key=f"sil_no_{d['id']}", on_click=sil_iste, args=(None,))
+                else:
+                    sag.button("🗑️ Sil", key=f"sil_{d['id']}", on_click=sil_iste, args=(d["id"],))
+
+            if gecmis:
+                with st.expander(f"Geçmiş duruşlar ({len(gecmis)})"):
+                    for d in reversed(gecmis):
+                        st.markdown(durus_html(d), unsafe_allow_html=True)
+
+            if yazabilir:
+                st.write("")
+                with st.form("durus_ekle", clear_on_submit=True):
+                    st.markdown("**Yeni duruş ekle**")
+                    tur = st.selectbox("Tür", list(DURUS), format_func=lambda k: DURUS[k][0])
+                    bugun = simdi.date()
+                    g1, g2, g3, g4 = st.columns(4)
+                    bas_g = g1.date_input("Başlangıç tarihi", value=bugun, format="DD.MM.YYYY")
+                    bas_s = g2.time_input("Başlangıç saati", value=dtime(0, 0), step=900)
+                    bit_g = g3.date_input("Bitiş tarihi", value=bugun + timedelta(days=1), format="DD.MM.YYYY")
+                    bit_s = g4.time_input("Bitiş saati", value=dtime(0, 0), step=900)
+                    not_ = st.text_input("Not (isteğe bağlı)", max_chars=500, placeholder="Örn. yıllık kompresör bakımı")
+                    if st.form_submit_button("➕ Ekle", type="primary"):
+                        bas = datetime.combine(bas_g, bas_s)
+                        bit = datetime.combine(bit_g, bit_s)
+                        if bit <= bas:
+                            st.error("Bitiş, başlangıçtan sonra olmalı.")
+                        else:
+                            try:
+                                api.add_downtime(bid, bas.isoformat(), bit.isoformat(), tur, not_.strip() or None)
+                                st.session_state.ayar_msg = ("ok", "Duruş eklendi.")
+                                st.rerun()
+                            except ApiError as e:
+                                st.error(f"Eklenemedi: {e}")
     st.stop()
 
 # ---------- Tüketim Analizi sayfası (şimdilik bina listesi) ----------
@@ -828,6 +1126,9 @@ st.write("")
 
 # ---------- Ana grafik kartı + anomali paneli ----------
 events = build_events(cur, forecast, win_anoms)
+acik, kapali, duruslar = (None, None, []) if cur.empty else takvim_bantlari(
+    api, bid, cur["ts"].min(), cur["ts"].max() + timedelta(hours=1)
+)
 pct_by_id = {e["id"]: e["pct"] for e in events}
 
 left, right = st.columns([2, 1])
@@ -850,15 +1151,24 @@ with left:
             '<div class="legend">'
             '<span><i class="dot" style="background:#2563EB"></i>Gerçekleşen Tüketim</span>'
             '<span><i class="ln"></i>Beklenen Tüketim</span>'
-            '<span><i class="dot" style="background:#EF4444"></i>Anomali</span></div>',
+            '<span><i class="dot" style="background:#EF4444"></i>Anomali</span>'
+            f'{bant_lejant(kapali, duruslar)}</div>',
             unsafe_allow_html=True,
         )
         if cur.empty:
             st.info("Bu aralıkta ölçüm yok.")
         else:
-            fig = consumption_chart(cur, forecast, events, aralik)
+            fig = consumption_chart(cur, forecast, events, aralik, kapali, duruslar)
             st.pyplot(fig, use_container_width=True)
             plt.close(fig)
+            md = mesai_disi(cur, acik)
+            if md and md[0] > 0:
+                st.caption(
+                    f"Çalışma saatleri dışında **{num(md[0])} kWh** tüketildi (toplamın %{num(md[1])}'i, "
+                    f"≈ {tl(md[0] * tarife[bid])})."
+                )
+            elif acik is None:
+                st.caption("Çalışma saatleri tanımlı değil; Ayarlar'dan vardiya ekleyerek mesai dışı tüketimi görebilirsiniz.")
 
 with right:
     st.markdown(anomaly_panel(anomalies[:8], names[bid], pct_by_id), unsafe_allow_html=True)

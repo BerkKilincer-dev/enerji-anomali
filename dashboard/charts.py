@@ -6,6 +6,11 @@ from matplotlib.ticker import FuncFormatter
 BLUE, RED, GRAY = "#2563EB", "#EF4444", "#64748B"
 AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
 GUN = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+KAPALI = "#E2E8F0"  # çalışma saatleri dışı
+# Duruş türü -> (etiket, renk)
+DURUS_RENK = {"holiday": ("Tatil", "#60A5FA"), "maintenance": ("Bakım", "#F59E0B"), "shutdown": ("Duruş", "#8B5CF6")}
+# Bu kadar günden uzun pencerede çalışma dışı bantları çizgi yığınına döner; çizilmez.
+KAPALI_MAX_GUN = 45
 
 
 def tr_tarih(d):
@@ -22,6 +27,46 @@ def _x_etiket(x, aralik):
         return f"{d:%H:%M}"
     s = f"{d.day} {AY[d.month - 1]}"
     return f"{s}\n{GUN[d.weekday()]}" if aralik == "Hafta" else s
+
+
+def open_spans(periods, start, end):
+    """Haftalık çalışma saatlerini [start, end] aralığında açık (başlangıç, bitiş) çiftlerine açar.
+
+    periods: API'nin operating-hours yanıtı. Zamanlar okumalarla aynı kuralda: bina yerel saati, UTC etiketli.
+    """
+    gun = pd.Timedelta(days=1)
+    spans = []
+    d = start.normalize() - gun  # önceki günden gece yarısını geçen vardiya da gelsin
+    while d <= end:
+        for p in periods:
+            if p["weekday"] != d.isoweekday():
+                continue
+            ac = pd.Timedelta(p["opens"])
+            uzun = (pd.Timedelta(p["closes"]) - ac) % gun or gun
+            s, e = d + ac, d + ac + uzun
+            if e > start and s < end:
+                spans.append((max(s, start), min(e, end)))
+        d += gun
+    spans.sort()
+    birlesik = []
+    for s, e in spans:
+        if birlesik and s <= birlesik[-1][1]:
+            birlesik[-1] = (birlesik[-1][0], max(birlesik[-1][1], e))
+        else:
+            birlesik.append((s, e))
+    return birlesik
+
+
+def closed_spans(acik, start, end):
+    """Açık aralıkların [start, end] içindeki tümleyeni."""
+    out, t = [], start
+    for s, e in acik:
+        if s > t:
+            out.append((t, s))
+        t = max(t, e)
+    if t < end:
+        out.append((t, end))
+    return out
 
 
 def build_events(cur, forecast, anomalies):
@@ -55,10 +100,30 @@ def build_events(cur, forecast, anomalies):
     return events
 
 
-def consumption_chart(cur, forecast, events, aralik):
+def consumption_chart(cur, forecast, events, aralik, kapali=None, duruslar=None):
+    """kapali: çalışma dışı (başlangıç, bitiş) listesi; duruslar: {"start", "end", "kind"} listesi."""
     fig, ax = plt.subplots(figsize=(9, 3.9))
     fig.patch.set_alpha(0)
     ax.set_facecolor("none")
+
+    duruslar = duruslar or []
+    # Duruş zaten tesisin kapalı olduğunu söyler; üst üste binip şerit oluşturmasın diye gri bandı orada kes.
+    kesik = [(d["start"], d["end"]) for d in duruslar]
+    for s, e in kapali or []:
+        for ks, ke in sorted(kesik):
+            if ks < e and ke > s:
+                if ks > s:
+                    ax.axvspan(s, ks, color=KAPALI, alpha=0.55, zorder=0, lw=0)
+                s = max(s, ke)
+        if s < e:
+            ax.axvspan(s, e, color=KAPALI, alpha=0.55, zorder=0, lw=0)
+    for d in duruslar:
+        ad, renk = DURUS_RENK.get(d["kind"], ("", GRAY))
+        ax.axvspan(d["start"], d["end"], facecolor=renk, alpha=0.12, edgecolor=renk, hatch="///", lw=0, zorder=0.5)
+        ax.text(
+            d["start"] + (d["end"] - d["start"]) / 2, 0.98, ad, transform=ax.get_xaxis_transform(),
+            ha="center", va="top", fontsize=8, color=renk, fontweight="bold", zorder=6,
+        )
 
     ymax = float(cur["kwh"].max())
     ax.plot(cur["ts"], cur["kwh"], color=BLUE, lw=2, zorder=3)
