@@ -46,7 +46,9 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 ## 3. Paneli aç
 
 1. Tarayıcıda **http://localhost:5173** adresini aç.
-2. Giriş: `admin@enerji.local` / `admin-demo-pass`
+2. Giriş: `admin@enerji.local` / `admin-demo-pass` (bütün işletmeleri görür). Bir işletmenin
+   gözünden bakmak için ör. `otel@enerji.local` / `tenant-demo-pass`; diğerleri
+   `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu` (hepsi `@enerji.local`).
 3. Solda menü, üstte "Toplam Enerji Tüketimi" kartı görünüyorsa kurulum tamam.
 
 API'nin tüm uç noktaları: http://localhost:8000/docs

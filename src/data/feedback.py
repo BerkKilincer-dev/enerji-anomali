@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 import psycopg
 
-VERDICT_LABEL = {"confirmed": 1, "false_alarm": 0, "planned": 0}
+# An applied recommendation means the waste was real; "sent" only says it reached the business
+# and labels nothing.
+VERDICT_LABEL = {"confirmed": 1, "applied": 1, "false_alarm": 0, "planned": 0}
 COLUMNS = ["building_id", "ts_start", "ts_end", "verdict", "created_at"]
 
 
@@ -17,6 +19,8 @@ def fetch_feedback(conn: psycopg.Connection) -> pd.DataFrame:
 
 def apply_feedback(readings: pd.DataFrame, feedback: pd.DataFrame) -> pd.DataFrame:
     """Each verdict labels every reading in its hour range; the latest verdict wins."""
+    if not feedback.empty:
+        feedback = feedback[feedback["verdict"].isin(VERDICT_LABEL)]
     if feedback.empty:
         return readings
     label = readings["anomaly"].astype("float32").to_numpy(copy=True)

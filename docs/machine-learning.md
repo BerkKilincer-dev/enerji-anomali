@@ -58,7 +58,11 @@ residual threshold allows one alarm event per building per week on validation.
 2. otherwise detector score ≥ threshold,
 3. otherwise residual score ≥ threshold.
 
-Rules start after 7 days of history in the scored frame, models after 14 days. Alarm hours
+Off-hours rules (night and weekend load) fire at 1.3x the same hour in past weeks instead of
+1.5x for equipment that should be off outside working hours (`klima`, `aydinlatma`, `plc`,
+`kompresor` in `core.assets.equipment_type`, or `data/meter_catalog.csv` for file runs);
+cooling and whole-building meters keep 1.5x. Rules start after 7 days of history in the
+scored frame, models after 14 days. Alarm hours
 with gaps of at most one hour form one event (`src/models/events.py`). Each event is
 `waste` (TL cost) or `data_issue` (flatline or dropout, no cost). Data issues of one rule on
 one meter less than 24 hours apart merge into one event; waste events under 1 kWh above

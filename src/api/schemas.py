@@ -22,6 +22,14 @@ from src.data.segments import Segment
 INT_MAX = 2**31 - 1
 BIGINT_MAX = 2**63 - 1
 EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+# Same lists as the CHECKs on core.assets.equipment_type and ml.anomaly_feedback.verdict.
+EquipmentType = Literal["klima", "kompresor", "aydinlatma", "sogutma", "plc", "genel"]
+# confirmed / false_alarm / planned judge the alarm; sent / applied follow its recommendation.
+Verdict = Literal["confirmed", "false_alarm", "planned", "sent", "applied"]
+# A closed alarm needs nothing more from the business.
+CLOSED_VERDICTS = ("applied", "false_alarm", "planned")
+# new = no verdict yet, open = not closed (new, confirmed or sent), closed = CLOSED_VERDICTS.
+StatusFilter = Literal["new", "open", "closed", Verdict]
 
 
 class Building(BaseModel):
@@ -38,6 +46,9 @@ class Building(BaseModel):
     lng: float | None
     tenant_id: int | None
     tariff_tl_per_kwh: float
+    tenant_name: str | None
+    asset_name: str | None
+    equipment_type: str | None
     last_scored_ts: datetime | None
     anomaly_count: int
 
@@ -58,9 +69,23 @@ class ForecastPoint(BaseModel):
     origin: str
 
 
+class Recommendation(BaseModel):
+    title: str
+    action: str
+
+
+class RecommendationRow(Recommendation):
+    equipment_type: str
+    anomaly_type: str
+
+
 class Anomaly(BaseModel):
     id: int
     building_id: int
+    building_name: str | None
+    tenant_id: int | None
+    asset_name: str | None
+    equipment_type: str | None
     ts_start: datetime
     ts_end: datetime
     score: float | None
@@ -73,6 +98,7 @@ class Anomaly(BaseModel):
     category: str | None
     origin: str
     verdict: str | None
+    recommendation: Recommendation
 
 
 class Summary(BaseModel):
@@ -80,6 +106,35 @@ class Summary(BaseModel):
     active_alerts: int
     worst_building_id: int | None
     buildings: int
+
+
+class MeterSummary(BaseModel):
+    """One meter over the last `days` days before its latest reading."""
+
+    building_id: int
+    name: str | None
+    asset_name: str | None
+    equipment_type: str | None
+    waste_tl: float
+    waste_kwh: float
+    open_alerts: int
+    data_issues: int
+
+
+class TenantSummary(BaseModel):
+    """A business: totals of its meters, costliest meter first."""
+
+    tenant_id: int
+    name: str
+    city: str | None
+    segment: str | None
+    days: int
+    period_end: datetime | None
+    waste_tl: float
+    waste_kwh: float
+    open_alerts: int
+    data_issues: int
+    meters: list[MeterSummary]
 
 
 class BuildingIn(BaseModel):
@@ -178,7 +233,7 @@ class Created(BaseModel):
 
 
 class FeedbackIn(BaseModel):
-    verdict: Literal["confirmed", "false_alarm", "planned"]
+    verdict: Verdict
     note: str | None = Field(None, max_length=1000)
 
 

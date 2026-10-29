@@ -153,4 +153,18 @@ def fetch_tables(
                 parse_dates=["ts"] if "ts" in READ_COLUMNS[name] else None,
             )
             frames[name] = frame.astype(DTYPES[name])
+    frames["buildings"] = frames["buildings"].merge(
+        _equipment(conn, building_ids), on="building_id", how="left"
+    )
     return Tables(**frames)
+
+
+def _equipment(conn: psycopg.Connection, building_ids: list[int] | None) -> pd.DataFrame:
+    """Equipment type of the asset each building's main meter measures."""
+    rows = conn.execute(
+        "SELECT m.building_id, a.equipment_type FROM meters m JOIN assets a USING (asset_id) "
+        "WHERE m.is_main AND (%(ids)s::int[] IS NULL OR m.building_id = ANY(%(ids)s))",
+        {"ids": None if building_ids is None else list(map(int, building_ids))},
+    ).fetchall()
+    frame = pd.DataFrame(rows, columns=["building_id", "equipment_type"], dtype=object)
+    return frame.astype({"building_id": "int32"})

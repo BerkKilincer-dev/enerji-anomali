@@ -26,8 +26,12 @@ docker compose logs -f setup              # ilk açılışta ~1 dk: veri iner, y
 Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pass`
 · API belgeleri: http://localhost:8000/docs
 
-`setup` servisi LEAD verisini indirip veritabanına yükler ve repodaki modelle anomalileri
-yazar. Sonraki açılışlarda her şeyi yerinde bulur, birkaç saniyede biter.
+Demo işletme kullanıcıları (şifre `tenant-demo-pass`); her biri yalnız kendi sayaçlarını görür:
+`ozelkolej@enerji.local`, `ofisplazasi@enerji.local`, `otel@enerji.local`,
+`kongremerkezi@enerji.local`, `universitekampusu@enerji.local`.
+
+`setup` servisi LEAD verisini indirip veritabanına yükler, 30 sayacı `data/meter_catalog.csv`'deki
+5 demo işletmeye dağıtır ve repodaki modelle anomalileri yazar. Sonraki açılışlarda her şeyi yerinde bulur, birkaç saniyede biter.
 
 Bilgisayarında kurulu bir PostgreSQL 5432'yi kullanıyorsa `.env` içinde `DB_PORT=55432` yap
 ve `DATABASE_URL`'deki portu da `55432` olarak değiştir.
@@ -80,7 +84,9 @@ Kod ve veritabanı İngilizce isimler kullanır; panelde Türkçe görünür.
 | `tenant` (`core.tenants`) | İşletme | AVM, fabrika...; kullanıcılar yalnız kendi işletmesini görür |
 | `asset` (`core.assets`) | Makine / hat / bölge | Sayacın bağlı olduğu yer (ör. PLC makinesi) |
 | `anomalies.explanation` | Açıklama | Kural tabanlı Türkçe metin, her zaman dolu |
-| `anomalies.advice` | Öneri | Claude'un yazdığı öneri (`ANTHROPIC_API_KEY` varsa) |
+| `recommendation` | Öneri | Ekipman ve anomali türüne göre hazır öneri; metinler `data/recommendations.csv`'de |
+| `verdict` | Durum | İletildi (`sent`), Uygulandı (`applied`), Yanlış alarm, Planlı |
+| `anomalies.advice` | Ek tavsiye | Claude'un yazdığı tavsiye (`ANTHROPIC_API_KEY` varsa, isteğe bağlı) |
 
 ## Dosya yapısı
 
@@ -108,7 +114,7 @@ enerji-anomali/
 │   │   └── report.py           sonuç tabloları ve grafikler (reports/ml/)
 │   ├── scoring/              (ML + Backend) canlı skorlama
 │   │   ├── service.py          yeni saatleri 5 dakikada bir skorlar
-│   │   └── advice.py           anomaliye Türkçe öneri yazar (öneri API'sinin başlangıcı)
+│   │   └── advice.py           isteğe bağlı: Claude ile ek Türkçe tavsiye (ücretli, anahtar gerekir)
 │   ├── ingest/               (Veri + Backend) canlı veri
 │   │   ├── mqtt_ingest.py      MQTT'den gelen sayaç okumalarını veritabanına yazar
 │   │   └── replay.py           sanal sayaç: LEAD verisini canlıymış gibi gönderir
@@ -116,12 +122,13 @@ enerji-anomali/
 │   │   ├── main.py             tüm uç noktalar (http://localhost:8000/docs)
 │   │   ├── repository.py       veritabanı sorguları; her işletme yalnız kendini görür
 │   │   ├── schemas.py          istek ve yanıt şekilleri
+│   │   ├── recommendations.py  ekipman × anomali türüne göre öneri (data/recommendations.csv)
 │   │   ├── auth.py             şifre, oturum, roller
 │   │   └── users.py            komut satırından kullanıcı ekleme
 │   ├── common/               ortak yardımcılar (veritabanı bağlantısı vb.)
 │   └── config.py             .env ayarlarını okur
 ├── dashboard/                (Frontend) Streamlit CRM paneli
-│   ├── app.py                  giriş ve sayfalar: genel bakış, tüketim, anomaliler, raporlar
+│   ├── app.py                  giriş ve sayfalar: işletmeler, genel bakış, tüketim, anomaliler, raporlar
 │   ├── api_client.py           API istemcisi (oturum çerezi dahil)
 │   ├── charts.py               grafikler
 │   ├── reports.py              CSV / Excel / PDF raporları
@@ -133,7 +140,8 @@ enerji-anomali/
 ├── notebooks/                (Veri + ML) Colab: 01 veri hattı, 02 ML hattı
 ├── reports/                  (Veri + ML) veri kalitesi ve model sonuçları, commit edilir
 ├── docs/                     ayrıntılı rehberler (İngilizce)
-├── data/                     indirilen veri; sadece splits.json commit edilir
+├── data/                     indirilen veri; commit edilenler: splits.json, meter_catalog.csv
+│                             (sayaç → işletme) ve recommendations.csv (öneri metinleri)
 ├── docker/                   MQTT (Mosquitto) ayarı
 ├── .github/workflows/ci.yml  her push'ta lint, test ve panel derlemesi
 ├── docker-compose.yml        veritabanı, MQTT, API, panel, otomatik kurulum (setup), skorlama
@@ -145,6 +153,8 @@ enerji-anomali/
 Ayrıntılı rehberler (İngilizce): [Mimari](docs/architecture.md) · [Veri](docs/data.md) ·
 [ML](docs/machine-learning.md) · [API](docs/api.md) · [Backend](docs/backend.md) ·
 [Panel](docs/dashboard.md)
+
+Modelin başarısı ve demo işletmelerin sonuçları (Türkçe): [Performans raporu](docs/rapor/performans-raporu.md)
 
 ## Çalışma şekli
 

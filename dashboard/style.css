@@ -242,11 +242,13 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 
 /* Karar düğmeleri: sade çerçeve, renkli simge; seçili karar kendi renginde dolu */
 [class*="st-key-anbtn_"] button, [class*="st-key-d_confirmed_"] button, [class*="st-key-d_false_alarm_"] button,
-[class*="st-key-d_planned_"] button, .st-key-detay_geri button {
+[class*="st-key-d_planned_"] button, [class*="st-key-d_sent_"] button, [class*="st-key-d_applied_"] button,
+.st-key-detay_geri button {
   border-radius: 10px; min-height: 44px; padding: 6px 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
 [class*="st-key-anbtn_"] button p, [class*="st-key-d_confirmed_"] button p, [class*="st-key-d_false_alarm_"] button p,
-[class*="st-key-d_planned_"] button p, .st-key-detay_geri button p { font-size: 16.5px; font-weight: 600; }
+[class*="st-key-d_planned_"] button p, [class*="st-key-d_sent_"] button p, [class*="st-key-d_applied_"] button p,
+.st-key-detay_geri button p { font-size: 16.5px; font-weight: 600; }
 [class*="st-key-dt_"] [data-testid="stIconMaterial"] { color: #2563EB; }
 [class*="st-key-confirmed_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
 [class*="st-key-d_confirmed_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #047857; }
@@ -264,6 +266,46 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 [class*="st-key-d_confirmed_"] [data-testid="stBaseButton-primary"]:hover { background: #065F46; border-color: #065F46; }
 [class*="st-key-false_alarm_"] [data-testid="stBaseButton-primary"]:hover,
 [class*="st-key-d_false_alarm_"] [data-testid="stBaseButton-primary"]:hover { background: #334155; border-color: #334155; }
+/* Öneri durumu: İletildi mor, Uygulandı yeşil (beyaz yazıyla AA kontrast) */
+[class*="st-key-sent_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
+[class*="st-key-d_sent_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #6D28D9; }
+[class*="st-key-applied_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
+[class*="st-key-d_applied_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #047857; }
+[class*="st-key-sent_"] [data-testid="stBaseButton-primary"],
+[class*="st-key-d_sent_"] [data-testid="stBaseButton-primary"] { background: #6D28D9; border-color: #6D28D9; }
+[class*="st-key-applied_"] [data-testid="stBaseButton-primary"],
+[class*="st-key-d_applied_"] [data-testid="stBaseButton-primary"] { background: #047857; border-color: #047857; }
+[class*="st-key-sent_"] [data-testid="stBaseButton-primary"]:hover,
+[class*="st-key-d_sent_"] [data-testid="stBaseButton-primary"]:hover { background: #5B21B6; border-color: #5B21B6; }
+[class*="st-key-applied_"] [data-testid="stBaseButton-primary"]:hover,
+[class*="st-key-d_applied_"] [data-testid="stBaseButton-primary"]:hover { background: #065F46; border-color: #065F46; }
+
+/* ---------- Öneri kartı ---------- */
+.rec {
+  margin-top: 10px; background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 10px;
+  padding: 10px 12px;
+}
+.rec-t { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #1E3A8A; margin-bottom: 4px; }
+.rec-t svg, .an-rec svg { flex: none; }
+.rec-a { font-size: 16.5px; color: #1E293B; line-height: 1.5; }
+.an-rec { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: #1D4ED8; font-weight: 600; margin-top: 4px; }
+.todo-meter { font-size: 16px; color: #0F172A; }
+[class*="st-key-anom_todo_"] { margin-top: 6px; }
+
+/* ---------- İşletmeler sayfası ---------- */
+[class*="st-key-card_isl_"] { min-height: 250px; }
+.tn-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tn-name { font-size: 19px; font-weight: 700; color: #0F172A; }
+.tn-sub { font-size: 13.5px; color: #64748B; margin: 2px 0 12px; }
+.tn-stats { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
+.tn-stats div { background: #F8FAFC; border-radius: 10px; padding: 8px 10px; }
+.tn-stats b { display: block; font-size: 17px; color: #0F172A; }
+.tn-stats span { font-size: 12px; color: #64748B; }
+.tn-top { font-size: 13.5px; color: #475569; margin: 12px 0 6px; }
+.mt-h { font-size: 12.5px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .3px; }
+.mt-n { font-size: 15px; font-weight: 600; color: #0F172A; }
+.mt-c { font-size: 14px; color: #475569; }
+.mt-v { font-size: 14.5px; font-weight: 600; color: #0F172A; }
 
 /* ---------- Ayarlar sayfası ---------- */
 .set-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid #EEF2F7; font-size: 14px; }

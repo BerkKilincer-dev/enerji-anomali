@@ -15,7 +15,7 @@ import psycopg
 import pytest
 from psycopg.conninfo import make_conninfo
 
-from src.api.repository import ConflictError, NotFoundError, PostgresRepository
+from src.api.repository import AnomalyFilter, ConflictError, NotFoundError, PostgresRepository
 from src.common.db import connect, normalize_url
 from src.data import weather_api
 from src.data.customer import (
@@ -614,3 +614,96 @@ def test_readings_window_can_end_before_the_latest_reading(db):
             "UPDATE buildings SET tariff_tl_per_kwh = 4.2 WHERE building_id = %s", (building,)
         )
     assert repo.buildings()[0]["tariff_tl_per_kwh"] == 4.2
+
+
+def test_fetch_tables_reads_the_equipment_of_the_main_meter(db):
+    ids = load_customer(db, make_tables(building_ids=(100000, 100001), days=10))
+    with connect(db) as conn:
+        asset = conn.execute(
+            "INSERT INTO assets (building_id, kind, name, equipment_type) "
+            "VALUES (%s, 'machine', 'Kat klimaları', 'klima') RETURNING asset_id",
+            (ids[100000],),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO meters (building_id, asset_id, external_id, is_main) "
+            "VALUES (%s, %s, 'main-100000', true)",
+            (ids[100000], asset),
+        )
+        tables = fetch_tables(conn)
+    equipment = tables.buildings.set_index("building_id")["equipment_type"]
+    assert equipment[ids[100000]] == "klima" and pd.isna(equipment[ids[100001]])
+    frame = model_frame(tables)
+    assert set(frame.loc[frame.building_id == ids[100000], "equipment_type"]) == {"klima"}
+
+
+def test_alarm_filters_statuses_and_tenant_summary(db):
+    with connect(db) as conn:
+        hotel = register_tenant(conn, TenantInfo("Otel"))
+        lobby, kitchen = (
+            register_building(conn, BuildingInfo(e, name=n, tenant_id=hotel, segment="hotel"))
+            for e, n in (("lobby", "Lobi"), ("kitchen", "Mutfak"))
+        )
+        other = register_building(conn, BuildingInfo("other"))
+        for building, equipment in ((lobby, "aydinlatma"), (kitchen, "sogutma")):
+            asset = conn.execute(
+                "INSERT INTO assets (building_id, kind, name, equipment_type) "
+                "VALUES (%s, 'zone', 'Ana yük', %s) RETURNING asset_id",
+                (building, equipment),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT INTO meters (building_id, asset_id, external_id, is_main) "
+                "VALUES (%s, %s, %s, true)",
+                (building, asset, f"main-{building}"),
+            )
+        for building in (lobby, kitchen, other):
+            conn.execute(
+                "INSERT INTO readings (building_id, ts, kwh) VALUES (%s, '2026-03-31 23:00', 1)",
+                (building,),
+            )
+        insert = (
+            "INSERT INTO anomalies (building_id, ts_start, ts_end, source, rule_type, category, "
+            "est_cost_tl, excess_kwh) VALUES (%s, %s, %s, 'rule', %s, %s, %s, %s) RETURNING id"
+        )
+        night = conn.execute(
+            insert,
+            (lobby, "2026-03-30 01:00", "2026-03-30 04:00", "night_base_load", "waste", 500, 100),
+        ).fetchone()[0]
+        conn.execute(
+            insert,
+            (lobby, "2026-03-20 01:00", "2026-03-20 02:00", "flatline", "data_issue", None, None),
+        )
+        cold = conn.execute(
+            insert,
+            (kitchen, "2026-03-25 13:00", "2026-03-25 15:00", "weekend_usage", "waste", 200, 40),
+        ).fetchone()[0]
+        old = conn.execute(  # older than 30 days: in the list, not in the summary
+            insert, (kitchen, "2026-01-05 01:00", "2026-01-05 02:00", "spike", "waste", 900, 90)
+        ).fetchone()[0]
+        conn.execute(
+            insert, (other, "2026-03-30 01:00", "2026-03-30 02:00", "spike", "waste", 50, 10)
+        )
+    repo = PostgresRepository(db)
+    repo.add_feedback(cold, "applied", None, "ops")
+    repo.add_feedback(night, "sent", None, "ops")
+
+    def ids(**flt) -> list[int]:
+        return [a["id"] for a in repo.anomalies(None, 50, AnomalyFilter(**flt))]
+
+    assert len(ids(tenant_id=hotel)) == 4
+    assert ids(tenant_id=hotel, status="open", category="waste", order="cost") == [old, night]
+    assert ids(status="applied") == [cold] and ids(status="closed") == [cold]
+    assert night in ids(status="sent") and night not in ids(status="new")
+    assert ids(equipment_type="sogutma", min_cost_tl=100, since=datetime(2026, 3, 1)) == [cold]
+    row = next(a for a in repo.anomalies(lobby, 50) if a["id"] == night)
+    assert (row["building_name"], row["equipment_type"], row["verdict"]) == (
+        "Lobi",
+        "aydinlatma",
+        "sent",
+    )
+
+    [summary] = repo.scoped(hotel).tenant_summaries(30)
+    assert (summary["name"], summary["segment"], summary["waste_tl"]) == ("Otel", "hotel", 700)
+    assert (summary["open_alerts"], summary["data_issues"]) == (1, 1)
+    assert [m["building_id"] for m in summary["meters"]] == [lobby, kitchen]
+    assert summary["period_end"] == datetime(2026, 3, 31, 23)
+    assert repo.scoped(hotel).anomalies(other, 50) == []

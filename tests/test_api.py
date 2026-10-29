@@ -206,3 +206,33 @@ def test_buildings_carry_a_tariff_and_windows_can_end_earlier(client):
     assert readings[-1]["ts"] == forecast[-1]["ts"] == "2026-10-19T05:00:00"
     with_offset = {"hours": 24, "end": "2026-10-19T05:00:00+03:00"}
     assert client.get("/buildings/100000/readings", params=with_offset).status_code == 422
+
+
+def test_anomalies_carry_a_recommendation_and_can_be_filtered(client):
+    item = client.get("/anomalies").json()[0]
+    assert item["recommendation"]["title"] == "Gece yüksek tüketim"
+    assert item["recommendation"]["action"]
+    for params, found in [
+        ({"category": "waste", "status": "open", "order": "cost"}, 1),
+        ({"category": "data_issue"}, 0),
+        ({"status": "applied"}, 0),
+        ({"since": "2026-10-19T06:00:00"}, 0),
+        ({"min_cost_tl": 1000}, 0),
+    ]:
+        assert len(client.get("/anomalies", params=params).json()) == found, params
+    for bad in [{"status": "done"}, {"equipment_type": "Klima"}, {"min_cost_tl": -1}]:
+        assert client.get("/anomalies", params=bad).status_code == 422, bad
+
+
+def test_recommendation_table_and_tenant_summaries(client):
+    rows = client.get("/recommendations").json()
+    assert {"klima", "*"} <= {r["equipment_type"] for r in rows}
+    assert client.get("/tenants/summary").json() == []
+    assert client.get("/tenants/1/summary").status_code == 404
+    assert client.get("/tenants/summary", params={"days": 0}).status_code == 422
+
+
+def test_recommendation_status_is_a_verdict(client):
+    for verdict in ("sent", "applied"):
+        body = {"verdict": verdict}
+        assert client.post("/anomalies/1/feedback", json=body, headers=H).status_code == 503

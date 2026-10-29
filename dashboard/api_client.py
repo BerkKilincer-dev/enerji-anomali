@@ -140,8 +140,14 @@ class Api:
         params = {"hours": hours, **({"end": end} if end else {})}
         return self._req("GET", f"/buildings/{bid}/forecast", params=params)
 
-    def anomalies(self, bid, limit=50):
-        return self._req("GET", "/anomalies", params={"building_id": bid, "limit": limit})
+    def anomalies(self, bid=None, limit=50, **filters):
+        # filters: tenant_id, category, status, equipment_type, since, until, min_cost_tl, order
+        params = {"limit": limit, **({"building_id": bid} if bid is not None else {})}
+        params.update({k: v for k, v in filters.items() if v is not None})
+        return self._req("GET", "/anomalies", params=params)
+
+    def tenant_summaries(self, days=30):
+        return self._req("GET", "/tenants/summary", params={"days": days})
 
     def operating_hours(self, bid):
         return self._req("GET", f"/buildings/{bid}/operating-hours")

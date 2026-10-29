@@ -223,12 +223,17 @@ CREATE TABLE IF NOT EXISTS ml.anomaly_feedback (
     building_id   INT NOT NULL REFERENCES core.buildings,
     ts_start      TIMESTAMP NOT NULL,
     ts_end        TIMESTAMP NOT NULL CHECK (ts_end >= ts_start),
-    verdict       TEXT NOT NULL CHECK (verdict IN ('confirmed', 'false_alarm', 'planned')),
+    verdict       TEXT NOT NULL,
     note          TEXT CHECK (length(note) <= 1000),
     created_by    TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_anomaly_feedback_anomaly ON ml.anomaly_feedback (anomaly_id);
+-- Recommendation status too: sent = told the business, applied = the business acted on it.
+-- Re-created on every run so databases made with the older, shorter list accept the new ones.
+ALTER TABLE ml.anomaly_feedback DROP CONSTRAINT IF EXISTS anomaly_feedback_verdict_check;
+ALTER TABLE ml.anomaly_feedback ADD CONSTRAINT anomaly_feedback_verdict_check
+    CHECK (verdict IN ('confirmed', 'false_alarm', 'planned', 'sent', 'applied'));
 
 CREATE TABLE IF NOT EXISTS ml.model_artifacts (
     id              BIGSERIAL PRIMARY KEY,

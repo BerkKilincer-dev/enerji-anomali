@@ -163,9 +163,10 @@ buildings as live Istanbul customers for demos, all buildings of one hour togeth
 
 ### Feedback as labels
 
-Operators mark events as `confirmed`, `false_alarm` or `planned` (`POST /anomalies/{id}/feedback`).
-`src/data/feedback.py` turns verdicts into hourly labels: confirmed is 1, false alarm and
-planned are 0, and the latest verdict wins. `python -m src.models.train --source db` trains on
+Operators mark events as `confirmed`, `false_alarm`, `planned`, `sent` or `applied`
+(`POST /anomalies/{id}/feedback`). `src/data/feedback.py` turns verdicts into hourly labels:
+confirmed and applied are 1, false alarm and planned are 0, sent labels nothing, and the
+latest labeling verdict wins. `python -m src.models.train --source db` trains on
 LEAD labels plus this feedback.
 
 ### Demo tenants

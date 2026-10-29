@@ -33,6 +33,39 @@ from reports import collect, to_csv, to_pdf, to_xlsx
 BRAND = "Wattwise"  # tasarım görselindeki ad: EnerjiVista
 BRAND_SUB = "Daha verimli bir yarın"
 TARIFF_TL = 3.5  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
+# İşletme özetinin dönemi: her sayacın son N günü. LEAD verisi 2016 sonunda bitiyor ve
+# Aralık sakin geçiyor, bu yüzden demo 90 günle açılır.
+DONEMLER = {"30 gün": 30, "90 gün": 90, "1 yıl": 365}
+LISTE_LIMIT = 200  # anomaliler sayfasında sekme başına en fazla kayıt
+
+SEGMENT_TR = {
+    "office": "Ofis", "mall": "AVM", "retail": "Mağaza", "hotel": "Otel", "hospital": "Hastane",
+    "education": "Eğitim", "factory": "Fabrika", "warehouse": "Depo", "data_center": "Veri merkezi",
+    "residential": "Konut", "public": "Kamu / etkinlik", "other": "Diğer",
+}
+EKIPMAN_TR = {
+    "klima": "Klima", "kompresor": "Kompresör", "aydinlatma": "Aydınlatma",
+    "sogutma": "Soğutma", "plc": "PLC / makine", "genel": "Genel tüketim",
+}
+KAT = {"waste": ("İsraf", "mid"), "data_issue": ("Veri sorunu", "data")}
+# Öneri durumu ve alarm kararı; API'de ikisi de "verdict".
+VER = {
+    "sent": ("İletildi", "blue"), "applied": ("Uygulandı", "low"),
+    "false_alarm": ("Yanlış alarm", "data"), "planned": ("Planlı", "blue"),
+    "confirmed": ("Onaylandı", "low"),
+}
+KAPALI_DURUM = {"applied", "false_alarm", "planned"}  # işletmeden başka bir şey beklenmeyen durumlar
+# Durum düğmeleri: (kod, etiket, simge). Renkleri style.css'te düğme anahtarının başına göre verilir.
+KARAR = [
+    ("sent", "İletildi", ":material/send:"),
+    ("applied", "Uygulandı", ":material/check_circle:"),
+    ("false_alarm", "Yanlış alarm", ":material/block:"),
+    ("planned", "Planlı", ":material/event_available:"),
+]
+DURUM_FILTRE = {
+    "Tümü": None, "Açık": "open", "Yeni": "new", "İletildi": "sent", "Uygulandı": "applied",
+    "Yanlış alarm": "false_alarm", "Planlı": "planned",
+}
 
 st.set_page_config(page_title=BRAND, page_icon=str(Path(__file__).parent / "brand" / "logo.png"), layout="wide")
 css = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
@@ -67,6 +100,19 @@ def delta_html(cur, prev, etiket):
     cls = "up" if p > 0 else "down"
     arrow = "↑" if p > 0 else "↓"
     return f'<span class="{cls}">{arrow} %{num(abs(p), 1)}</span> <span>({etiket})</span>'
+
+
+def rec_html(a):
+    r = a.get("recommendation")
+    if not r:
+        return ""
+    return (f'<div class="rec"><div class="rec-t">{svg("bulb", 17)}<span>{html.escape(r["title"])}</span></div>'
+            f'<div class="rec-a">{html.escape(r["action"])}</div></div>')
+
+
+def verdict_badge(a):
+    v = VER.get(a["verdict"])
+    return f'<span class="badge sev-{v[1]}">{v[0]}</span>' if v else '<span class="badge sev-wait">Yeni</span>'
 
 
 def kpi_card(icon, tone, title, value, sub):
@@ -108,7 +154,9 @@ def anomaly_panel(items, bina, pct_by_id):
                 f'<span class="an-time">{zaman}</span></div>'
                 f'<div class="an-name">{html.escape(bina)}</div>'
                 f'<div class="an-desc">{html.escape(desc)}</div>'
-                f'<div class="an-cost">Tahmini maliyet etkisi: <b>{tl(a["est_cost_tl"])}</b></div>'
+                + (f'<div class="an-rec">{svg("bulb", 15)}<span>{html.escape(a["recommendation"]["title"])}</span></div>'
+                   if a.get("recommendation") else "")
+                + f'<div class="an-cost">Tahmini maliyet etkisi: <b>{tl(a["est_cost_tl"])}</b></div>'
                 f'</div><span class="an-chev">{svg("chevron-right", 16, "#94A3B8")}</span></div>'
             )
         body = "".join(rows)
@@ -522,14 +570,28 @@ if not buildings:
     st.warning("Henüz bina verisi yok.")
     st.stop()
 
+# CRM yalnız işletmeye bağlı sayaçları gösterir; geri kalan LEAD sayaçları model eğitimi içindir.
+# Hiç işletme yoksa (demo modu) hepsi görünür.
+musteri = [b for b in buildings if b.get("tenant_id") is not None]
+if musteri:
+    buildings = musteri
+
 names = {b["building_id"]: (b["name"] or b["external_id"]) for b in buildings}
+# Platform yöneticisi birden çok işletme görür: sayacın başına işletme adını ekle.
+if me.get("tenant_id") is None:
+    names = {
+        b["building_id"]: f"{b['tenant_name']} · {names[b['building_id']]}"
+        if b.get("tenant_name") else names[b["building_id"]]
+        for b in buildings
+    }
 # Her sayacın kendi tarifesi; eski API alanı vermezse varsayılan.
 tarife = {b["building_id"]: b.get("tariff_tl_per_kwh") or TARIFF_TL for b in buildings}
-ids = list(names)
-en_cok = max(range(len(buildings)), key=lambda i: buildings[i]["anomaly_count"])
+ids = sorted(names, key=lambda i: names[i].casefold())
+en_cok = max(buildings, key=lambda b: b["anomaly_count"])["building_id"]
 
 # ---------- Sol menü ----------
 PAGES = [
+    ("isletme", ":material/storefront:", "İşletmeler" if me.get("tenant_id") is None else "İşletmem"),
     ("genel", ":material/home:", "Genel Bakış"),
     ("tuketim", ":material/bar_chart:", "Tüketim Analizi"),
     ("anomali", ":material/warning:", "Anomaliler"),
@@ -537,7 +599,9 @@ PAGES = [
     ("ayar", ":material/settings:", "Ayarlar"),
 ]
 if "sayfa" not in st.session_state:
-    st.session_state.sayfa = "genel"
+    st.session_state.sayfa = "isletme"
+if st.session_state.get("bina") not in ids:
+    st.session_state.bina = en_cok
 
 
 def set_page(p):
@@ -563,7 +627,7 @@ with st.sidebar:
             )
     st.markdown(f"<style>{sidebar_css(summary['active_alerts'])}</style>", unsafe_allow_html=True)
     with st.container(key="bina_box"):
-        bid = st.selectbox("Bina", ids, index=en_cok, format_func=lambda i: names[i], key="bina")
+        bid = st.selectbox("Sayaç", ids, format_func=lambda i: names[i], key="bina")
         if st.button("Çıkış"):
             try:
                 api.logout()
@@ -571,78 +635,222 @@ with st.sidebar:
                 st.session_state.clear()
                 st.rerun()
 
-# ---------- Anomaliler sayfası ----------
-if st.session_state.sayfa == "anomali":
-    st.markdown(
-        '<div class="hello">Anomaliler</div>'
-        f'<div class="hello-sub">{html.escape(names[bid])} · son kayıtlar</div>',
-        unsafe_allow_html=True,
-    )
-    st.write("")
+# ---------- Ortak: öneri kartı ve durum düğmeleri ----------
+yazabilir = me["role"] in ("admin", "operator")
+
+
+def gonder(aid, verdict, not_key=None):
+    note = (st.session_state.get(not_key) or "").strip() if not_key else ""
     try:
-        tum = api.anomalies(bid, limit=100)
+        api.feedback(aid, verdict, note or None)
+        if not_key:
+            st.session_state[not_key] = ""
+        st.session_state.fb_msg = ("ok", f"Durum kaydedildi: {VER[verdict][0]}.")
     except ApiError as e:
-        st.error(f"Anomaliler alınamadı: {e}")
-        st.stop()
+        st.session_state.fb_msg = ("err", f"Kaydedilemedi: {e}")
 
-    yazabilir = me["role"] in ("admin", "operator")
-    KAT = {"waste": ("İsraf", "mid"), "data_issue": ("Veri sorunu", "data")}
-    VER = {"confirmed": ("Onaylandı", "low"), "false_alarm": ("Yanlış alarm", "data"), "planned": ("Planlı", "blue")}
-    # Karar düğmeleri: (kod, etiket, simge). Renkleri style.css'te anahtar adına göre verilir.
-    KARAR = [
-        ("confirmed", "Onayla", ":material/check_circle:"),
-        ("false_alarm", "Yanlış alarm", ":material/block:"),
-        ("planned", "Planlı", ":material/event_available:"),
-    ]
 
-    def gonder(aid, verdict, not_key=None):
-        note = (st.session_state.get(not_key) or "").strip() if not_key else ""
-        try:
-            api.feedback(aid, verdict, note or None)
-            if not_key:
-                st.session_state[not_key] = ""
-            st.session_state.fb_msg = ("ok", "Geri bildirim kaydedildi.")
-        except ApiError as e:
-            st.session_state.fb_msg = ("err", f"Kaydedilemedi: {e}")
-
+def mesaj_goster():
     msg = st.session_state.pop("fb_msg", None)
     if msg:
         (st.success if msg[0] == "ok" else st.error)(msg[1])
 
-    def ac_detay(aid):
-        st.session_state.detay_id = aid
 
-    def kapat_detay():
-        st.session_state.pop("detay_id", None)
+def durum_dugmeleri(a, prefix, not_key=None):
+    """Öneri durumu düğmeleri (yalnız operatör ve admin); çağıran yatay bir kapsayıcı açar.
 
-    secili = None
-    if st.session_state.get("detay_id") is not None:
-        secili = next((x for x in tum if x["id"] == st.session_state.detay_id), None)
-        if secili is None:
+    Anahtarlar style.css'teki renklerle eşleşir: detayda d_<kod>_<id>, listelerde <kod>_<önek><id>."""
+    if not yazabilir:
+        return
+    for kod, etiket, ikon in KARAR:
+        key = f"d_{kod}_{a['id']}" if prefix == "d" else f"{kod}_{prefix}{a['id']}"
+        st.button(etiket, key=key, icon=ikon, on_click=gonder, args=(a["id"], kod, not_key),
+                  type="primary" if a["verdict"] == kod else "secondary")
+
+
+def ac_detay(aid, building_id):
+    st.session_state.detay = (aid, building_id)
+    st.session_state.sayfa = "anomali"
+
+
+def kapat_detay():
+    st.session_state.pop("detay", None)
+
+
+def ac_sayac(building_id):
+    st.session_state.bina = building_id
+    st.session_state.sayfa = "genel"
+
+
+def ac_isletme(tid):
+    st.session_state.isletme_id = tid
+
+
+def sayac_adi(a):
+    return names.get(a["building_id"]) or a.get("building_name") or str(a["building_id"])
+
+
+# ---------- İşletmeler sayfası ----------
+if st.session_state.sayfa == "isletme":
+    try:
+        gun = DONEMLER[st.session_state.get("isl_donem") or "90 gün"]
+        ozetler = api.tenant_summaries(gun)
+    except ApiError as e:
+        st.error(f"İşletme özeti alınamadı: {e}")
+        st.stop()
+    if not ozetler:
+        st.info("Henüz işletme tanımlı değil. Sayaçları işletmelere bağlamak için "
+                "`python -m src.data.catalog` çalıştırın.")
+        st.stop()
+    mesaj_goster()
+    st.segmented_control("Dönem", list(DONEMLER), default="90 gün", key="isl_donem")
+
+    tek = len(ozetler) == 1
+    tid = ozetler[0]["tenant_id"] if tek else st.session_state.get("isletme_id")
+    o = next((x for x in ozetler if x["tenant_id"] == tid), None)
+
+    if o is None:
+        st.markdown(
+            '<div class="hello">İşletmeler</div>'
+            f'<div class="hello-sub">{len(ozetler)} işletme · her sayacın son {gun} günü</div>',
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        k1, k2, k3, k4 = st.columns(4)
+        k1.markdown(kpi_card(svg("coins", 24), "orange", "Toplam İsraf", tl(sum(x["waste_tl"] for x in ozetler)),
+                             f"<span>(son {gun} gün)</span>"), unsafe_allow_html=True)
+        k2.markdown(kpi_card(svg("alert", 24), "red", "Açık Alarm", str(sum(x["open_alerts"] for x in ozetler)),
+                             "<span>(işlem bekleyen israf)</span>"), unsafe_allow_html=True)
+        k3.markdown(kpi_card(svg("bell", 24), "blue", "Veri Sorunu", str(sum(x["data_issues"] for x in ozetler)),
+                             "<span>(takılı ya da susan sayaç)</span>"), unsafe_allow_html=True)
+        k4.markdown(kpi_card(svg("zap", 24), "green", "Sayaç", str(sum(len(x["meters"]) for x in ozetler)),
+                             f"<span>({len(ozetler)} işletmede)</span>"), unsafe_allow_html=True)
+        st.write("")
+        cols = st.columns(3)
+        for k, x in enumerate(sorted(ozetler, key=lambda x: -x["waste_tl"])):
+            pahali = x["meters"][0] if x["meters"] and x["meters"][0]["waste_tl"] > 0 else None
+            alt = " · ".join(filter(None, [x["city"], f"{len(x['meters'])} sayaç"]))
+            with cols[k % 3], st.container(key=f"card_isl_{x['tenant_id']}"):
+                st.markdown(
+                    f'<div class="tn-head"><span class="tn-name">{html.escape(x["name"])}</span>'
+                    f'<span class="badge sev-blue">{SEGMENT_TR.get(x["segment"], "İşletme")}</span></div>'
+                    f'<div class="tn-sub">{html.escape(alt)}</div>'
+                    '<div class="tn-stats">'
+                    f'<div><b>{tl(x["waste_tl"])}</b><span>İsraf ({gun} gün)</span></div>'
+                    f'<div><b>{x["open_alerts"]}</b><span>Açık alarm</span></div>'
+                    f'<div><b>{x["data_issues"]}</b><span>Veri sorunu</span></div></div>'
+                    + (f'<div class="tn-top">En pahalı sayaç: <b>{html.escape(pahali["name"] or "-")}</b> '
+                       f'({tl(pahali["waste_tl"])})</div>' if pahali else '<div class="tn-top">İsraf yok</div>'),
+                    unsafe_allow_html=True,
+                )
+                st.button("İşletmeyi aç", key=f"isl_ac_{x['tenant_id']}", icon=":material/arrow_forward:",
+                          on_click=ac_isletme, args=(x["tenant_id"],), use_container_width=True)
+        st.stop()
+
+    # Tek işletme: özet, bugün yapılacaklar, konuma göre sayaçlar
+    if not tek:
+        st.button("Tüm işletmeler", icon=":material/arrow_back:", on_click=ac_isletme, args=(None,),
+                  key="isl_geri")
+    son_gun = tr_tarih(pd.Timestamp(o["period_end"])) if o["period_end"] else "-"
+    st.markdown(
+        f'<div class="hello">{html.escape(o["name"])}</div>'
+        f'<div class="hello-sub">{SEGMENT_TR.get(o["segment"], "İşletme")} · {len(o["meters"])} sayaç'
+        f' · son {gun} gün (veri sonu {son_gun})</div>',
+        unsafe_allow_html=True,
+    )
+    st.write("")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.markdown(kpi_card(svg("coins", 24), "orange", "İsraf Maliyeti", tl(o["waste_tl"]), f"<span>(son {gun} gün)</span>"),
+                unsafe_allow_html=True)
+    k2.markdown(kpi_card(svg("zap", 24), "blue", "Fazla Tüketim", f"{num(o['waste_kwh'])} kWh", "<span>(beklenenin üstü)</span>"),
+                unsafe_allow_html=True)
+    k3.markdown(kpi_card(svg("alert", 24), "red", "Açık Alarm", str(o["open_alerts"]), "<span>(işlem bekleyen israf)</span>"),
+                unsafe_allow_html=True)
+    k4.markdown(kpi_card(svg("bell", 24), "green", "Veri Sorunu", str(o["data_issues"]), "<span>(israf değil, sayaç kontrolü)</span>"),
+                unsafe_allow_html=True)
+    st.write("")
+
+    since = (pd.Timestamp(o["period_end"]) - timedelta(days=gun)).isoformat() if o["period_end"] else None
+    try:
+        yapilacak = api.anomalies(None, limit=3, tenant_id=o["tenant_id"], category="waste",
+                                  status="open", order="cost", since=since)
+    except ApiError as e:
+        st.error(f"Alarmlar alınamadı: {e}")
+        st.stop()
+    with st.container(key="card_bugun"):
+        st.markdown('<div class="card-title">Bugün ne yapmalı?</div>', unsafe_allow_html=True)
+        st.caption("Açık israf alarmlarından en pahalı üçü; her biri için ekipmana göre öneri.")
+        if not yapilacak:
+            st.success("Açık israf alarmı yok.")
+        for a in yapilacak:
+            with st.container(key=f"anom_todo_{a['id']}"):
+                st.markdown(
+                    f'<div class="an-row-top"><span class="badge sev-mid">{tl(a["est_cost_tl"])}</span>'
+                    f'{verdict_badge(a)}<b class="todo-meter">{html.escape(sayac_adi(a))}</b>'
+                    f'<span class="an-time">{tr_tarih_saat(pd.Timestamp(a["ts_start"]))}</span></div>'
+                    + rec_html(a)
+                    + f'<div class="an-desc">{html.escape(a["explanation"] or "")}</div>',
+                    unsafe_allow_html=True,
+                )
+                with st.container(horizontal=True, gap="small", key=f"anbtn_t{a['id']}"):
+                    st.button("Detay", key=f"dt_t{a['id']}", icon=":material/visibility:", on_click=ac_detay,
+                              args=(a["id"], a["building_id"]))
+                    st.button("Sayaç", key=f"t_sy_{a['id']}", icon=":material/show_chart:", on_click=ac_sayac,
+                              args=(a["building_id"],))
+                    durum_dugmeleri(a, "t")
+    st.write("")
+
+    with st.container(key="card_sayaclar"):
+        st.markdown('<div class="card-title">Sayaçlar (konuma göre)</div>', unsafe_allow_html=True)
+        h = st.columns([2.2, 2.6, 1.4, 1.3, 1, 1, 1.1])
+        for col, baslik in zip(h, ["Konum", "Makine / bölge", "Ekipman", f"İsraf ({gun} gün)",
+                                   "Açık alarm", "Veri sorunu", ""], strict=True):
+            col.markdown(f'<div class="mt-h">{baslik}</div>', unsafe_allow_html=True)
+        for m in sorted(o["meters"], key=lambda m: (m["name"] or "").casefold()):
+            r = st.columns([2.2, 2.6, 1.4, 1.3, 1, 1, 1.1], vertical_alignment="center")
+            r[0].markdown(f'<div class="mt-n">{html.escape(m["name"] or "-")}</div>', unsafe_allow_html=True)
+            r[1].markdown(f'<div class="mt-c">{html.escape(m["asset_name"] or "-")}</div>', unsafe_allow_html=True)
+            r[2].markdown(f'<div class="mt-c">{EKIPMAN_TR.get(m["equipment_type"], "-")}</div>', unsafe_allow_html=True)
+            r[3].markdown(f'<div class="mt-v">{tl(m["waste_tl"])}</div>', unsafe_allow_html=True)
+            r[4].markdown(f'<div class="mt-v">{m["open_alerts"]}</div>', unsafe_allow_html=True)
+            r[5].markdown(f'<div class="mt-v">{m["data_issues"]}</div>', unsafe_allow_html=True)
+            r[6].button("Aç", key=f"sy_ac_{m['building_id']}", icon=":material/arrow_forward:",
+                        on_click=ac_sayac, args=(m["building_id"],), use_container_width=True)
+    st.stop()
+
+# ---------- Anomaliler sayfası ----------
+if st.session_state.sayfa == "anomali":
+    mesaj_goster()
+
+    if st.session_state.get("detay") is not None:
+        aid, abid = st.session_state.detay
+        try:
+            a = next((x for x in api.anomalies(abid, limit=500) if x["id"] == aid), None)
+        except ApiError as e:
+            st.error(f"Anomali alınamadı: {e}")
+            st.stop()
+        if a is None:
             kapat_detay()
-
-    if secili is not None:
-        a = secili
+            st.rerun()
         s = pd.to_datetime(a["ts_start"], utc=True)
         e = pd.to_datetime(a["ts_end"], utc=True)
         ad, ton = KAT.get(a["category"], ("Diğer", "data"))
-        v = VER.get(a["verdict"])
-        vb = f'<span class="badge sev-{v[1]}">{v[0]}</span>' if v else '<span class="badge sev-wait">Bekliyor</span>'
 
         st.button("Listeye dön", icon=":material/arrow_back:", on_click=kapat_detay, key="detay_geri")
         st.markdown(
             '<div class="hello">Anomali Detayı</div>'
-            f'<div class="hello-sub">{html.escape(names[bid])} · {tr_tarih_saat(s)} → {tr_tarih_saat(e)}</div>',
+            f'<div class="hello-sub">{html.escape(sayac_adi(a))} · {tr_tarih_saat(s)} → {tr_tarih_saat(e)}</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{vb}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{verdict_badge(a)}</div>',
+                    unsafe_allow_html=True)
 
         try:
             pay = timedelta(hours=36)
             son_saat = pd.Timestamp(a["ts_end"]) + pay
             saat = int((son_saat - pd.Timestamp(a["ts_start"]) + pay) / timedelta(hours=1)) + 1
-            ham = pd.DataFrame(api.readings(bid, min(saat, 2160), son_saat.isoformat()))
-            tah = pd.DataFrame(api.forecast(bid, min(saat, 2160), son_saat.isoformat()))
+            ham = pd.DataFrame(api.readings(abid, min(saat, 2160), son_saat.isoformat()))
+            tah = pd.DataFrame(api.forecast(abid, min(saat, 2160), son_saat.isoformat()))
         except ApiError as err:
             st.error(f"Veri alınamadı: {err}")
             st.stop()
@@ -677,7 +885,7 @@ if st.session_state.sayfa == "anomali":
             else:
                 ev = build_events(pencere, tah_p, [a])
                 _, kapali_p, durus_p = takvim_bantlari(
-                    api, bid, pencere["ts"].min(), pencere["ts"].max() + timedelta(hours=1)
+                    api, abid, pencere["ts"].min(), pencere["ts"].max() + timedelta(hours=1)
                 )
                 lejant = bant_lejant(kapali_p, durus_p)
                 if lejant:
@@ -691,13 +899,14 @@ if st.session_state.sayfa == "anomali":
             st.markdown('<div class="card-title">Açıklama ve öneri</div>', unsafe_allow_html=True)
             st.markdown(
                 f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>'
+                + rec_html(a)
                 + (f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>' if a["advice"] else ""),
                 unsafe_allow_html=True,
             )
 
         st.write("")
         with st.container(key="card_detay_geri"):
-            st.markdown('<div class="card-title">Değerlendirme</div>', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">Durum ve değerlendirme</div>', unsafe_allow_html=True)
             # API şimdilik notu döndürmüyor; alan eklenince burada görünür.
             if a.get("note"):
                 st.markdown(
@@ -705,85 +914,89 @@ if st.session_state.sayfa == "anomali":
                     unsafe_allow_html=True,
                 )
             if not yazabilir:
-                st.caption("Değerlendirme yapmak için operatör veya yönetici rolü gerekir.")
+                st.caption("Durum vermek için operatör veya yönetici rolü gerekir.")
             else:
+                v = VER.get(a["verdict"])
                 if v:
-                    st.caption(f"Mevcut karar: {v[0]}. Yeni bir karar verirseniz son karar geçerli olur.")
+                    st.caption(f"Mevcut durum: {v[0]}. Yeni bir durum seçerseniz son seçim geçerli olur.")
                 nk = f"d_not_{a['id']}"
                 st.text_area(
                     "Not (isteğe bağlı)", key=nk, max_chars=1000, height=90,
                     placeholder="Örn. kompresör arızası, bakım ekibine iletildi.",
                 )
                 with st.container(horizontal=True, gap="small"):
-                    for kod, etiket, ikon in KARAR:
-                        st.button(
-                            etiket, key=f"d_{kod}_{a['id']}", icon=ikon, on_click=gonder, args=(a["id"], kod, nk),
-                            type="primary" if a["verdict"] == kod else "secondary",
-                        )
+                    durum_dugmeleri(a, "d", nk)
         st.stop()
 
-    bekleyen = sum(1 for a in tum if a["verdict"] is None)
-    toplam_maliyet = sum((a["est_cost_tl"] or 0) for a in tum)
-    k1, k2, k3 = st.columns(3)
-    k1.markdown(
-        kpi_card(svg("alert", 24), "red", "Toplam Kayıt", str(len(tum)), "<span>(son 100 kayıt içinde)</span>"),
-        unsafe_allow_html=True,
-    )
-    k2.markdown(
-        kpi_card(svg("bell", 24), "orange", "Geri Bildirim Bekleyen", str(bekleyen), "<span>(henüz değerlendirilmemiş)</span>"),
-        unsafe_allow_html=True,
-    )
-    k3.markdown(
-        kpi_card(svg("coins", 24), "blue", "Tahmini Maliyet Etkisi", tl(toplam_maliyet), "<span>(listelenen kayıtlar)</span>"),
+    tum_sayac = st.session_state.get("an_kapsam") == "Tüm sayaçlar"
+    st.markdown(
+        '<div class="hello">Anomaliler</div>'
+        f'<div class="hello-sub">{"Tüm sayaçlar" if tum_sayac else html.escape(names[bid])} · israf ve veri sorunları</div>',
         unsafe_allow_html=True,
     )
     st.write("")
+    f1, f2, f3, f4 = st.columns(4)
+    f1.selectbox("Kapsam", ["Seçili sayaç", "Tüm sayaçlar"], key="an_kapsam")
+    durum_f = f2.selectbox("Durum", list(DURUM_FILTRE), key="an_durum")
+    ekipman_f = f3.selectbox("Ekipman", ["Tümü", *EKIPMAN_TR], format_func=lambda k: EKIPMAN_TR.get(k, k), key="an_ekipman")
+    sira_f = f4.selectbox("Sıralama", ["En yeni", "En pahalı"], key="an_sira")
+    filtre = {
+        "status": DURUM_FILTRE[durum_f],
+        "equipment_type": None if ekipman_f == "Tümü" else ekipman_f,
+        "order": "cost" if sira_f == "En pahalı" else "recent",
+    }
+    hedef = None if tum_sayac else bid
+    try:
+        israf = api.anomalies(hedef, limit=LISTE_LIMIT, category="waste", **filtre)
+        veri_sor = api.anomalies(hedef, limit=LISTE_LIMIT, category="data_issue", **filtre)
+    except ApiError as e:
+        st.error(f"Anomaliler alınamadı: {e}")
+        st.stop()
 
-    f1, f2 = st.columns(2)
-    kat_f = f1.selectbox("Tür", ["Tümü", "İsraf", "Veri sorunu"])
-    ver_f = f2.selectbox("Durum", ["Tümü", "Bekleyen", "Onaylandı", "Yanlış alarm", "Planlı"])
+    acik = [a for a in israf if a["verdict"] not in KAPALI_DURUM]
+    k1, k2, k3 = st.columns(3)
+    k1.markdown(kpi_card(svg("alert", 24), "red", "Açık İsraf Alarmı", str(len(acik)), "<span>(listedekiler içinde)</span>"),
+                unsafe_allow_html=True)
+    k2.markdown(kpi_card(svg("coins", 24), "orange", "Açık Alarmların Maliyeti", tl(sum(a["est_cost_tl"] or 0 for a in acik)),
+                         "<span>(tahmini)</span>"), unsafe_allow_html=True)
+    k3.markdown(kpi_card(svg("bell", 24), "blue", "Veri Sorunu", str(len(veri_sor)), "<span>(israf değil, sayaç kontrolü)</span>"),
+                unsafe_allow_html=True)
+    st.write("")
 
-    def uygun(a):
-        if kat_f != "Tümü" and KAT.get(a["category"], ("-", ""))[0] != kat_f:
-            return False
-        if ver_f == "Tümü":
-            return True
-        if ver_f == "Bekleyen":
-            return a["verdict"] is None
-        return a["verdict"] in VER and VER[a["verdict"]][0] == ver_f
+    def liste(rows, prefix):
+        if not rows:
+            st.info("Filtreye uyan kayıt yok.")
+            return
+        st.caption(f"{len(rows)}{'+' if len(rows) == LISTE_LIMIT else ''} kayıt"
+                   + (" (ilk 25 gösteriliyor)" if len(rows) > 25 else ""))
+        for a in rows[:25]:
+            ad, ton = KAT.get(a["category"], ("Diğer", "data"))
+            bas = tr_tarih_saat(pd.to_datetime(a["ts_start"], utc=True))
+            bit = tr_tarih_saat(pd.to_datetime(a["ts_end"], utc=True))
+            fazla = f"{num(a['excess_kwh'], 1)} kWh" if a["excess_kwh"] is not None else "-"
+            sayac = f'<b class="todo-meter">{html.escape(sayac_adi(a))}</b>' if tum_sayac else ""
+            maliyet = (f'<div class="an-cost">Fazla tüketim: <b>{fazla}</b> · Tahmini maliyet etkisi: '
+                       f'<b>{tl(a["est_cost_tl"])}</b></div>') if a["category"] == "waste" else ""
+            with st.container(key=f"anom_{prefix}_{a['id']}"):
+                st.markdown(
+                    f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{verdict_badge(a)}{sayac}'
+                    f'<span class="an-time">{bas} → {bit}</span></div>'
+                    f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>{maliyet}'
+                    + rec_html(a)
+                    + (f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>'
+                       if a["advice"] else ""),
+                    unsafe_allow_html=True,
+                )
+                with st.container(horizontal=True, gap="small", key=f"anbtn_{prefix}{a['id']}"):
+                    st.button("Detay", key=f"dt_{prefix}{a['id']}", icon=":material/visibility:", on_click=ac_detay,
+                              args=(a["id"], a["building_id"]))
+                    durum_dugmeleri(a, prefix)
 
-    liste = [a for a in tum if uygun(a)]
-    st.caption(f"{len(liste)} kayıt" + (" (ilk 25 gösteriliyor)" if len(liste) > 25 else ""))
-    if not liste:
-        st.info("Filtreye uyan anomali yok.")
-
-    for a in liste[:25]:
-        ad, ton = KAT.get(a["category"], ("Diğer", "data"))
-        v = VER.get(a["verdict"])
-        vb = f'<span class="badge sev-{v[1]}">{v[0]}</span>' if v else '<span class="badge sev-wait">Bekliyor</span>'
-        bas = tr_tarih_saat(pd.to_datetime(a["ts_start"], utc=True))
-        bit = tr_tarih_saat(pd.to_datetime(a["ts_end"], utc=True))
-        fazla = f"{num(a['excess_kwh'], 1)} kWh" if a["excess_kwh"] is not None else "-"
-        tavsiye = (
-            f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>' if a["advice"] else ""
-        )
-        with st.container(key=f"anom_{a['id']}"):
-            st.markdown(
-                f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{vb}'
-                f'<span class="an-time">{bas} → {bit}</span></div>'
-                f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>'
-                f'<div class="an-cost">Fazla tüketim: <b>{fazla}</b> · '
-                f'Tahmini maliyet etkisi: <b>{tl(a["est_cost_tl"])}</b></div>{tavsiye}',
-                unsafe_allow_html=True,
-            )
-            with st.container(horizontal=True, gap="small", key=f"anbtn_{a['id']}"):
-                st.button("Detay", key=f"dt_{a['id']}", icon=":material/visibility:", on_click=ac_detay, args=(a["id"],))
-                if yazabilir:
-                    for kod, etiket, ikon in KARAR:
-                        st.button(
-                            etiket, key=f"{kod}_{a['id']}", icon=ikon, on_click=gonder, args=(a["id"], kod),
-                            type="primary" if a["verdict"] == kod else "secondary",
-                        )
+    t1, t2 = st.tabs([f"İsraf ({len(israf)})", f"Veri sorunları ({len(veri_sor)})"])
+    with t1:
+        liste(israf, "w")
+    with t2:
+        liste(veri_sor, "v")
     st.stop()
 
 # ---------- Ayarlar sayfası ----------
@@ -1244,13 +1457,18 @@ events = build_events(cur, forecast, win_anoms)
 pct_by_id = {e["id"]: e["pct"] for e in events}
 
 # ---------- Üst bar ----------
+b_bil = next(b for b in buildings if b["building_id"] == bid)
+sayac_bilgi = " · ".join(filter(None, [
+    b_bil.get("tenant_name"), b_bil["name"] or b_bil["external_id"], b_bil.get("asset_name"),
+    EKIPMAN_TR.get(b_bil.get("equipment_type")),
+])) or "Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz."
 initials = "".join(w[0] for w in who.split()[:2]).upper() or "?"
 aralik_txt = "-" if cur.empty else f"{tr_tarih(cur['ts'].min())} – {tr_tarih(cur['ts'].max())}"
 h1, h3 = st.columns([1, 1.25], vertical_alignment="center")
 with h1:
     st.markdown(
         f'<div class="hello">Merhaba, {html.escape(who)}</div>'
-        '<div class="hello-sub">Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz.</div>'
+        f'<div class="hello-sub">{html.escape(sayac_bilgi)}</div>'
         # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
         f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>",
         unsafe_allow_html=True,

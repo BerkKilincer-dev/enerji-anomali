@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 import pandas as pd
 from fastapi import (
@@ -33,9 +33,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import NaiveDatetime
 
-from src.api import auth, schemas
+from src.api import auth, recommendations, schemas
 from src.api.auth import User
 from src.api.repository import (
+    AnomalyFilter,
     ConflictError,
     DemoRepository,
     NotFoundError,
@@ -233,8 +234,32 @@ def anomalies(
     repo: Repo,
     building_id: Annotated[int | None, Query(ge=0, le=schemas.INT_MAX)] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    tenant_id: Annotated[int | None, Query(ge=1, le=schemas.INT_MAX)] = None,
+    category: Literal["waste", "data_issue"] | None = None,
+    status: schemas.StatusFilter | None = None,
+    equipment_type: schemas.EquipmentType | None = None,
+    since: Annotated[NaiveDatetime | None, Query()] = None,
+    until: Annotated[NaiveDatetime | None, Query()] = None,
+    min_cost_tl: Annotated[float | None, Query(ge=0)] = None,
+    order: Literal["recent", "cost"] = "recent",
 ) -> list[schemas.Anomaly]:
-    return repo.anomalies(building_id, limit)
+    """Alarms, newest first or costliest first; every filter is optional.
+
+    status: a verdict, or new (no verdict), open (not closed) or closed (applied, false alarm
+    or planned). Each alarm carries a recommendation for its equipment and anomaly type."""
+    flt = AnomalyFilter(
+        tenant_id, category, status, equipment_type, since, until, min_cost_tl, order
+    )
+    rows = [dict(a) for a in repo.anomalies(building_id, limit, flt)]
+    for a in rows:
+        a["recommendation"] = recommendations.recommend(a["equipment_type"], a["rule_type"])
+    return rows
+
+
+@app.get("/recommendations", dependencies=[Depends(current_user)])
+def recommendation_table() -> list[schemas.RecommendationRow]:
+    """The recommendation texts: one row per equipment type and anomaly type, `*` = any."""
+    return list(recommendations.table().values())
 
 
 @app.get("/summary")
@@ -245,6 +270,25 @@ def summary(repo: Repo) -> schemas.Summary:
 @app.get("/tenants")
 def tenants(repo: Repo) -> list[schemas.TenantOut]:
     return repo.tenants()
+
+
+Days = Annotated[int, Query(ge=1, le=365)]
+
+
+@app.get("/tenants/summary")
+def tenant_summaries(repo: Repo, days: Days = 30) -> list[schemas.TenantSummary]:
+    """Each business: waste, open alarms and data issues over each meter's last `days` days."""
+    return repo.tenant_summaries(days)
+
+
+@app.get("/tenants/{tenant_id}/summary")
+def tenant_summary(
+    tenant_id: Annotated[int, Path(ge=1, le=schemas.INT_MAX)], repo: Repo, days: Days = 30
+) -> schemas.TenantSummary:
+    for row in repo.tenant_summaries(days):
+        if row["tenant_id"] == tenant_id:
+            return row
+    raise NotFoundError(f"tenant {tenant_id} not found")
 
 
 @app.post("/tenants", status_code=201, dependencies=[Depends(require_platform_admin)])

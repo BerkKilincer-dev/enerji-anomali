@@ -177,7 +177,8 @@ def run_detectors(ctx: Context, tune: int = 0) -> tuple[list[Result], dict]:
     tr, va = ctx.labeled_rows("train"), ctx.labeled_rows("val")
 
     with ctx.timed("rules"):
-        rule_score = rules.evaluate(ctx.features)["rule_score"].to_numpy()
+        equipment = ctx.frame.get("equipment_type")
+        rule_score = rules.evaluate(ctx.features, equipment)["rule_score"].to_numpy()
         results.append(Result("rules", "rules", rule_score))
 
     with ctx.timed("random_forest"):

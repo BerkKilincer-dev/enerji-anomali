@@ -61,14 +61,17 @@ Any signed-in role.
 | Method and path | Query | Returns |
 |---|---|---|
 | `GET /health` | | `{"status": "ok", "mode": "demo" \| "database"}`; `mode` tells which repository serves the data |
-| `GET /buildings` | | active buildings with `segment`, `tariff_tl_per_kwh` (the meter's own or the default), `last_scored_ts` and `anomaly_count` |
+| `GET /buildings` | | active buildings with `segment`, `tariff_tl_per_kwh` (the meter's own or the default), `tenant_name`, `asset_name`, `equipment_type`, `last_scored_ts` and `anomaly_count` |
 | `GET /buildings/{id}/operating-hours` | | weekly periods `weekday`, `opens`, `closes` |
 | `GET /buildings/{id}/downtime` | | planned downtime windows, earliest first |
 | `GET /buildings/{id}/readings` | `hours` 1-2160, default 48; `end` optional | hourly `kwh` and label `anomaly` |
 | `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48; `end` optional | `expected_kwh`, `alarm`, `source`, `origin` |
-| `GET /anomalies` | `building_id` optional, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) |
+| `GET /anomalies` | filters below, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) and a `recommendation` |
+| `GET /recommendations` | | the recommendation table: `equipment_type`, `anomaly_type`, `title`, `action` |
 | `GET /summary` | | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings` |
 | `GET /tenants` | | `tenant_id`, `name`, `status`, `city`; tenant users see their own |
+| `GET /tenants/summary` | `days` 1-365, default 30 | each business: `waste_tl`, `waste_kwh`, `open_alerts`, `data_issues` and its `meters` with the same fields, costliest first |
+| `GET /tenants/{id}/summary` | `days` 1-365, default 30 | one business, as above; 404 outside your scope |
 
 - The `hours` window ends at the building's latest reading, not at the current time, so a
   building that stopped sending data still shows its last period. `end` (building local time
@@ -83,10 +86,22 @@ Any signed-in role.
   `est_cost_tl`) or `data_issue` (stuck or silent meter; both cost fields `null`).
 - Anomalies carry `explanation` (built-in Turkish text) and `advice` (Turkish advice from
   Claude when `ANTHROPIC_API_KEY` is set; `null` until written, empty when the model declined).
+- Anomalies also carry `building_name`, `tenant_id`, `asset_name`, `equipment_type` and
+  `recommendation` (`title`, `action`): the row of `data/recommendations.csv` for the meter's
+  equipment and the anomaly type (the rule, or `model` when only a model fired), falling back
+  to `*` (any equipment) and then `*,*`. Edit that file to change the texts; no code change.
+- `GET /anomalies` filters, all optional: `building_id`, `tenant_id`, `category` (`waste`,
+  `data_issue`), `status`, `equipment_type`, `since` and `until` (events that overlap the
+  window, local time), `min_cost_tl` and `order` (`recent` or `cost`). `status` is a verdict
+  or `new` (no verdict), `open` (not closed) or `closed` (`applied`, `false_alarm`, `planned`).
+- Tenant summaries look at each meter's last `days` days of data, ending at its latest
+  reading. `open_alerts` counts waste events in that window that are not closed.
 
 ```bash
 curl -b jar.txt "http://localhost:8000/buildings/100000/readings?hours=24"
 curl -b jar.txt "http://localhost:8000/anomalies?building_id=100000&limit=10"
+curl -b jar.txt "http://localhost:8000/anomalies?tenant_id=3&status=open&category=waste&order=cost&limit=3"
+curl -b jar.txt "http://localhost:8000/tenants/summary?days=30"
 ```
 
 ## Write endpoints
@@ -206,7 +221,7 @@ labels (see [data.md](data.md#feedback-as-labels)).
 
 | Field | Rule |
 |---|---|
-| `verdict` | `confirmed`, `false_alarm` or `planned` |
+| `verdict` | `confirmed`, `false_alarm` or `planned` judge the alarm; `sent` (recommendation told to the business) and `applied` (the business acted on it) follow the recommendation |
 | `note` | up to 1000 characters |
 
 ```bash
