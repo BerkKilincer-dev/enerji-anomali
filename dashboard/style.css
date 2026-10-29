@@ -97,7 +97,7 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 
 /* ---------- Üst bar ---------- */
 .hello { font-size: 26px; font-weight: 700; color: #0F172A; line-height: 1.2; }
-.hello-sub { color: #475569; font-size: 14px; margin-top: 2px; white-space: nowrap; }
+.hello-sub { color: #475569; font-size: 15px; margin-top: 2px; white-space: nowrap; }
 .daterange {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 11px 14px;
@@ -142,9 +142,9 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 .kpi-icon.orange { background: #FEF0D6; color: #F59E0B; }
 .kpi-icon.red { background: #FDE4E4; color: #EF4444; }
 .kpi-icon.green { background: #DCF5EA; color: #10B981; }
-.kpi-title { font-size: 14px; font-weight: 600; color: #1E293B; }
-.kpi-value { font-size: 30px; font-weight: 700; color: #0F172A; margin: 4px 0; }
-.kpi-sub { font-size: 13px; color: #64748B; }
+.kpi-title { font-size: 16.5px; font-weight: 600; color: #1E293B; }
+.kpi-value { font-size: 32px; font-weight: 700; color: #0F172A; margin: 4px 0; }
+.kpi-sub { font-size: 14.5px; color: #64748B; }
 .kpi-sub .down { color: #047857; font-weight: 600; }
 .kpi-sub .up { color: #DC2626; font-weight: 600; }
 
