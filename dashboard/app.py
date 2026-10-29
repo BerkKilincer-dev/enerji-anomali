@@ -1376,25 +1376,23 @@ b1, b2, b3 = st.columns(3)
 with b1:
     with st.container(key="card_dagilim"):
         st.markdown('<div class="card-title">Tüketimin Dağılımı</div>', unsafe_allow_html=True)
+        # Uyarı kartındaki alt başlıkla aynı satır: üç kartın başlıkları ve halkalar hizalı durur.
+        st.caption(f"{len(rows)} bina · {donem}")
         if toplam_kwh <= 0:
             st.info("Dağılım için veri yok.")
         else:
-            d1, d2 = st.columns([1, 1.15])
-            with d1:
-                fig = donut_chart([v for _, v in dagilim], PALET[: len(dagilim)], num(toplam_kwh), "kWh")
-                alt = f"Tüketim dağılımı halka grafiği, toplam {num(toplam_kwh)} kWh; " + "; ".join(
-                    f"{n} %{num(v / toplam_kwh * 100)}" for n, v in dagilim
-                )
-                st.markdown(fig_html(fig, alt=alt), unsafe_allow_html=True)
-            with d2:
-                st.markdown(
-                    legend_rows([(PALET[k], n, f"%{num(v / toplam_kwh * 100)}") for k, (n, v) in enumerate(dagilim)]),
-                    unsafe_allow_html=True,
-                )
+            # Halka üstte ve büyük, lejant altında iki sütun: kartın boş kalan alanını kullanır.
+            fig = donut_chart([v for _, v in dagilim], PALET[: len(dagilim)], num(toplam_kwh), "kWh")
+            alt = f"Tüketim dağılımı halka grafiği, toplam {num(toplam_kwh)} kWh; " + "; ".join(
+                f"{n} %{num(v / toplam_kwh * 100)}" for n, v in dagilim
+            )
+            lejant = legend_rows([(PALET[k], n, f"%{num(v / toplam_kwh * 100)}") for k, (n, v) in enumerate(dagilim)])
+            st.markdown(fig_html(fig, alt=alt) + f'<div class="lg-grid">{lejant}</div>', unsafe_allow_html=True)
 
 with b2:
     with st.container(key="card_bina"):
         st.markdown('<div class="card-title">Bina Bazlı Tüketim</div>', unsafe_allow_html=True)
+        st.caption(f"En çok tüketen {min(len(rows), 5)} bina · {donem}")
         if toplam_kwh <= 0:
             st.info("Dağılım için veri yok.")
         else:
@@ -1410,25 +1408,17 @@ with b3:
     with st.container(key="card_uyari"):
         st.markdown('<div class="card-title">Uyarı Durumları</div>', unsafe_allow_html=True)
         st.caption(f"{names[bid]} · {donem}")
-        d1, d2 = st.columns([1, 1.15])
-        with d1:
-            fig = donut_chart(
-                [sev_say[k] for k in SEV_RENK], list(SEV_RENK.values()), str(toplam_uyari), "Toplam Uyarı"
-            )
-            alt = f"Uyarı durumları halka grafiği, toplam {toplam_uyari} uyarı; " + "; ".join(
-                f"{k} {sev_say[k]}" for k in SEV_RENK
-            )
-            st.markdown(fig_html(fig, alt=alt), unsafe_allow_html=True)
-        with d2:
-            st.markdown(
-                legend_rows(
-                    [
-                        (SEV_RENK[k], k, f"{sev_say[k]} (%{num(sev_say[k] / toplam_uyari * 100) if toplam_uyari else 0})")
-                        for k in SEV_RENK
-                    ]
-                ),
-                unsafe_allow_html=True,
-            )
+        fig = donut_chart([sev_say[k] for k in SEV_RENK], list(SEV_RENK.values()), str(toplam_uyari), "Toplam Uyarı")
+        alt = f"Uyarı durumları halka grafiği, toplam {toplam_uyari} uyarı; " + "; ".join(
+            f"{k} {sev_say[k]}" for k in SEV_RENK
+        )
+        lejant = legend_rows(
+            [
+                (SEV_RENK[k], k, f"{sev_say[k]} (%{num(sev_say[k] / toplam_uyari * 100) if toplam_uyari else 0})")
+                for k in SEV_RENK
+            ]
+        )
+        st.markdown(fig_html(fig, alt=alt) + f'<div class="lg-grid c3">{lejant}</div>', unsafe_allow_html=True)
 
 # ---------- Alt durum çubuğu ----------
 try:
