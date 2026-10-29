@@ -28,7 +28,10 @@ header[data-testid="stHeader"] button, header[data-testid="stHeader"] a { pointe
 }
 /* Form ve tablo ağırlıklı sayfalar (Tüketim Analizi, Raporlar, Ayarlar) küçültülmeden gösterilir; tablolar canvas
    üzerine çizildiği için yazı boyutu CSS ile büyütülemiyor, zoom'u kaldırmak tek tutarlı yol. */
-.block-container:has(.pg-okunur) { zoom: 1; }
+/* Sayfa geçişinde Streamlit yeni sayfanın başlığını eskisinin yerine hemen yazar, eski sayfanın geri kalanını ise
+   çizim bitene kadar tutar. Küçültülmüş sayfaların (Genel Bakış, Anomaliler) içeriği hâlâ ekrandayken zoom kalkmaz;
+   yoksa o içerik bir an büyüyordu. Bu öğeler küçültmesiz sayfalarda hiç yok, kendi içlerindeki etkileşim etkilenmez. */
+.block-container:has(.pg-okunur):not(:has([class*="st-key-anom_"], .st-key-chart_card, [class*="st-key-card_detay"])) { zoom: 1; }
 .block-container:has(.pg-okunur) .set-row { font-size: 15.5px; }
 .block-container:has(.pg-okunur) .hello-sub { font-size: 15px; }
 /* Beyaz kart içindeki alanlar zeminle aynı renkte kalıyordu: görünür çerçeve.
@@ -61,8 +64,9 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 [data-testid="stSidebar"] [data-testid="stLayoutWrapper"]:has(> .st-key-bina_box) { margin-top: auto; padding-top: 1rem; }
 
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 6px 18px; }
-/* Logo: menüde ve giriş ekranında 45 px (kaynak 160 px, yüksek çözünürlükte de keskin) */
-.brand img, .lg-brand img { width: 45px !important; height: 45px !important; }
+/* Logo: menüde 41 px, giriş ekranında 45 px (kaynak 160 px, yüksek çözünürlükte de keskin) */
+.brand img { width: 41px !important; height: 41px !important; }
+.lg-brand img { width: 45px !important; height: 45px !important; }
 .brand { gap: 6px; }
 .lg-brand { gap: 6px !important; }  /* giriş ekranının kendi stili 12px veriyor */
 .brand-name { font-size: 21px; font-weight: 700; color: #FFFFFF; line-height: 1.1; }
@@ -151,6 +155,13 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 .kpi-sub { font-size: 14.5px; color: #64748B; }
 .kpi-sub .down { color: #047857; font-weight: 600; }
 .kpi-sub .up { color: #DC2626; font-weight: 600; }
+/* Raporlar sayfası küçültmesiz (zoom 1) gösterildiği için kartlar orada diğer sayfalarla aynı boya indirilir */
+.block-container:has(.pg-rapor) .kpi { padding: 14px 18px; }
+.block-container:has(.pg-rapor) .kpi-icon { width: 40px; height: 40px; margin-bottom: 8px; }
+.block-container:has(.pg-rapor) .kpi-icon svg { width: 21px; height: 21px; }
+.block-container:has(.pg-rapor) .kpi-title { font-size: 14px; }
+.block-container:has(.pg-rapor) .kpi-value { font-size: 27px; margin: 2px 0; }
+.block-container:has(.pg-rapor) .kpi-sub { font-size: 12.5px; }
 
 /* ---------- Ana grafik ---------- */
 .legend { display: flex; gap: 20px; font-size: 12px; color: #475569; margin: 2px 0 6px; flex-wrap: wrap; }

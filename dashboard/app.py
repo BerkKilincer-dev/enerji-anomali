@@ -1103,7 +1103,7 @@ if st.session_state.sayfa == "tuketim":
 # ---------- Raporlar sayfası ----------
 if st.session_state.sayfa == "rapor":
     st.markdown(
-        '<span class="pg-okunur" hidden></span><div class="hello">Raporlar</div>'
+        '<span class="pg-okunur pg-rapor" hidden></span><div class="hello">Raporlar</div>'
         '<div class="hello-sub">Tasarruf özeti ve dışa aktarma (CSV, Excel, PDF)</div>',
         unsafe_allow_html=True,
     )
