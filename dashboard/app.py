@@ -557,8 +557,9 @@ who = me.get("name") or me["email"]
 
 # ---------- Temel veri ----------
 try:
-    summary = api.summary()
     buildings = api.buildings()
+    # İşletmeye bağlı sayaç varsa zil ve rozet de yalnız onları sayar (aşağıdaki "musteri" ile aynı).
+    summary = api.summary(customers_only=any(b.get("tenant_id") is not None for b in buildings))
 except ApiError as e:
     if e.status == 401:
         st.session_state.clear()

@@ -31,8 +31,6 @@ MIN_PASSWORD_LENGTH = 12
 LEAD_DEPENDENTS = (
     "operating_hours",
     "planned_downtime",
-    "work_orders",
-    "alert_settings",
     "meters",
     "assets",
     "anomaly_feedback",

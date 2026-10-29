@@ -21,11 +21,6 @@ venv/
 .ruff_cache/
 .pytest_cache/
 
-# Node
-node_modules/
-frontend/dist/
-*.tsbuildinfo
-
 # OS / editor
 .DS_Store
 .vscode/

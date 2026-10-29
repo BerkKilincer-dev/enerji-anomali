@@ -1,6 +1,6 @@
 # Kurulum: projeyi kendi bilgisayarında çalıştırmak
 
-Bu adımları sırayla yapan herkes paneli açabilir. Python, Node ya da model eğitimi gerekmez;
+Bu adımları sırayla yapan herkes paneli açabilir. Python ya da model eğitimi gerekmez;
 her şey Docker içinde çalışır. Toplam süre ilk seferde yaklaşık 15 dakika.
 
 ## 1. Kurulması gerekenler
@@ -90,7 +90,8 @@ Sadece paneli kullanacaksan bu bölümü atla.
 
   `activate` "running scripts is disabled" derse bir kere
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` yaz ve tekrar dene.
-- **Panel üzerinde çalışanlar**: [Node.js 22 (LTS)](https://nodejs.org) kur.
+- **Panel üzerinde çalışanlar**: ayrıca bir şey kurmaya gerek yok; panel Streamlit ile Docker
+  içinde çalışır, `dashboard/` klasöründeki değişiklik tarayıcı yenilenince görünür.
 - **Kod editörü**: [VS Code](https://code.visualstudio.com) önerilir.
 
 Kod yazma ve GitHub'a gönderme kuralları README'deki "Çalışma şekli" bölümünde.

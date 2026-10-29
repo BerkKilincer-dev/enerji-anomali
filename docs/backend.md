@@ -21,15 +21,13 @@ and `ops` ([data.md](data.md#shared-database)).
 | Service | Code today | Tables it owns | Status |
 |---|---|---|---|
 | API gateway / BFF | `src.api.main` | none | in place; a reverse proxy with TLS goes in front before production |
-| Identity and tenant | `POST /tenants`, `src.data.customer tenant` | `core.tenants`, `core.users`, `buildings.tenant_id` | tenant registration in place; login, roles and tenant filtering planned |
-| Asset and configuration | `src.data.customer`, `POST /buildings`, schedule endpoints | `core.buildings`, `core.operating_hours`, `core.planned_downtime`, `core.assets`, `core.meters`, `ops.alert_settings` | buildings and schedules in use; asset, meter and settings endpoints planned |
+| Asset and configuration | `src.data.customer`, `POST /buildings`, schedule endpoints | `core.buildings`, `core.operating_hours`, `core.planned_downtime`, `core.assets`, `core.meters` | buildings, schedules and the meter catalog (`src.data.catalog`) in use |
 | Data ingestion | `src.ingest.mqtt_ingest`, CSV import | writes `telemetry.readings` | in place |
 | Telemetry | readings and forecast endpoints | `telemetry.readings`, `telemetry.weather` | in place |
 | AI / anomaly | `src.scoring.service`, `src.models` | `ml.*`: `predictions`, `anomalies`, `scoring_state`, `model_artifacts`, view `readings_enriched` | in place |
-| Alert | none | `ops.alert_settings`, `ops.notifications` | schema ready; no channel yet (Telegram was removed) |
-| Identity | `src.api.auth`, `src.api.users`, `/auth/*`, `/users` | `core.tenants`, `core.users`, `core.sessions` | login, roles and tenant scoping in place |
-| Analytics and reporting | `GET /summary` | views `ops.daily_kpis`, `ml.current_predictions`, `ml.current_anomalies` | KPI view in place; report endpoints planned |
-| Work order | none | `ops.work_orders`, `ml.anomaly_feedback` | schema ready; endpoints planned |
+| Identity and tenant | `src.api.auth`, `src.api.users`, `/auth/*`, `/users`, `POST /tenants` | `core.tenants`, `core.users`, `core.sessions`, `buildings.tenant_id` | login, roles and tenant scoping in place |
+| Analytics and reporting | `GET /summary`, `GET /tenants/summary` | views `ops.daily_kpis`, `ml.current_predictions`, `ml.current_anomalies` | in place |
+| Recommendation | `src.api.recommendations`, `GET /recommendations`, `recommendation` on each anomaly | `data/recommendations.csv`; status in `ml.anomaly_feedback` (`sent`, `applied`) | in place |
 | Message broker | Mosquitto | none | MQTT for meters; Kafka or RabbitMQ only when services split |
 
 Model of the data behind it:
@@ -43,15 +41,13 @@ Model of the data behind it:
   tree; `meters` registers its physical meters, at most one main meter. `readings` stores the
   main meter, which is what the models score; submeter readings get their own table when a
   customer needs them.
-- `alert_settings` holds per-building thresholds: `notify` mutes a building and `min_cost_tl`
-  drops cheap events. Buildings without a row get every event.
-- A work order tracks the follow-up of an alarm (open, in progress, resolved, dismissed).
-  `anomaly_feedback` stays the label source for training; closing a work order should also
-  write feedback (resolved as `confirmed`, dismissed as `false_alarm`).
+- The follow-up of an alarm is its latest verdict in `anomaly_feedback`: `sent` and `applied`
+  for the recommendation, `confirmed`, `false_alarm` and `planned` for the alarm. The same
+  table is the label source for training.
 - `daily_kpis` sums kWh, expected kWh and excess per building and day over valid hours;
   partial and merged hours count as missing, as in the models.
-- Reloading LEAD (`load_db --force`) also removes schedules, assets, meters, alert settings
-  and work orders of LEAD buildings; customer buildings are never touched.
+- Reloading LEAD (`load_db --force`) also removes schedules, assets and meters of LEAD
+  buildings; customer buildings are never touched.
 
 ## Running locally
 
@@ -125,9 +121,8 @@ published by training.
 
 ## Alerts
 
-The scoring service sends no messages; new events show up in the dashboard. The
-`alert_settings` and `notifications` tables stay for a future channel, one row per event and
-channel.
+The scoring service sends no messages; new events show up in the dashboard. A notification
+channel (e-mail, SMS) would need its own table of sent events, so each event goes out once.
 
 ## LLM advice
 
@@ -173,7 +168,9 @@ restart. A failed database write puts the batch back into the buffer, which keep
 Timestamps are shifted by whole weeks so the backlog (`--days`, 28 by default) ends at the
 current hour and weekdays still line up. Every hour carries all replayed buildings together;
 backlog hours go out every `--speed` seconds (0.2 by default, about two minutes for four
-weeks), later hours when they end in real time. `--register` registers the buildings first.
+weeks), later hours when they end in real time. `--register` registers the buildings first;
+add `--tenant <business>` (for example `--tenant Otel`) so they belong to a business, since
+the panel lists only meters that belong to one.
 Ctrl+C stops the replay; running the same command again resends the backlog, which is
 harmless because readings are upserted.
 
@@ -187,7 +184,7 @@ Demo script:
 
 ```bash
 docker compose --profile live up -d
-python -m src.ingest.replay --building 1 2 3 --register \
+python -m src.ingest.replay --building 1 2 3 --register --tenant Otel \
     --inject night_base_load --inject-building 2 --magnitude 2.5
 ```
 

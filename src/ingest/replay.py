@@ -1,7 +1,7 @@
 """Virtual meters: replay LEAD buildings over MQTT as if they were live customers.
 
 Usage: python -m src.ingest.replay (--building 1 [2 ...] | --split test) [--prefix demo]
-           [--days 28] [--speed 0.2] [--register]
+           [--days 28] [--speed 0.2] [--register [--tenant Otel]]
            [--inject night_base_load] [--inject-building 1] [--magnitude 2.5]
 Timestamps move forward by whole weeks so the backlog ends now and weekdays still line up.
 All buildings of one hour are sent together: the backlog quickly, later hours in real time.
@@ -83,18 +83,29 @@ def publish(client: mqtt.Client, rows: pd.DataFrame, speed: float) -> None:
             client.publish(f"meters/{external_id}", json.dumps(payload), qos=1)
 
 
-def register(ids: dict[int, str], buildings: pd.DataFrame) -> None:
+def register(ids: dict[int, str], buildings: pd.DataFrame, tenant: str | None = None) -> None:
+    """Register the virtual meters; with `tenant` they belong to that business, so the CRM
+    panel lists them (it shows only meters that belong to a business)."""
     from src.common.db import connect
     from src.data.customer import BuildingInfo, register_building
 
     meta = buildings.set_index("building_id")
     with connect(require_database_url()) as conn:
+        tenant_id = None
+        if tenant is not None:
+            row = conn.execute(
+                "SELECT tenant_id FROM tenants WHERE name = %s", (tenant,)
+            ).fetchone()
+            if row is None:
+                raise SystemExit(f"no business named {tenant!r}; see data/meter_catalog.csv")
+            tenant_id = row[0]
         for building_id, external_id in ids.items():
             info = BuildingInfo(
                 external_id,
-                name=f"Demo building (LEAD {building_id})",
+                name=f"Canlı sayaç (LEAD {building_id})",
                 primary_use=meta.at[building_id, "primary_use"],
                 square_feet=float(meta.at[building_id, "square_feet"]),
+                tenant_id=tenant_id,
             )
             log.info("registered %s as building %d", external_id, register_building(conn, info))
 
@@ -112,11 +123,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--days", type=int, default=28, help="backlog sent before real time")
     parser.add_argument("--speed", type=float, default=0.2, help="seconds per backlog hour")
     parser.add_argument("--register", action="store_true", help="register the buildings first")
+    parser.add_argument("--tenant", help="with --register: the business they belong to, e.g. Otel")
     parser.add_argument("--inject", choices=sorted(synthetic.SCENARIOS))
     parser.add_argument("--inject-building", type=int, help="default: the first building")
     parser.add_argument("--magnitude", type=float, help="multiplier for spike, drift, night load")
     args = parser.parse_args()
     args.buildings = args.building or getattr(load_split(), args.split)
+    if args.tenant and not args.register:
+        parser.error("--tenant needs --register")
     if args.inject_building is not None and (
         not args.inject or args.inject_building not in args.buildings
     ):
@@ -144,7 +158,7 @@ def main() -> None:
         )
         log.info("injected %s into %s", args.inject, ids[target])
     if args.register:
-        register(ids, tables.buildings)
+        register(ids, tables.buildings, args.tenant)
 
     rows = stack({ids[b]: s for b, s in series.items()})
     client = start_client()

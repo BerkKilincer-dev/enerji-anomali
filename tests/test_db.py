@@ -32,6 +32,7 @@ from src.data.dataset import model_frame
 from src.data.feedback import apply_feedback, fetch_feedback
 from src.data.load_db import apply_schema, ensure_role, ensure_roles_from_env, load_tables
 from src.data.store import fetch_tables
+from src.ingest import replay
 from src.ingest.mqtt_ingest import Buffer, Reading
 from src.models import registry
 from src.scoring.service import refresh_scorer, run_once
@@ -141,10 +142,6 @@ def test_lead_load_is_idempotent_and_reads_back_identically(db):
         conn.execute(
             "INSERT INTO meters (building_id, asset_id, external_id) VALUES (%s, %s, 'm-1')",
             (building, asset),
-        )
-        conn.execute("INSERT INTO alert_settings (building_id) VALUES (%s)", (building,))
-        conn.execute(
-            "INSERT INTO work_orders (building_id, title) VALUES (%s, 'check')", (building,)
         )
         assert load_tables(conn, lead, force=True)
         back = fetch_tables(conn)
@@ -403,16 +400,15 @@ def test_repository_reads_writes_and_feedback(db, scorer):
         repo.import_readings(10**9, pd.DataFrame({"ts": [], "value": []}), "kwh", False, None)
 
 
-def test_tenant_asset_and_work_order_tables(db):
+def test_tenant_and_asset_tables(db):
     with connect(db) as conn:
         tenant = conn.execute(
             "INSERT INTO tenants (name) VALUES ('Acme') RETURNING tenant_id"
         ).fetchone()[0]
-        user = conn.execute(
-            "INSERT INTO users (tenant_id, email, role) VALUES (%s, 'ops@acme.test', 'operator') "
-            "RETURNING user_id",
+        conn.execute(
+            "INSERT INTO users (tenant_id, email, role) VALUES (%s, 'ops@acme.test', 'operator')",
             (tenant,),
-        ).fetchone()[0]
+        )
         building = register_building(conn, BuildingInfo("acme-plant"))
         conn.execute("UPDATE buildings SET tenant_id = %s", (tenant,))
         line = conn.execute(
@@ -427,18 +423,8 @@ def test_tenant_asset_and_work_order_tables(db):
         )
         meter = "INSERT INTO meters (building_id, external_id, is_main) VALUES (%s, %s, true)"
         conn.execute(meter, (building, "acme-plant-main"))
-        conn.execute(
-            "INSERT INTO work_orders (building_id, title, assignee_id, status, resolved_at) "
-            "VALUES (%s, 'Compressor left on at night', %s, 'resolved', now())",
-            (building, user),
-        )
         with pytest.raises(psycopg.errors.UniqueViolation), conn.transaction():
             conn.execute(meter, (building, "acme-plant-second"))
-        with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
-            conn.execute(
-                "INSERT INTO work_orders (building_id, title, status) VALUES (%s, 'x', 'resolved')",
-                (building,),
-            )
         with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
             conn.execute("INSERT INTO users (email, role) VALUES ('Ops@Acme.test', 'operator')")
     assert count(db, "SELECT count(*) FROM assets WHERE parent_id IS NOT NULL") == 1
@@ -707,3 +693,20 @@ def test_alarm_filters_statuses_and_tenant_summary(db):
     assert [m["building_id"] for m in summary["meters"]] == [lobby, kitchen]
     assert summary["period_end"] == datetime(2026, 3, 31, 23)
     assert repo.scoped(hotel).anomalies(other, 50) == []
+    # The CRM bell counts the business's meters only; "other" has no tenant.
+    assert repo.summary()["buildings"] == 3
+    assert repo.summary(customers_only=True)["buildings"] == 2
+
+
+def test_replayed_meters_can_belong_to_a_business(db, monkeypatch, fresh_settings):
+    monkeypatch.setenv("DATABASE_URL", db)
+    with connect(db) as conn:
+        hotel = register_tenant(conn, TenantInfo("Otel"))
+    lead = pd.DataFrame({"building_id": [91], "primary_use": ["Office"], "square_feet": [1000.0]})
+    replay.register({91: "demo-91"}, lead, "Otel")
+    building = PostgresRepository(db).scoped(hotel).buildings()
+    assert [(b["external_id"], b["name"]) for b in building] == [
+        ("demo-91", "Canlı sayaç (LEAD 91)")
+    ]
+    with pytest.raises(SystemExit, match="no business named"):
+        replay.register({91: "demo-91"}, lead, "Yok")

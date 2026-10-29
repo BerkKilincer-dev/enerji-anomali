@@ -263,8 +263,9 @@ def recommendation_table() -> list[schemas.RecommendationRow]:
 
 
 @app.get("/summary")
-def summary(repo: Repo) -> schemas.Summary:
-    return repo.summary()
+def summary(repo: Repo, customers_only: bool = False) -> schemas.Summary:
+    """customers_only: only buildings that belong to a business (the CRM's meters)."""
+    return repo.summary(customers_only)
 
 
 @app.get("/tenants")

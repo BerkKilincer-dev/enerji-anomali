@@ -125,8 +125,8 @@ class Api:
     def health(self):
         return self._req("GET", "/health")
 
-    def summary(self):
-        return self._req("GET", "/summary")
+    def summary(self, customers_only=False):
+        return self._req("GET", "/summary", params={"customers_only": customers_only} if customers_only else None)
 
     def buildings(self):
         return self._req("GET", "/buildings")

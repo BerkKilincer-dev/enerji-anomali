@@ -101,7 +101,7 @@ class Repository(Protocol):
     def anomalies(
         self, building_id: int | None, limit: int, flt: AnomalyFilter = NO_FILTER
     ) -> list[dict]: ...
-    def summary(self) -> dict: ...
+    def summary(self, customers_only: bool = False) -> dict: ...
     def tenant_summaries(self, days: int) -> list[dict]: ...
     def tenants(self) -> list[dict]: ...
     def add_feedback(
@@ -261,7 +261,8 @@ class PostgresRepository:
             ),
         )
 
-    def summary(self) -> dict:
+    def summary(self, customers_only: bool = False) -> dict:
+        """Totals over visible buildings; `customers_only` skips buildings without a tenant."""
         row = self._query(
             f"""
             WITH latest AS (
@@ -269,6 +270,7 @@ class PostgresRepository:
                        (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
                            AS end_ts
                 FROM buildings b WHERE b.active AND {VISIBLE}
+                    AND (NOT %(customers)s OR b.tenant_id IS NOT NULL)
             ),
             costs AS (
                 SELECT building_id, sum(est_cost_tl) AS cost FROM current_anomalies
@@ -281,7 +283,7 @@ class PostgresRepository:
                        AS worst_building_id,
                    (SELECT count(*) FROM latest) AS buildings
             """,
-            self._params(),
+            self._params(customers=customers_only),
         )
         return row[0]
 
@@ -617,7 +619,8 @@ class DemoRepository:
         )
         return [item] if matches else []
 
-    def summary(self) -> dict:
+    def summary(self, customers_only: bool = False) -> dict:
+        # Demo buildings have no tenant, so customers_only would leave nothing to show.
         return {
             "total_cost_tl": 945.0,
             "active_alerts": 1,

@@ -67,12 +67,12 @@ Sanal sayaçlar MQTT üzerinden veri gönderir; birine gece israfı eklenir ve p
 
 ```bash
 docker compose --profile live up -d       # canlı skorlama ve MQTT alıcısı
-python -m src.ingest.replay --building 55 91 108 --register --speed 0.05 \
+python -m src.ingest.replay --building 55 91 108 --register --tenant Otel --speed 0.05 \
     --inject night_base_load --inject-building 91
 ```
 
-Skorlama 5 dakikada bir çalışır; en geç o sürede panelde "Demo building (LEAD 91)" sayacında son iki gecenin israf
-alarmı çıkar. Durdurmak için `Ctrl+C`, her şeyi kapatmak için `docker compose --profile live down`.
+Sanal sayaçlar Otel'e bağlanır. Skorlama 5 dakikada bir çalışır; en geç o sürede panelde
+"Otel · Canlı sayaç (LEAD 91)" sayacında son iki gecenin israf alarmı çıkar. Durdurmak için `Ctrl+C`, her şeyi kapatmak için `docker compose --profile live down`.
 
 ## Kodda isimler
 
@@ -133,7 +133,6 @@ enerji-anomali/
 │   ├── charts.py               grafikler
 │   ├── reports.py              CSV / Excel / PDF raporları
 │   └── style.css               görünüm
-├── oldfrontend/              eski React paneli; kullanılmıyor, sadece başvuru için
 ├── models_out/               (ML) eğitilmiş model; herkes bunu kullanır, eğitim gerekmez
 ├── db/init/001_schema.sql    (Veri + Backend) veritabanı şeması: core, telemetry, ml, ops
 ├── tests/                    (Herkes) otomatik testler, `pytest -q`

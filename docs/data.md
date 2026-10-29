@@ -54,7 +54,7 @@ schemas, so the model data is apart from customer setup and operations:
 | `core` | `tenants`, `users`, `buildings`, `operating_hours`, `planned_downtime`, `assets`, `meters` | onboarding (CLI, `POST /tenants`, `POST /buildings`) |
 | `telemetry` | `readings`, `weather` | CSV import, MQTT ingest, weather backfill, `load_db` |
 | `ml` | `predictions`, `anomalies`, `anomaly_feedback`, `scoring_state`, `model_artifacts`; views `readings_enriched`, `current_predictions`, `current_anomalies` | training, scoring, feedback |
-| `ops` | `alert_settings`, `notifications`, `work_orders`; view `daily_kpis` | alerts, reporting |
+| `ops` | view `daily_kpis` | reporting |
 
 Every connection from `src.common.db.connect` sets `search_path` to
 `core,telemetry,ml,ops,public`, and `load_db` sets the same path on the database for psql and

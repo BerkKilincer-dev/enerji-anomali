@@ -15,7 +15,7 @@
  │ telemetry  readings · weather                                                    │
  │ ml         predictions · anomalies · anomaly_feedback · scoring_state ·          │
  │            model_artifacts · views readings_enriched, current_*                  │
- │ ops        alert_settings · notifications · work_orders · view daily_kpis        │
+ │ ops        view daily_kpis                                                       │
  └──────────────────────────────────────────────────────────────────────────────────┘
       │  ▲                         │  ▲                                   ▲
       │  │ Open-Meteo weather      │  │ predictions, anomalies           │ feedback
@@ -88,8 +88,8 @@ reporting, work order) and the tables each one owns is in
 - `tenants` hold the company and contract details; `buildings.segment` is one of a fixed
   list (`src/data/segments.py`). `operating_hours` and `planned_downtime` store the schedule
   for later use in rules and thresholds.
-- `users`, `assets`, `meters` and `work_orders` are ready for the identity, asset and work
-  order services; `notifications` and `alert_settings` drive the alerts.
+- `users`, `assets` and `meters` hold identity and the meter catalog (business, location,
+  equipment type).
 - TimescaleDB hypertables are created when the extension exists; plain tables otherwise.
 
 ## Deployment
