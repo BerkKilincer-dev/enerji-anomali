@@ -2,6 +2,7 @@ import base64
 import html
 import io
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 from pathlib import Path
@@ -10,12 +11,13 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-from api_client import API_URL, Api, ApiError
+from api_client import API_URL, EVENTS, Api, ApiError
 from charts import (
     DURUS_RENK,
     KAPALI,
     KAPALI_MAX_GUN,
     build_events,
+    chart_alt,
     closed_spans,
     consumption_chart,
     donut_chart,
@@ -36,13 +38,16 @@ css = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
 st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
-def fig_html(fig, kind="donut"):
-    """Matplotlib şeklini ortalanmış, gömülü bir görsele çevirir (Streamlit sarmalayıcılarından bağımsız)."""
+def fig_html(fig, kind="donut", alt=""):
+    """Matplotlib şeklini ortalanmış, gömülü bir görsele çevirir (Streamlit sarmalayıcılarından bağımsız).
+
+    alt: ekran okuyucunun okuyacağı özet; st.pyplot alternatif metin veremediği için grafikler buradan çizilir.
+    """
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=200, transparent=True, bbox_inches="tight", pad_inches=0.02)
+    fig.savefig(buf, format="png", dpi=150, transparent=True, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
     b64 = base64.b64encode(buf.getvalue()).decode()
-    return f'<div class="{kind}-wrap"><img src="data:image/png;base64,{b64}" alt=""></div>'
+    return f'<div class="{kind}-wrap"><img src="data:image/png;base64,{b64}" alt="{html.escape(alt)}"></div>'
 
 
 def num(x, d=0):
@@ -213,6 +218,19 @@ def bant_lejant(kapali, duruslar):
     return "".join(parts)
 
 
+def grafik_tablosu(df, fc):
+    """Grafiğin metin alternatifi: aynı veriyi klavye ve ekran okuyucuyla gezilebilen tablo olarak verir."""
+    with st.expander("📋 Grafiği tablo olarak göster"):
+        t = df[["ts", "kwh"]].copy()
+        if fc is not None and not fc.empty:
+            t = t.merge(fc.groupby("ts")["expected_kwh"].mean().reset_index(), on="ts", how="left")
+        t["ts"] = t["ts"].map(tr_tarih_saat)
+        st.dataframe(
+            t.rename(columns={"ts": "Zaman", "kwh": "Gerçekleşen (kWh)", "expected_kwh": "Beklenen (kWh)"}),
+            hide_index=True, use_container_width=True, height=260,
+        )
+
+
 def mesai_disi(df, acik):
     """Çalışma saatleri dışındaki tüketim (kWh, toplam içindeki pay); takvim yoksa None."""
     if not acik or df.empty:
@@ -225,17 +243,25 @@ def mesai_disi(df, acik):
     return dis, (dis / toplam * 100 if toplam else 0.0)
 
 
+def readings_paralel(_api, ids, hours):
+    """Birden çok binanın okumalarını aynı anda çeker; hata veren bina atlanır. {bina: satırlar}"""
+
+    def oku(i):
+        try:
+            return i, _api.readings(i, hours)
+        except ApiError:
+            return i, None
+
+    # Sırayla 20 istek ~1 sn sürüyordu; API'yi boğmamak için en fazla 6 eşzamanlı istek.
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return {i: rows for i, rows in ex.map(oku, ids) if rows is not None}
+
+
 @st.cache_data(ttl=600, show_spinner="Binalar yükleniyor...")
 def kwh_by_building(_api, user_id, ids, hours):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi birbirine karışmasın.
-    out = {}
-    for i in ids:
-        try:
-            rows = _api.readings(i, hours)
-        except ApiError:
-            continue
-        out[i] = sum((r["kwh"] or 0) for r in rows)
-    return out
+    return {i: sum((r["kwh"] or 0) for r in rows) for i, rows in readings_paralel(_api, ids, hours).items()}
+
 @st.cache_data(ttl=300, show_spinner="Rapor hazırlanıyor...")
 def report_data(_api, user_id, items, hours, tariffs):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi karışmasın.
@@ -245,11 +271,8 @@ def report_data(_api, user_id, items, hours, tariffs):
 def readings_multi(_api, user_id, ids, hours):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi karışmasın.
     out = {}
-    for i in ids:
-        try:
-            df = pd.DataFrame(_api.readings(i, hours))
-        except ApiError:
-            continue
+    for i, rows in readings_paralel(_api, ids, hours).items():
+        df = pd.DataFrame(rows)
         if df.empty:
             continue
         df["ts"] = pd.to_datetime(df["ts"], utc=True)
@@ -264,6 +287,9 @@ elif not isinstance(st.session_state.api, Api):
     # yeni sınıfa bağla ki yeni metotlar görünsün ve oturum cookie'si kalsın.
     st.session_state.api.__class__ = Api
 api = st.session_state.api
+api._state()
+api.reset_stats()  # durum çubuğundaki çağrı sayacı bu çalıştırmaya ait olsun
+sayfa_t0 = time.perf_counter()
 
 if "me" not in st.session_state:
     st.markdown(
@@ -533,8 +559,8 @@ if st.session_state.sayfa == "anomali":
                 if lejant:
                     st.markdown(f'<div class="legend">{lejant}</div>', unsafe_allow_html=True)
                 fig = consumption_chart(pencere, tah_p, ev, "Hafta", kapali_p, durus_p)
-                st.pyplot(fig, use_container_width=True)
-                plt.close(fig)
+                st.markdown(fig_html(fig, "chart", chart_alt(pencere, tah_p, ev, durus_p)), unsafe_allow_html=True)
+                grafik_tablosu(pencere, tah_p)
 
         st.write("")
         with st.container(key="card_detay_bilgi"):
@@ -807,6 +833,33 @@ if st.session_state.sayfa == "ayar":
                                 st.rerun()
                             except ApiError as e:
                                 st.error(f"Eklenemedi: {e}")
+
+    # --- Sistem günlüğü (yalnız admin) ---
+    if me["role"] == "admin":
+        st.write("")
+        with st.container(key="card_gunluk"):
+            st.markdown('<div class="card-title">Sistem günlüğü</div>', unsafe_allow_html=True)
+            st.caption(
+                "Panel sürecindeki son API hataları ve yavaş istekler (en fazla 100 kayıt, panel yeniden "
+                "başlayınca sıfırlanır). Tam günlük: docker compose logs dashboard"
+            )
+            olaylar = list(EVENTS)
+            say = {k: sum(1 for o in olaylar if o["seviye"] == k) for k in ("HATA", "UYARI", "YAVAŞ")}
+            g1, g2, g3 = st.columns(3)
+            g1.metric("Hata", say["HATA"])
+            g2.metric("Uyarı (401/404)", say["UYARI"])
+            g3.metric("Yavaş istek", say["YAVAŞ"])
+            if olaylar:
+                tablo = pd.DataFrame(reversed(olaylar))
+                tablo["zaman"] = tablo["zaman"].map(lambda z: f"{z:%d.%m %H:%M:%S}")
+                st.dataframe(tablo, hide_index=True, use_container_width=True, height=240)
+            else:
+                st.success("Kayıtlı hata veya yavaş istek yok.")
+            if st.button("Önbelleği temizle ve verileri yeniden yükle", key="cache_temizle"):
+                api._cache.clear()
+                st.cache_data.clear()
+                st.session_state.ayar_msg = ("ok", "Önbellek temizlendi.")
+                st.rerun()
     st.stop()
 
 # ---------- Tüketim Analizi sayfası (şimdilik bina listesi) ----------
@@ -867,8 +920,11 @@ if st.session_state.sayfa == "tuketim":
                     ax.tick_params(colors="#64748B", labelsize=9)
                     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M" if saatlik else "%d.%m"))
                     ax.legend(frameon=False, fontsize=9, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3)
-                    st.pyplot(fig, use_container_width=True)
-                    plt.close(fig)
+                    alt = (
+                        f"Tüketim karşılaştırma grafiği: {', '.join(names[i] for i in secili if i in veri)}. "
+                        "Sayısal değerler aşağıdaki karşılaştırma tablosunda."
+                    )
+                    st.markdown(fig_html(fig, "chart", alt), unsafe_allow_html=True)
 
             toplam = {i: float(veri[i]["kwh"].sum()) for i in secili if i in veri}
             with c_sag:
@@ -889,8 +945,8 @@ if st.session_state.sayfa == "tuketim":
                     ax.spines["left"].set_color("#E2E8F0")
                     ax.set_xticks([])
                     ax.tick_params(colors="#475569", labelsize=9)
-                    st.pyplot(fig, use_container_width=True)
-                    plt.close(fig)
+                    alt = "Toplam tüketim: " + "; ".join(f"{names[i]} {num(v)} kWh" for i, v in reversed(sirali_k))
+                    st.markdown(fig_html(fig, "chart", alt), unsafe_allow_html=True)
 
             st.write("")
             with st.container(key="card_kars_tablo"):
@@ -1151,7 +1207,7 @@ with left:
             '<div class="legend">'
             '<span><i class="dot" style="background:#2563EB"></i>Gerçekleşen Tüketim</span>'
             '<span><i class="ln"></i>Beklenen Tüketim</span>'
-            '<span><i class="dot" style="background:#EF4444"></i>Anomali</span>'
+            '<span><i class="dot" style="background:#DC2626"></i>Anomali</span>'
             f'{bant_lejant(kapali, duruslar)}</div>',
             unsafe_allow_html=True,
         )
@@ -1159,8 +1215,7 @@ with left:
             st.info("Bu aralıkta ölçüm yok.")
         else:
             fig = consumption_chart(cur, forecast, events, aralik, kapali, duruslar)
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
+            st.markdown(fig_html(fig, "chart", chart_alt(cur, forecast, events, duruslar)), unsafe_allow_html=True)
             md = mesai_disi(cur, acik)
             if md and md[0] > 0:
                 st.caption(
@@ -1169,6 +1224,7 @@ with left:
                 )
             elif acik is None:
                 st.caption("Çalışma saatleri tanımlı değil; Ayarlar'dan vardiya ekleyerek mesai dışı tüketimi görebilirsiniz.")
+            grafik_tablosu(cur, forecast)
 
 with right:
     st.markdown(anomaly_panel(anomalies[:8], names[bid], pct_by_id), unsafe_allow_html=True)
@@ -1194,7 +1250,7 @@ for a in win_anoms:
         continue
     sev_say[severity(pct_by_id.get(a["id"]), a["est_cost_tl"])] += 1
 toplam_uyari = sum(sev_say.values())
-SEV_RENK = {"Yüksek": "#EF4444", "Orta": "#F59E0B", "Düşük": "#10B981"}
+SEV_RENK = {"Yüksek": "#DC2626", "Orta": "#B45309", "Düşük": "#047857"}  # rozetlerle aynı (AA kontrast)
 
 st.write("")
 b1, b2, b3 = st.columns(3)
@@ -1208,7 +1264,10 @@ with b1:
             d1, d2 = st.columns([1, 1.15])
             with d1:
                 fig = donut_chart([v for _, v in dagilim], PALET[: len(dagilim)], num(toplam_kwh), "kWh")
-                st.markdown(fig_html(fig), unsafe_allow_html=True)
+                alt = f"Tüketim dağılımı halka grafiği, toplam {num(toplam_kwh)} kWh; " + "; ".join(
+                    f"{n} %{num(v / toplam_kwh * 100)}" for n, v in dagilim
+                )
+                st.markdown(fig_html(fig, alt=alt), unsafe_allow_html=True)
             with d2:
                 st.markdown(
                     legend_rows([(PALET[k], n, f"%{num(v / toplam_kwh * 100)}") for k, (n, v) in enumerate(dagilim)]),
@@ -1238,7 +1297,10 @@ with b3:
             fig = donut_chart(
                 [sev_say[k] for k in SEV_RENK], list(SEV_RENK.values()), str(toplam_uyari), "Toplam Uyarı"
             )
-            st.markdown(fig_html(fig), unsafe_allow_html=True)
+            alt = f"Uyarı durumları halka grafiği, toplam {toplam_uyari} uyarı; " + "; ".join(
+                f"{k} {sev_say[k]}" for k in SEV_RENK
+            )
+            st.markdown(fig_html(fig, alt=alt), unsafe_allow_html=True)
         with d2:
             st.markdown(
                 legend_rows(
@@ -1260,7 +1322,11 @@ son_veri = "-" if cur.empty else tr_tarih_saat(cur["ts"].max())
 if saglik:
     kaynak = {"demo": "demo verisi", "database": "veritabanı"}.get(saglik.get("mode"), saglik.get("mode"))
     durum = f'<span class="st-dot"></span>Sistem aktif · Son güncelleme: {son_veri}'
-    sag = f"Veri kaynağı: {kaynak}"
+    st_ = api.stats
+    sag = (
+        f"Veri kaynağı: {kaynak} · Sayfa {num((time.perf_counter() - sayfa_t0) * 1000)} ms · "
+        f"{st_['calls']} API çağrısı, {st_['cached']} önbellekten"
+    )
 else:
     durum = '<span class="st-dot off"></span>API yanıt vermiyor'
     sag = ""

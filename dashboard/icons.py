@@ -19,14 +19,15 @@ PATHS = {
 
 def svg(name, size=20, color="currentColor", sw=2):
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" '
+        # Simgeler süs; yanlarında her zaman metin var, ekran okuyucu atlasın.
+        f'<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="{size}" height="{size}" viewBox="0 0 24 24" '
         f'fill="none" stroke="{color}" stroke-width="{sw}" stroke-linecap="round" stroke-linejoin="round" '
         f'style="vertical-align:middle">{PATHS[name]}</svg>'
     )
 
 
 LOGO = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24">'
+    '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="38" height="38" viewBox="0 0 24 24">'
     '<defs><linearGradient id="wg" x1="0" y1="0" x2="1" y2="1">'
     '<stop offset="0" stop-color="#4ADE80"/><stop offset="1" stop-color="#059669"/></linearGradient></defs>'
     '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="url(#wg)" stroke="url(#wg)" '

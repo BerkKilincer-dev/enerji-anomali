@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-BLUE, RED, GRAY = "#2563EB", "#EF4444", "#64748B"
+BLUE, RED, GRAY = "#2563EB", "#DC2626", "#64748B"  # RED üstünde beyaz etiket: 4.8:1
 AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
 GUN = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 KAPALI = "#E2E8F0"  # çalışma saatleri dışı
@@ -98,6 +98,24 @@ def build_events(cur, forecast, anomalies):
             {"id": a["id"], "start": s, "end": e, "ts": peak["ts"], "kwh": peak["kwh"], "label": label, "pct": pct}
         )
     return events
+
+
+def chart_alt(cur, forecast, events, duruslar=None):
+    """Tüketim grafiğinin ekran okuyucu için kısa metin özeti."""
+    if cur.empty:
+        return "Tüketim grafiği: bu aralıkta ölçüm yok."
+    sayi = lambda v: f"{v:,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")  # noqa: E731
+    tepe = cur.loc[cur["kwh"].idxmax()]
+    parca = [
+        f"Tüketim grafiği, {tr_tarih_saat(cur['ts'].min())} ile {tr_tarih_saat(cur['ts'].max())} arası.",
+        f"Toplam {sayi(cur['kwh'].sum())} kWh; en yüksek {sayi(tepe['kwh'])} kWh, {tr_tarih_saat(tepe['ts'])}.",
+    ]
+    if forecast is not None and not forecast.empty:
+        parca.append(f"Beklenen tüketim toplamı {sayi(forecast.groupby('ts')['expected_kwh'].mean().sum())} kWh.")
+    parca.append(f"{len(events)} anomali işaretli." if events else "İşaretli anomali yok.")
+    if duruslar:
+        parca.append(f"{len(duruslar)} planlı duruş dönemi var.")
+    return " ".join(parca)
 
 
 def consumption_chart(cur, forecast, events, aralik, kapali=None, duruslar=None):

@@ -39,4 +39,17 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
   apart from waste.
 - Timestamps from the API are building local time without an offset; never shift them.
 - Cached loaders take `user_id` in their key, so two users never share data.
+- `Api` caches each GET for 30 s (`CACHE_TTL`) per signed-in user. Any POST, PUT or DELETE clears
+  that user's cache, so a write shows at once. Every response is a fresh copy.
+- `api_client` logs each failed call and each call slower than 1 s to `docker compose logs dashboard`,
+  and keeps the last 100 such calls in memory. Admins see them in Ayarlar → Sistem günlüğü.
+  A network failure is raised as `ApiError(0, ...)`, so pages show a message, not a traceback.
+- Read many buildings with `readings_paralel` (6 at a time), not a loop.
 - CI runs `app.py` headless and checks that the login page renders.
+- Accessibility (WCAG AA):
+  - Draw charts with `fig_html(fig, kind, alt)`, not `st.pyplot`, so the image carries alt text.
+    Time-series charts also get `grafik_tablosu`, the same data as a table.
+  - Text and badge colours need at least 4.5:1 contrast. White text goes on `#DC2626`, `#B45309`,
+    `#047857`, `#2563EB` or `#64748B`, not on the lighter Tailwind 500 tones.
+  - Never show state by colour alone; badges carry a word, chart bands have a legend and a label.
+  - SVG icons are decorative (`aria-hidden`); put the meaning in the text next to them.

@@ -1,8 +1,36 @@
+import json
+import logging
 import os
+import threading
+import time
+from collections import deque
+from datetime import datetime
 
 import requests
 
 API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
+CACHE_TTL = 30  # sn; aynı GET bu süre içinde tekrar istenirse API'ye gitmez
+SLOW_MS = 1000  # bundan uzun süren istek günlüğe uyarı olarak düşer
+
+log = logging.getLogger("dashboard.api")
+if not log.handlers:  # Streamlit modülü yeniden yüklediğinde handler çoğalmasın
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    log.addHandler(_h)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+
+# Süreç genelinde son hatalar ve yavaş istekler; Ayarlar'daki sistem günlüğü kartı okur (yalnız admin).
+EVENTS = deque(maxlen=100)
+_events_lock = threading.Lock()
+
+
+def _event(level, user, method, path, status, ms, message):
+    with _events_lock:
+        EVENTS.append(
+            {"zaman": datetime.now(), "seviye": level, "kullanıcı": user or "-", "istek": f"{method} {path}",
+             "durum": status, "süre_ms": ms, "mesaj": message}
+        )
 
 
 class ApiError(Exception):
@@ -12,14 +40,53 @@ class ApiError(Exception):
 
 
 class Api:
-    """Oturum cookie'sini requests.Session ile saklar."""
+    """Oturum cookie'sini requests.Session ile saklar.
+
+    Her kullanıcının kendi nesnesi olduğu için GET önbelleği kullanıcılar arasında paylaşılmaz.
+    """
 
     def __init__(self):
         self.s = requests.Session()
+        self.user = None
+        self._cache = {}
+        self.reset_stats()
+
+    def reset_stats(self):
+        # Sayfa başına sayaç: app.py her çalıştırmanın başında sıfırlar, durum çubuğu okur.
+        self.stats = {"calls": 0, "cached": 0, "ms": 0}
+
+    def _state(self):
+        # Sınıf yeniden yüklenip eski nesneye bağlanınca yeni alanlar eksik olabilir.
+        for k, v in (("user", None), ("_cache", {}), ("stats", None)):
+            if k not in self.__dict__:
+                setattr(self, k, v)
+        if self.stats is None:
+            self.reset_stats()
 
     def _req(self, method, path, **kw):
+        self._state()
+        key = (path, json.dumps(kw.get("params"), sort_keys=True, default=str)) if method == "GET" else None
+        hit = self._cache.get(key) if key else None
+        if hit and time.monotonic() - hit[0] < CACHE_TTL:
+            self.stats["cached"] += 1
+            return json.loads(hit[1])  # her seferinde yeni kopya: çağıran değiştirse önbellek bozulmaz
+        if method != "GET":
+            self._cache.clear()  # yazma sonrası ekranda eski veri kalmasın
+
         headers = {"X-Requested-With": "dashboard"} if method != "GET" else {}
-        r = self.s.request(method, f"{API_URL}{path}", headers=headers, timeout=15, **kw)
+        t0 = time.perf_counter()
+        try:
+            r = self.s.request(method, f"{API_URL}{path}", headers=headers, timeout=15, **kw)
+        except requests.RequestException as exc:
+            ms = round((time.perf_counter() - t0) * 1000)
+            log.error("%s %s ulaşılamadı (%d ms): %s", method, path, ms, exc)
+            _event("HATA", self.user, method, path, 0, ms, f"API'ye ulaşılamadı: {type(exc).__name__}")
+            raise ApiError(0, "API'ye ulaşılamadı, bağlantıyı kontrol edin.") from exc
+        ms = round((time.perf_counter() - t0) * 1000)
+        with _events_lock:  # paralel okumalarda sayaçlar kaybolmasın
+            self.stats["calls"] += 1
+            self.stats["ms"] += ms
+
         if not r.ok:
             try:
                 detail = r.json().get("detail", r.reason)
@@ -27,14 +94,33 @@ class Api:
                     detail = "; ".join(d.get("msg", str(d)) if isinstance(d, dict) else str(d) for d in detail)
             except Exception:
                 detail = r.reason
+            # 401 oturum bitişi beklenen bir durum; hata olarak sayılmaz.
+            seviye = "UYARI" if r.status_code in (401, 404) else "HATA"
+            log.log(logging.WARNING if seviye == "UYARI" else logging.ERROR, "%s %s -> %d (%d ms): %s",
+                    method, path, r.status_code, ms, detail)
+            _event(seviye, self.user, method, path, r.status_code, ms, str(detail))
             raise ApiError(r.status_code, str(detail))
-        return None if r.status_code == 204 else r.json()
+
+        if ms >= SLOW_MS:
+            log.warning("%s %s yavaş: %d ms", method, path, ms)
+            _event("YAVAŞ", self.user, method, path, r.status_code, ms, "yavaş yanıt")
+        if r.status_code == 204:
+            return None
+        if key:
+            self._cache[key] = (time.monotonic(), r.content)
+        return r.json()
 
     def login(self, email, password):
-        return self._req("POST", "/auth/login", json={"email": email, "password": password})
+        out = self._req("POST", "/auth/login", json={"email": email, "password": password})
+        self.user = email
+        return out
 
     def logout(self):
-        return self._req("POST", "/auth/logout")
+        try:
+            return self._req("POST", "/auth/logout")
+        finally:
+            self._cache.clear()
+            self.user = None
 
     def health(self):
         return self._req("GET", "/health")
