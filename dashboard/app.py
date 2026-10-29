@@ -1,6 +1,7 @@
 import base64
 import html
 import io
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -229,6 +230,12 @@ def grafik_tablosu(df, fc):
             t.rename(columns={"ts": "Zaman", "kwh": "Gerçekleşen (kWh)", "expected_kwh": "Beklenen (kWh)"}),
             hide_index=True, use_container_width=True, height=260,
         )
+
+
+def kisa_aciklama(metin, n=110):
+    """Bildirim için açıklama: baştaki "2016-12-30 01:00-06:00:" tarih öneki atılır (saat zaten ayrıca yazılı)."""
+    metin = re.sub(r"^\d{4}-\d{2}-\d{2} [\d:]+(-[\d:]+)?:\s*", "", metin or "Beklenmeyen tüketim")
+    return metin if len(metin) <= n else metin[: n - 1].rstrip() + "…"
 
 
 def mesai_disi(df, acik):
@@ -983,7 +990,7 @@ if st.session_state.sayfa == "ayar":
 # ---------- Tüketim Analizi sayfası (şimdilik bina listesi) ----------
 if st.session_state.sayfa == "tuketim":
     st.markdown(
-        '<div class="hello">Tüketim Analizi</div><div class="hello-sub">Tüm binalar</div>',
+        '<span class="pg-okunur" hidden></span><div class="hello">Tüketim Analizi</div><div class="hello-sub">Tüm binalar</div>',
         unsafe_allow_html=True,
     )
     st.write("")
@@ -1048,23 +1055,17 @@ if st.session_state.sayfa == "tuketim":
             with c_sag:
                 with st.container(key="card_kars_bar"):
                     st.markdown('<div class="card-title">Toplam tüketim (kWh)</div>', unsafe_allow_html=True)
-                    sirali_k = sorted(toplam.items(), key=lambda x: x[1])
-                    fig, ax = plt.subplots(figsize=(4.2, 3.8))
-                    fig.patch.set_alpha(0)
-                    ax.set_facecolor("none")
+                    # Genel Bakış'taki "Bina Bazlı Tüketim" ile aynı HTML çubuklar: adlar kesilmez, yazı keskin kalır.
                     renk_map = {i: PAL[n] for n, i in enumerate(secili)}
-                    yazi = [names[i][:18] for i, _ in sirali_k]
-                    ax.barh(yazi, [v for _, v in sirali_k], color=[renk_map[i] for i, _ in sirali_k], height=0.6)
-                    for n, (_, v) in enumerate(sirali_k):
-                        ax.text(v, n, " " + f"{v:,.0f}".replace(",", "."), va="center", fontsize=9, color="#0F172A")
-                    ax.set_xlim(0, max(toplam.values()) * 1.25)
-                    for k in ("top", "right", "bottom"):
-                        ax.spines[k].set_visible(False)
-                    ax.spines["left"].set_color("#E2E8F0")
-                    ax.set_xticks([])
-                    ax.tick_params(colors="#475569", labelsize=9)
-                    alt = "Toplam tüketim: " + "; ".join(f"{names[i]} {num(v)} kWh" for i, v in reversed(sirali_k))
-                    st.markdown(fig_html(fig, "chart", alt), unsafe_allow_html=True)
+                    sirali_k = sorted(toplam.items(), key=lambda x: -x[1])
+                    en_buyuk_k = max(toplam.values()) or 1
+                    toplam_k = sum(toplam.values()) or 1
+                    st.markdown(
+                        bar_rows(
+                            [(renk_map[i], names[i], v, v / en_buyuk_k * 100, v / toplam_k * 100) for i, v in sirali_k]
+                        ),
+                        unsafe_allow_html=True,
+                    )
 
             st.write("")
             with st.container(key="card_kars_tablo"):
@@ -1184,7 +1185,10 @@ if st.session_state.sayfa != "genel":
 # ---------- Seçili aralık ve bina verisi ----------
 st.session_state["_tam_calisma"] = time.time()  # otomatik yenileme sayacı
 
-aralik = st.session_state.get("aralik") or "Hafta"
+# Dönem seçicinin varsayılanı oturum durumunda: takvimdeki hızlı seçimler ve özel aralık da aynı anahtarı yazar.
+if not st.session_state.get("aralik"):
+    st.session_state.aralik = "Hafta"
+aralik = st.session_state.aralik
 ozel = aralik == "Özel"
 hours = {"Gün": 24, "Hafta": 168, "Ay": 720, "Özel": 720}[aralik]
 donem = {"Gün": "Son 24 saat", "Hafta": "Son 7 gün", "Ay": "Son 30 gün", "Özel": "Seçilen aralık"}[aralik]
@@ -1235,6 +1239,10 @@ if anomalies and cutoff is not None:
 n_an = len(win_anoms)
 tasarruf = sum((a["est_cost_tl"] or 0) for a in win_anoms)
 
+# Anomali olayları ve tepe sapmaları: üst çubuktaki bildirimler ve ana grafik birlikte kullanır.
+events = build_events(cur, forecast, win_anoms)
+pct_by_id = {e["id"]: e["pct"] for e in events}
+
 # ---------- Üst bar ----------
 initials = "".join(w[0] for w in who.split()[:2]).upper() or "?"
 aralik_txt = "-" if cur.empty else f"{tr_tarih(cur['ts'].min())} – {tr_tarih(cur['ts'].max())}"
@@ -1251,8 +1259,15 @@ with h2:
             if son is None:
                 st.caption("Veri yok")
             else:
+                st.markdown('<div class="pop-title">Dönem seçin</div>', unsafe_allow_html=True)
+                with st.container(horizontal=True, gap="small", key="tarih_hizli"):
+                    for etiket, kod in (("Son 24 saat", "Gün"), ("Son 7 gün", "Hafta"), ("Son 30 gün", "Ay")):
+                        st.button(
+                            etiket, key=f"hizli_{kod}", on_click=st.session_state.update, kwargs={"aralik": kod},
+                            type="primary" if aralik == kod else "secondary",
+                        )
                 st.date_input(
-                    "Tarih aralığı",
+                    "Özel aralık",
                     value=((son - timedelta(days=6)).date(), son.date()),
                     min_value=(son - timedelta(days=59)).date(),
                     max_value=son.date(),
@@ -1260,14 +1275,62 @@ with h2:
                     key="ozel_aralik",
                     on_change=lambda: st.session_state.update(aralik="Özel"),
                 )
+                st.caption(f"Veri {tr_tarih(son - timedelta(days=59))} – {tr_tarih(son)} arasında seçilebilir.")
 with h3:
+    with st.container(horizontal=True, horizontal_alignment="right", gap="small", key="ust_sag"):
+        # Bildirimler: seçili binanın son anomalileri (gerçek veri). Rozet: tüm binalarda son 24 saatteki alarmlar.
+        with st.container(key="bell_box"):
+            with st.popover(str(summary["active_alerts"]), icon=":material/notifications:", help="Bildirimler"):
+                st.markdown(
+                    f'<div class="pop-title">Bildirimler</div><div class="pop-sub">Tüm binalarda son 24 saatte '
+                    f'<b>{summary["active_alerts"]}</b> alarm · aşağıda {html.escape(names[bid])}</div>',
+                    unsafe_allow_html=True,
+                )
+                if not anomalies:
+                    st.caption("Bu bina için bildirim yok.")
+                satirlar = []
+                for a in anomalies[:5]:
+                    if a["category"] == "data_issue":
+                        ton, ad = "data", "Veri sorunu"
+                    else:
+                        ad = severity(pct_by_id.get(a["id"]), a["est_cost_tl"])
+                        ton = {"Yüksek": "high", "Orta": "mid", "Düşük": "low"}[ad]
+                    yeni = '<i class="nt-new" title="Değerlendirilmedi"></i>' if a["verdict"] is None else ""
+                    satirlar.append(
+                        f'<div class="nt-item"><span class="nt-dot sev-{ton}"></span><div class="nt-body">'
+                        f'<div class="nt-top"><span class="badge sev-{ton}">{ad}</span>{yeni}'
+                        f'<span class="nt-time">{tr_tarih_saat(pd.to_datetime(a["ts_start"], utc=True))}</span></div>'
+                        f'<div class="nt-desc">{html.escape(kisa_aciklama(a["explanation"]))}</div>'
+                        f'<div class="nt-cost">Tahmini maliyet: <b>{tl(a["est_cost_tl"])}</b></div></div></div>'
+                    )
+                st.markdown(f'<div class="nt-list">{"".join(satirlar)}</div>', unsafe_allow_html=True)
+                st.button(
+                    "Tüm anomalileri gör", key="nt_hepsi", icon=":material/arrow_forward:",
+                    on_click=set_page, args=("anomali",), use_container_width=True,
+                )
+        # Kullanıcı menüsü: profil özeti, Ayarlar ve Çıkış.
+        with st.container(key="user_box"):
+            with st.popover(who, help="Hesap"):
+                st.markdown(
+                    f'<div class="um-head"><div class="avatar">{html.escape(initials)}</div><div>'
+                    f'<div class="um-name">{html.escape(who)}</div>'
+                    f'<div class="um-mail">{html.escape(me["email"])}</div>'
+                    f'<span class="um-role">{html.escape(me["role"])}</span></div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.button(
+                    "Ayarlar", key="um_ayar", icon=":material/settings:", on_click=set_page, args=("ayar",),
+                    use_container_width=True,
+                )
+                if st.button("Çıkış yap", key="um_cikis", icon=":material/logout:", use_container_width=True):
+                    try:
+                        api.logout()
+                    finally:
+                        st.session_state.clear()
+                        st.rerun()
+    # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
     st.markdown(
-        f'<div class="chip"><div class="bell" title="Tüm binalarda son 24 saatteki alarmlar">'
-        f'{svg("bell", 20)}<b>{summary["active_alerts"]}</b></div>'
-        f'<div class="avatar">{initials}</div>'
-        f'<div class="who"><div class="n">{html.escape(who)}</div><div class="r">{me["role"]}</div></div>'
-        f'{svg("chevron-down", 16, "#64748B")}</div>',
-        unsafe_allow_html=True,
+        f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>", unsafe_allow_html=True
     )
 
 st.write("")
@@ -1299,12 +1362,9 @@ c4.markdown(
 st.write("")
 
 # ---------- Ana grafik kartı + anomali paneli ----------
-events = build_events(cur, forecast, win_anoms)
 acik, kapali, duruslar = (None, None, []) if cur.empty else takvim_bantlari(
     api, bid, cur["ts"].min(), cur["ts"].max() + timedelta(hours=1)
 )
-pct_by_id = {e["id"]: e["pct"] for e in events}
-
 left, right = st.columns([2, 1])
 
 with left:
@@ -1313,7 +1373,7 @@ with left:
         t1.markdown('<div class="card-title">Enerji Tüketim Grafiği</div>', unsafe_allow_html=True)
         with t2:
             st.segmented_control(
-    "Aralık", ["Gün", "Hafta", "Ay", "Özel"], default="Hafta", key="aralik", label_visibility="collapsed"
+    "Aralık", ["Gün", "Hafta", "Ay", "Özel"], key="aralik", label_visibility="collapsed"
 )
         with t3:
             csv = cur[["ts", "kwh"]].to_csv(index=False).encode("utf-8") if not cur.empty else b""

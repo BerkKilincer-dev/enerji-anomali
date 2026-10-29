@@ -9,6 +9,9 @@ header[data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbarActions"], [data-testid="stStatusWidget"], #MainMenu { display: none !important; }
 header[data-testid="stHeader"] { z-index: 1000; pointer-events: none; }
 header[data-testid="stHeader"] button, header[data-testid="stHeader"] a { pointer-events: auto; }
+/* Görünmez araç çubuğu sayfanın üst şeridini kaplayıp takvim/bildirim tıklamalarını yutuyordu */
+[data-testid="stToolbar"], .stAppToolbar { pointer-events: none !important; }
+[data-testid="stToolbar"] button, .stAppToolbar button { pointer-events: auto !important; }
 
 /* Menüyü açan düğme (Streamlit sürümüne göre farklı adlar) */
 [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapsedControl"],
@@ -23,7 +26,7 @@ header[data-testid="stHeader"] button, header[data-testid="stHeader"] a { pointe
 .block-container {
   zoom: 0.85; max-width: none !important; padding: 1.2rem 1.5rem 1rem 1.5rem !important;
 }
-/* Form ve tablo ağırlıklı sayfalar (Raporlar, Ayarlar) küçültülmeden gösterilir; tablolar canvas
+/* Form ve tablo ağırlıklı sayfalar (Tüketim Analizi, Raporlar, Ayarlar) küçültülmeden gösterilir; tablolar canvas
    üzerine çizildiği için yazı boyutu CSS ile büyütülemiyor, zoom'u kaldırmak tek tutarlı yol. */
 .block-container:has(.pg-okunur) { zoom: 1; }
 .block-container:has(.pg-okunur) .set-row { font-size: 15.5px; }
@@ -455,15 +458,67 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
   .donut-wrap img { max-width: 210px; }
 }
 
-.st-key-tarih_box button {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  min-height: 48px;
-  color: #334155;
-  font-weight: 500;
-  justify-content: space-between;
+/* ---------- Üst çubuk: tarih, bildirimler, kullanıcı ---------- */
+.st-key-tarih_box [data-testid="stPopoverButton"], .st-key-tarih_box > div > div > button, .st-key-tarih_box button {
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; min-height: 46px; color: #0F172A;
+  font-weight: 600; padding: 0 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s;
 }
+.st-key-tarih_box button:hover { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(37, 99, 235, .10); color: #0F172A; }
+.st-key-tarih_box button p { font-size: 14.5px; }
+.st-key-tarih_box button [data-testid="stIconMaterial"] { color: #2563EB; }
+.st-key-tarih_hizli button { min-height: 34px; padding: 2px 12px; border-radius: 999px; }
+.st-key-tarih_hizli button p { font-size: 13.5px; }
+
+.pop-title { font-size: 16px; font-weight: 700; color: #0F172A; margin-bottom: 2px; }
+.pop-sub { font-size: 13px; color: #64748B; margin-bottom: 4px; }
+
+.st-key-ust_sag { align-items: center; }
+/* Zil: kare düğme, sayı kırmızı rozet; açılır ok gizli */
+.st-key-bell_box button {
+  position: relative; width: 46px; min-width: 46px; height: 46px; min-height: 46px; padding: 0 !important;
+  justify-content: center; background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+}
+.st-key-bell_box button:hover { border-color: #93C5FD; background: #F8FAFC; }
+.st-key-bell_box button [data-testid="stMarkdownContainer"] {
+  position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: #DC2626; box-shadow: 0 0 0 2px #F4F7FC; display: flex; align-items: center; justify-content: center;
+}
+.st-key-bell_box button [data-testid="stMarkdownContainer"] p { color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+.st-key-bell_box button [data-testid="stIconMaterial"] { color: #334155; font-size: 22px; }
+.st-key-bell_box button [data-testid="stIconMaterial"]:last-child:not(:first-child),
+.st-key-user_box button [data-testid="stIconMaterial"] { color: #64748B; }
+.st-key-bell_box button > div > div[aria-hidden="true"] { display: none; }
+/* Kullanıcı düğmesi: baş harfli avatar + ad */
+.st-key-user_box button {
+  min-height: 46px; padding: 0 12px 0 5px; gap: 10px; border-radius: 999px; background: #fff; border: 1px solid #E2E8F0;
+}
+.st-key-user_box button:hover { border-color: #93C5FD; background: #F8FAFC; }
+.st-key-user_box button::before {
+  width: 36px; height: 36px; flex: none; border-radius: 50%; background: linear-gradient(135deg, #0F172A, #1E3A8A);
+  color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.st-key-user_box button p { font-size: 14px; font-weight: 600; color: #0F172A; white-space: nowrap; }
+
+/* Bildirim listesi */
+.nt-list { margin: 8px 0 4px; max-height: 380px; overflow-y: auto; }
+.nt-item { display: flex; gap: 10px; padding: 10px 2px; border-top: 1px solid #EEF2F7; }
+.nt-item:first-child { border-top: none; }
+.nt-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 8px; flex: none; }
+.nt-body { flex: 1; min-width: 0; }
+.nt-top { display: flex; align-items: center; gap: 8px; }
+.nt-top .badge { font-size: 12px; padding: 1px 8px; }
+.nt-new { width: 7px; height: 7px; border-radius: 50%; background: #2563EB; }
+.nt-time { margin-left: auto; font-size: 12px; color: #64748B; white-space: nowrap; }
+.nt-desc { font-size: 13.5px; color: #334155; margin-top: 4px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+[data-testid="stPopoverBody"]:has(.nt-list) { width: 400px; max-width: 92vw; }
+.nt-cost { font-size: 12.5px; color: #64748B; margin-top: 2px; }
+.nt-cost b { color: #DC2626; }
+/* Kullanıcı menüsü */
+.um-head { display: flex; align-items: center; gap: 12px; padding: 4px 0 12px; margin-bottom: 6px; border-bottom: 1px solid #EEF2F7; }
+.um-name { font-size: 15px; font-weight: 700; color: #0F172A; }
+.um-mail { font-size: 13px; color: #64748B; }
+.um-role { display: inline-block; margin-top: 4px; font-size: 11.5px; font-weight: 600; color: #1D4ED8; background: #EFF6FF;
+  border-radius: 999px; padding: 1px 8px; text-transform: capitalize; }
 /* Grafik lejantı: çalışma dışı ve planlı duruş bantları */
 .legend .sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
 .legend .sw.hatch { border: 1px solid var(--c); background: repeating-linear-gradient(45deg, var(--c) 0 1.5px, transparent 1.5px 4px); opacity: .8; }
