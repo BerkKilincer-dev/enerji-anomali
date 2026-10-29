@@ -1246,38 +1246,40 @@ pct_by_id = {e["id"]: e["pct"] for e in events}
 # ---------- Üst bar ----------
 initials = "".join(w[0] for w in who.split()[:2]).upper() or "?"
 aralik_txt = "-" if cur.empty else f"{tr_tarih(cur['ts'].min())} – {tr_tarih(cur['ts'].max())}"
-h1, h2, h3 = st.columns([5, 2.6, 2.4])
+h1, h3 = st.columns([1, 1.25], vertical_alignment="center")
 with h1:
     st.markdown(
         f'<div class="hello">Merhaba, {html.escape(who)}</div>'
-        '<div class="hello-sub">Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz.</div>',
+        '<div class="hello-sub">Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz.</div>'
+        # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
+        f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>",
         unsafe_allow_html=True,
     )
-with h2:
-    with st.container(key="tarih_box"):
-        with st.popover(aralik_txt, icon=":material/calendar_month:", use_container_width=True):
-            if son is None:
-                st.caption("Veri yok")
-            else:
-                st.markdown('<div class="pop-title">Dönem seçin</div>', unsafe_allow_html=True)
-                with st.container(horizontal=True, gap="small", key="tarih_hizli"):
-                    for etiket, kod in (("Son 24 saat", "Gün"), ("Son 7 gün", "Hafta"), ("Son 30 gün", "Ay")):
-                        st.button(
-                            etiket, key=f"hizli_{kod}", on_click=st.session_state.update, kwargs={"aralik": kod},
-                            type="primary" if aralik == kod else "secondary",
-                        )
-                st.date_input(
-                    "Özel aralık",
-                    value=((son - timedelta(days=6)).date(), son.date()),
-                    min_value=(son - timedelta(days=59)).date(),
-                    max_value=son.date(),
-                    format="DD.MM.YYYY",
-                    key="ozel_aralik",
-                    on_change=lambda: st.session_state.update(aralik="Özel"),
-                )
-                st.caption(f"Veri {tr_tarih(son - timedelta(days=59))} – {tr_tarih(son)} arasında seçilebilir.")
 with h3:
     with st.container(horizontal=True, horizontal_alignment="right", gap="small", key="ust_sag"):
+        # Tarih, bildirimler ve kullanıcı aynı satırda, sağa yaslı.
+        with st.container(key="tarih_box"):
+            with st.popover(aralik_txt, icon=":material/calendar_month:", use_container_width=True):
+                if son is None:
+                    st.caption("Veri yok")
+                else:
+                    st.markdown('<div class="pop-title">Dönem seçin</div>', unsafe_allow_html=True)
+                    with st.container(horizontal=True, gap="small", key="tarih_hizli"):
+                        for etiket, kod in (("Son 24 saat", "Gün"), ("Son 7 gün", "Hafta"), ("Son 30 gün", "Ay")):
+                            st.button(
+                                etiket, key=f"hizli_{kod}", on_click=st.session_state.update, kwargs={"aralik": kod},
+                                type="primary" if aralik == kod else "secondary",
+                            )
+                    st.date_input(
+                        "Özel aralık",
+                        value=((son - timedelta(days=6)).date(), son.date()),
+                        min_value=(son - timedelta(days=59)).date(),
+                        max_value=son.date(),
+                        format="DD.MM.YYYY",
+                        key="ozel_aralik",
+                        on_change=lambda: st.session_state.update(aralik="Özel"),
+                    )
+                    st.caption(f"Veri {tr_tarih(son - timedelta(days=59))} – {tr_tarih(son)} arasında seçilebilir.")
         # Bildirimler: seçili binanın son anomalileri (gerçek veri). Rozet: tüm binalarda son 24 saatteki alarmlar.
         with st.container(key="bell_box"):
             with st.popover(str(summary["active_alerts"]), icon=":material/notifications:", help="Bildirimler"):
@@ -1328,10 +1330,6 @@ with h3:
                     finally:
                         st.session_state.clear()
                         st.rerun()
-    # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
-    st.markdown(
-        f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>", unsafe_allow_html=True
-    )
 
 st.write("")
 
