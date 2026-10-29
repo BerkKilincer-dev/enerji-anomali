@@ -118,9 +118,12 @@ def chart_alt(cur, forecast, events, duruslar=None):
     return " ".join(parca)
 
 
-def consumption_chart(cur, forecast, events, aralik, kapali=None, duruslar=None):
-    """kapali: çalışma dışı (başlangıç, bitiş) listesi; duruslar: {"start", "end", "kind"} listesi."""
-    fig, ax = plt.subplots(figsize=(9, 3.9))
+def consumption_chart(cur, forecast, events, aralik, kapali=None, duruslar=None, figsize=(9, 3.9)):
+    """kapali: çalışma dışı (başlangıç, bitiş) listesi; duruslar: {"start", "end", "kind"} listesi.
+
+    figsize: görsel kart genişliğine ölçeklenir; tam genişlik kartlarda daha geniş oran verin ki yazılar büyümesin.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
     fig.patch.set_alpha(0)
     ax.set_facecolor("none")
 

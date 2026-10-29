@@ -23,6 +23,23 @@ header[data-testid="stHeader"] button, header[data-testid="stHeader"] a { pointe
 .block-container {
   zoom: 0.85; max-width: none !important; padding: 1.2rem 1.5rem 1rem 1.5rem !important;
 }
+/* Form ve tablo ağırlıklı sayfalar (Raporlar, Ayarlar) küçültülmeden gösterilir; tablolar canvas
+   üzerine çizildiği için yazı boyutu CSS ile büyütülemiyor, zoom'u kaldırmak tek tutarlı yol. */
+.block-container:has(.pg-okunur) { zoom: 1; }
+.block-container:has(.pg-okunur) .set-row { font-size: 15.5px; }
+.block-container:has(.pg-okunur) .hello-sub { font-size: 15px; }
+/* Beyaz kart içindeki alanlar zeminle aynı renkte kalıyordu: görünür çerçeve.
+   Streamlit 1.66 bu alanları react-aria ile çiziyor; seçiciler o sürümün data-testid'leri. */
+[class*="st-key-card_"] [data-testid="stTextInputRootElement"], [class*="st-key-card_"] [data-testid="stDateInputField"],
+[class*="st-key-card_"] [data-testid="stTimeInputTimeDisplay"], [class*="st-key-card_"] [data-testid="stSelectbox"] .react-aria-ComboBox {
+  border: 1px solid #CBD5E1 !important; border-radius: 10px !important; background: #F8FAFC !important;
+}
+[class*="st-key-card_"] [data-testid="stTextInputRootElement"] *, [class*="st-key-card_"] [data-testid="stSelectbox"] .react-aria-ComboBox * {
+  background: transparent !important;
+}
+[class*="st-key-card_"] [data-testid="stTextInputRootElement"]:focus-within, [class*="st-key-card_"] [data-testid="stDateInputField"]:focus-within,
+[class*="st-key-card_"] [data-testid="stTimeInputTimeDisplay"]:focus-within,
+[class*="st-key-card_"] [data-testid="stSelectbox"] .react-aria-ComboBox:focus-within { border-color: #2563EB !important; background: #fff !important; }
 
 /* ---------- Sol menü (yüzen, yuvarlak panel) ---------- */
 section[data-testid="stSidebar"] {
@@ -184,10 +201,44 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 }
 .an-row-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .an-row-top .an-time { margin-left: auto; }
-.an-advice {
-  margin-top: 8px; font-size: 12px; color: #0F766E; background: #ECFDF5;
-  border-radius: 8px; padding: 6px 10px;
+.an-advice, .an-note {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 16.5px; line-height: 1.5;
+  color: #0F766E; background: #ECFDF5; border: 1px solid #D1FAE5; border-radius: 10px; padding: 9px 12px;
 }
+.an-advice svg, .an-note svg { flex: none; margin-top: 2px; }
+.an-note { color: #334155; background: #F8FAFC; border-color: #E2E8F0; }
+
+/* Anomali kartı ve detay: okunur boyutlar (panel genelinde zoom .85 var) */
+.an-row-top .badge { font-size: 15px; padding: 3px 11px; }
+.an-row-top .an-time { font-size: 15px; }
+[class*="st-key-anom_"] .an-desc, [class*="st-key-card_detay"] .an-desc { font-size: 18px; line-height: 1.55; color: #334155; }
+[class*="st-key-anom_"] .an-cost { font-size: 17px; margin-top: 6px; }
+[class*="st-key-anbtn_"] { margin-top: 6px; }
+
+/* Karar düğmeleri: sade çerçeve, renkli simge; seçili karar kendi renginde dolu */
+[class*="st-key-anbtn_"] button, [class*="st-key-d_confirmed_"] button, [class*="st-key-d_false_alarm_"] button,
+[class*="st-key-d_planned_"] button, .st-key-detay_geri button {
+  border-radius: 10px; min-height: 44px; padding: 6px 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+[class*="st-key-anbtn_"] button p, [class*="st-key-d_confirmed_"] button p, [class*="st-key-d_false_alarm_"] button p,
+[class*="st-key-d_planned_"] button p, .st-key-detay_geri button p { font-size: 16.5px; font-weight: 600; }
+[class*="st-key-dt_"] [data-testid="stIconMaterial"] { color: #2563EB; }
+[class*="st-key-confirmed_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
+[class*="st-key-d_confirmed_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #047857; }
+[class*="st-key-false_alarm_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
+[class*="st-key-d_false_alarm_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #64748B; }
+[class*="st-key-planned_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"],
+[class*="st-key-d_planned_"] [data-testid="stBaseButton-secondary"] [data-testid="stIconMaterial"] { color: #2563EB; }
+[class*="st-key-confirmed_"] [data-testid="stBaseButton-primary"],
+[class*="st-key-d_confirmed_"] [data-testid="stBaseButton-primary"] { background: #047857; border-color: #047857; }
+[class*="st-key-false_alarm_"] [data-testid="stBaseButton-primary"],
+[class*="st-key-d_false_alarm_"] [data-testid="stBaseButton-primary"] { background: #475569; border-color: #475569; }
+[class*="st-key-planned_"] [data-testid="stBaseButton-primary"],
+[class*="st-key-d_planned_"] [data-testid="stBaseButton-primary"] { background: #2563EB; border-color: #2563EB; }
+[class*="st-key-confirmed_"] [data-testid="stBaseButton-primary"]:hover,
+[class*="st-key-d_confirmed_"] [data-testid="stBaseButton-primary"]:hover { background: #065F46; border-color: #065F46; }
+[class*="st-key-false_alarm_"] [data-testid="stBaseButton-primary"]:hover,
+[class*="st-key-d_false_alarm_"] [data-testid="stBaseButton-primary"]:hover { background: #334155; border-color: #334155; }
 
 /* ---------- Ayarlar sayfası ---------- */
 .set-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid #EEF2F7; font-size: 14px; }
@@ -278,6 +329,8 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
   .kpi-value { font-size: 24px; }
   .an-desc, .an-cost { font-size: 13.5px; }
   .badge { font-size: 12px; }
+  [class*="st-key-anom_"] .an-desc, [class*="st-key-card_detay"] .an-desc { font-size: 15px; }
+  [class*="st-key-anom_"] .an-cost, .an-advice, .an-note { font-size: 14.5px; }
   .lg-row, .br-top { font-size: 13.5px; }
 }
 
@@ -403,3 +456,11 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="tab
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Detay: not alanı görünür çerçeveli */
+.st-key-card_detay_geri [data-testid="stTextAreaRootElement"] {
+  border: 1.5px solid #CBD5E1 !important; border-radius: 10px !important; background: #F8FAFC !important;
+}
+.st-key-card_detay_geri [data-testid="stTextAreaRootElement"]:focus-within { border-color: #2563EB !important; background: #fff !important; }
+.st-key-card_detay_geri [data-testid="stTextAreaRootElement"] * { background: transparent !important; }
+.st-key-card_detay_geri textarea { font-size: 15.5px; }

@@ -14,6 +14,9 @@ PATHS = {
     "file": '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>',
     "settings": '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
     "factory": '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/>',
+    "bulb": '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+    "message": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    "lock": '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
 }
 
 
@@ -26,12 +29,23 @@ def svg(name, size=20, color="currentColor", sw=2):
     )
 
 
+# Wattwise logosu: yeşil-mavi kutuda W biçimli tüketim sinyali; sarı nokta izlenen tepe ölçümü.
+# Aynı çizim dashboard/logo.svg dosyasında (sekme simgesi ve sunumlar için); değiştirirken ikisini birlikte güncelleyin.
+LOGO_PATHS = (
+    '<defs><linearGradient id="ww-bg" x1="0" y1="0" x2="1" y2="1">'
+    '<stop offset="0" stop-color="#34D399"/><stop offset=".55" stop-color="#10B981"/><stop offset="1" stop-color="#0284C7"/>'
+    '</linearGradient><linearGradient id="ww-gl" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>'
+    "</linearGradient></defs>"
+    '<rect x="2" y="2" width="44" height="44" rx="13" fill="url(#ww-bg)"/>'
+    '<path d="M2 15a13 13 0 0 1 13-13h18a13 13 0 0 1 13 13v4C34 24 14 24 2 19z" fill="url(#ww-gl)"/>'
+    '<path d="M10 16 16.8 33 24 21.5 31.2 33 36 19" fill="none" stroke="#fff" stroke-width="4.4" '
+    'stroke-linecap="round" stroke-linejoin="round"/>'
+    '<circle cx="37" cy="14.5" r="3.6" fill="#FDE047" stroke="#fff" stroke-width="1.6"/>'
+)
 LOGO = (
-    '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="38" height="38" viewBox="0 0 24 24">'
-    '<defs><linearGradient id="wg" x1="0" y1="0" x2="1" y2="1">'
-    '<stop offset="0" stop-color="#4ADE80"/><stop offset="1" stop-color="#059669"/></linearGradient></defs>'
-    '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="url(#wg)" stroke="url(#wg)" '
-    'stroke-width="1" stroke-linejoin="round"/></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="38" height="38" '
+    f'viewBox="0 0 48 48">{LOGO_PATHS}</svg>'
 )
 
 NAV_ICONS = {"genel": "home", "tuketim": "chart", "anomali": "alert", "rapor": "file", "ayar": "settings"}

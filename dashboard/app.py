@@ -33,7 +33,7 @@ BRAND = "Wattwise"  # tasarım görselindeki ad: EnerjiVista
 BRAND_SUB = "Daha verimli bir yarın"
 TARIFF_TL = 3.5  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
 
-st.set_page_config(page_title=BRAND, page_icon="⚡", layout="wide")
+st.set_page_config(page_title=BRAND, page_icon=str(Path(__file__).parent / "logo.svg"), layout="wide")
 css = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
 st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
@@ -136,7 +136,7 @@ def bar_rows(items):
 
 
 GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
-DURUS = {"holiday": ("🏖️ Tatil", "blue"), "maintenance": ("🔧 Bakım", "mid"), "shutdown": ("⏸️ Duruş", "data")}
+DURUS = {"holiday": ("Tatil", "blue"), "maintenance": ("Bakım", "mid"), "shutdown": ("Duruş", "data")}
 
 
 def _vardiya(gunler, *araliklar):
@@ -220,7 +220,7 @@ def bant_lejant(kapali, duruslar):
 
 def grafik_tablosu(df, fc):
     """Grafiğin metin alternatifi: aynı veriyi klavye ve ekran okuyucuyla gezilebilen tablo olarak verir."""
-    with st.expander("📋 Grafiği tablo olarak göster"):
+    with st.expander("Grafiği tablo olarak göster", icon=":material/table_view:"):
         t = df[["ts", "kwh"]].copy()
         if fc is not None and not fc.empty:
             t = t.merge(fc.groupby("ts")["expected_kwh"].mean().reset_index(), on="ts", how="left")
@@ -297,89 +297,200 @@ if "me" not in st.session_state:
         .stApp{background:radial-gradient(1100px 560px at 8% -10%,#DBEAFE 0%,transparent 60%),
                radial-gradient(900px 500px at 100% 110%,#D1FAE5 0%,transparent 55%),#F4F7FC;}
         [data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{display:none !important;}
-        .block-container{zoom:1 !important;max-width:1060px !important;padding:7vh 1rem 2rem !important;}
-        .st-key-login_wrap{background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(15,23,42,.14);
-               overflow:hidden;padding:0 !important;gap:0 !important;}
-        .st-key-login_wrap [data-testid="stHorizontalBlock"]{gap:0 !important;}
-        .st-key-login_wrap [data-testid="stColumn"]:last-child,
-        .st-key-login_wrap [data-testid="column"]:last-child{padding:36px 56px !important;}
+        .block-container{zoom:1 !important;max-width:1120px !important;padding:6vh 1rem 2rem !important;}
+        .st-key-login_wrap{background:#fff;border-radius:24px;overflow:hidden;padding:0 !important;gap:0 !important;
+               box-shadow:0 30px 80px rgba(15,23,42,.14),0 0 0 1px rgba(15,23,42,.04);}
+        .st-key-login_wrap [data-testid="stHorizontalBlock"]{gap:0 !important;align-items:stretch !important;}
+        .st-key-login_wrap [data-testid="stColumn"]:first-child > div{height:100%;}
+        .st-key-login_wrap [data-testid="stColumn"]:last-child{padding:40px 56px 32px !important;
+               display:flex;flex-direction:column;justify-content:center;}
+        .st-key-login_wrap [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"]{
+               flex:0 0 auto !important;height:auto !important;}
         .st-key-login_wrap [data-testid="stForm"]{border:0 !important;padding:0 !important;}
-        .st-key-login_wrap [data-baseweb="input"]{border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;min-height:48px;}
-        .st-key-login_wrap [data-baseweb="input"]:focus-within{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.15);}
-        .st-key-login_wrap [data-baseweb="input"] > div{background:transparent;}
-        .st-key-login_wrap label p{font-size:14px;font-weight:600;color:#334155;}
+
+        /* Giriş alanları: çerçeve Streamlit'in kök öğesine verilir, iç katmanlar şeffaf */
+        .st-key-login_wrap [data-testid="stTextInputRootElement"]{
+            border:1.5px solid #CBD5E1 !important;border-radius:12px !important;background:#F8FAFC !important;
+            min-height:50px;transition:border-color .15s, box-shadow .15s, background .15s;}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"]:hover{border-color:#94A3B8 !important;}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"]:focus-within{
+            border-color:#2563EB !important;background:#fff !important;box-shadow:0 0 0 4px rgba(37,99,235,.14);}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"] *{background:transparent !important;border:0 !important;}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"] input{font-size:15px;color:#0F172A;padding-left:4px;}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"] input:focus-visible{outline:none !important;}
+        .st-key-login_wrap [data-testid="stTextInputRootElement"] [data-testid="stIconMaterial"]{color:#64748B;}
+        .st-key-login_wrap label p{font-size:13.5px;font-weight:600;color:#334155;}
+
+        .st-key-login_wrap [data-testid="stFormSubmitButton"]{margin-top:10px;}
         .st-key-login_wrap [data-testid="stFormSubmitButton"] button{
-            min-height:50px;border:0;border-radius:12px;font-size:16px;font-weight:600;color:#fff;
-            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.28);}
-        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.08);color:#fff;}
-        .lg-left{position:relative;min-height:600px;padding:44px 44px 36px;color:#fff;display:flex;flex-direction:column;
-            background:radial-gradient(420px 320px at 85% 8%,rgba(74,222,128,.22),transparent 70%),
-                       linear-gradient(160deg,#0F172A 0%,#1E3A8A 100%);}
-        .lg-brand{display:flex;align-items:center;gap:12px;font-size:24px;font-weight:700;letter-spacing:-.3px;}
-        .lg-hero{margin-top:auto;margin-bottom:28px;}
-        .lg-hero h1{font-size:34px;line-height:1.15;font-weight:800;letter-spacing:-.8px;margin:0 0 14px;color:#fff;padding:0;}
-        .lg-hero p{font-size:15.5px;line-height:1.55;color:#CBD5E1;margin:0;max-width:340px;}
-        .lg-feats{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:14px;}
-        .lg-feats li{display:flex;align-items:center;gap:12px;font-size:15px;color:#E2E8F0;}
-        .lg-feats li i{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.12);
-            display:inline-flex;align-items:center;justify-content:center;flex:none;}
-        .lg-title{font-size:30px;font-weight:800;letter-spacing:-.6px;color:#0F172A;margin-bottom:6px;}
-        .lg-sub{font-size:15px;color:#64748B;margin-bottom:22px;}
-        .lg-note{margin-top:18px;font-size:13px;color:#94A3B8;text-align:center;}
+            min-height:52px;border:0;border-radius:12px;color:#fff;
+            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.28);
+            transition:transform .15s, box-shadow .15s, filter .15s;}
+        .st-key-login_wrap [data-testid="stFormSubmitButton"] button p{font-size:16px;font-weight:600;}
+        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.07);color:#fff;
+            transform:translateY(-1px);box-shadow:0 14px 28px rgba(37,99,235,.32);}
+        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:active{transform:none;}
+
+        /* Sol panel */
+        .lg-left{position:relative;height:100%;min-height:620px;box-sizing:border-box;padding:40px 44px 36px;color:#fff;
+            display:flex;flex-direction:column;overflow:hidden;
+            background:radial-gradient(420px 320px at 90% 0%,rgba(74,222,128,.20),transparent 70%),
+                       radial-gradient(380px 300px at 0% 100%,rgba(59,130,246,.30),transparent 70%),
+                       linear-gradient(160deg,#0B1222 0%,#172554 100%);}
+        .lg-left::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+            background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+                             linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+            background-size:32px 32px;mask-image:linear-gradient(180deg,#000 0%,transparent 75%);
+            -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 75%);}
+        .lg-left > *{position:relative;}
+        .lg-brand{display:flex;align-items:center;gap:12px;}
+        .lg-brand b{display:block;font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
+        .lg-brand span{display:block;font-size:12.5px;color:#94A3B8;margin-top:2px;}
+
+        .lg-preview{margin:34px 0 30px;padding:18px 18px 14px;border-radius:16px;
+            background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+            box-shadow:0 20px 40px rgba(0,0,0,.25);}
+        .lg-prev-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+        .lg-prev-k{font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
+        .lg-prev-v{font-size:24px;font-weight:700;margin-top:4px;letter-spacing:-.4px;}
+        .lg-prev-v small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:4px;}
+        .lg-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;
+            border-radius:999px;background:rgba(248,113,113,.16);color:#FCA5A5;border:1px solid rgba(248,113,113,.30);
+            white-space:nowrap;}
+        .lg-pill i{width:7px;height:7px;border-radius:50%;background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.25);}
+        .lg-preview svg.spark{display:block;width:100%;height:96px;margin-top:10px;}
+        .lg-prev-leg{display:flex;gap:16px;font-size:12px;color:#94A3B8;margin-top:6px;}
+        .lg-prev-leg span{display:inline-flex;align-items:center;gap:6px;}
+        .lg-prev-leg .a{width:14px;border-top:2px solid #60A5FA;}
+        .lg-prev-leg .b{width:14px;border-top:2px dashed #94A3B8;}
+
+        .lg-hero h1{font-size:32px;line-height:1.15;font-weight:800;letter-spacing:-.8px;margin:0 0 12px;color:#fff;padding:0;}
+        .lg-hero p{font-size:15px;line-height:1.6;color:#CBD5E1;margin:0;max-width:390px;}
+        .lg-feats{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;}
+        .lg-feats li{display:flex;align-items:center;gap:12px;font-size:14.5px;color:#E2E8F0;margin:0;}
+        .lg-feats li i{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.10);
+            border:1px solid rgba(255,255,255,.10);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+
+        /* Sağ panel */
+        .lg-status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#047857;
+            background:#ECFDF5;border:1px solid #A7F3D0;padding:5px 11px;border-radius:999px;margin-bottom:26px;}
+        .lg-status i{width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.2);}
+        .lg-status.off{color:#B91C1C;background:#FEF2F2;border-color:#FECACA;}
+        .lg-status.off i{background:#EF4444;box-shadow:0 0 0 3px rgba(239,68,68,.2);}
+        .lg-title{font-size:28px;font-weight:800;letter-spacing:-.6px;color:#0F172A;margin-bottom:6px;line-height:1.2;}
+        .lg-sub{font-size:15px;color:#64748B;margin-bottom:24px;}
+        .lg-secure{display:flex;align-items:center;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #EEF2F7;
+            font-size:13px;color:#64748B;line-height:1.45;}
+        .lg-secure i{width:32px;height:32px;border-radius:9px;background:#EFF6FF;color:#2563EB;flex:none;
+            display:inline-flex;align-items:center;justify-content:center;}
+        .lg-foot{text-align:center;font-size:12.5px;color:#64748B;margin-top:22px;}
+
         @media (max-width:768px){
-            .block-container{padding:3.5rem .75rem 1.5rem !important;}
-            .lg-left{min-height:auto;padding:26px 24px;}
-            .lg-hero{margin:18px 0 0;}.lg-hero h1{font-size:24px;}.lg-hero p,.lg-feats{display:none;}
-            .st-key-login_wrap [data-testid="stColumn"]:last-child,
-            .st-key-login_wrap [data-testid="column"]:last-child{padding:26px 22px !important;}
+            .block-container{padding:1.25rem .75rem 1.5rem !important;}
+            .lg-left{min-height:auto;padding:24px 22px;}
+            .lg-preview,.lg-feats,.lg-hero p{display:none;}
+            .lg-hero{margin-top:18px;}.lg-hero h1{font-size:22px;margin:0;}
+            .st-key-login_wrap [data-testid="stColumn"]:last-child{padding:26px 22px !important;}
+            .lg-status{margin-bottom:18px;}
+        }
+        @media (prefers-reduced-motion: reduce){
+            .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{transform:none;}
         }
         </style>""",
         unsafe_allow_html=True,
     )
 
     def _oz(ikon, metin):
-        return f'<li><i>{svg(ikon, 20, "#FFFFFF")}</i>{metin}</li>'
+        return f'<li><i>{svg(ikon, 18, "#FFFFFF")}</i>{metin}</li>'
 
+    # Ürün önizlemesi: gerçek veri değil, temsili bir çizim; ekran okuyucudan gizli.
+    egri = (
+        "M0 70 L20 66 L40 68 L60 58 L80 60 L100 50 L120 54 L140 46 L160 52 L180 48 L200 40 "
+        "L210 18 L222 12 L236 30 L250 50 L270 46 L290 52 L320 44"
+    )
+    onizleme = (
+        '<div class="lg-preview" aria-hidden="true">'
+        '<div class="lg-prev-top"><div><div class="lg-prev-k">Anlık tüketim</div>'
+        '<div class="lg-prev-v">1.284<small>kWh</small></div></div>'
+        '<span class="lg-pill"><i></i>Anomali tespit edildi</span></div>'
+        '<svg class="spark" viewBox="0 0 320 96" preserveAspectRatio="none">'
+        '<defs><linearGradient id="lgf" x1="0" y1="0" x2="0" y2="1">'
+        '<stop offset="0" stop-color="#60A5FA" stop-opacity=".35"/>'
+        '<stop offset="1" stop-color="#60A5FA" stop-opacity="0"/></linearGradient></defs>'
+        '<rect x="196" y="0" width="44" height="96" fill="#F87171" opacity=".12"/>'
+        '<path d="M0 72 L40 70 L80 64 L120 58 L160 56 L200 50 L240 50 L280 50 L320 50" fill="none" '
+        'stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="4 4"/>'
+        f'<path d="{egri} L320 96 L0 96 Z" fill="url(#lgf)"/>'
+        f'<path d="{egri}" fill="none" stroke="#60A5FA" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
+        '<circle cx="222" cy="12" r="4.5" fill="#F87171" stroke="#0B1222" stroke-width="2"/></svg>'
+        '<div class="lg-prev-leg"><span><i class="a"></i>Gerçekleşen</span><span><i class="b"></i>Beklenen</span></div>'
+        "</div>"
+    )
     sol_html = (
         '<div class="lg-left">'
-        f'<div class="lg-brand">{LOGO}<span>{BRAND}</span></div>'
-        '<div class="lg-hero"><h1>Enerjinizi akıllıca izleyin.</h1>'
-        '<p>Tüketimi canlıya yakın takip edin, anomalileri erken yakalayın ve tasarruf fırsatlarını raporlayın.</p></div>'
+        f'<div class="lg-brand">{LOGO}<div><b>{BRAND}</b><span>{BRAND_SUB}</span></div></div>'
+        + onizleme
+        + '<div class="lg-hero"><h1>Enerji tüketiminizi tek ekrandan yönetin.</h1>'
+        "<p>Sayaçlarınızı canlıya yakın izleyin, beklenmeyen tüketimi model tahminiyle karşılaştırarak erken "
+        "yakalayın ve tasarruf fırsatlarını raporlayın.</p></div>"
         '<ul class="lg-feats">'
-        + _oz("zap", "Canlıya yakın tüketim takibi")
-        + _oz("alert", "Anomalilerin erken tespiti")
-        + _oz("leaf", "Tasarruf raporları ve dışa aktarma")
+        + _oz("zap", "Beklenen ve gerçekleşen tüketim karşılaştırması")
+        + _oz("alert", "Maliyeti ve önerisiyle anomali uyarıları")
+        + _oz("file", "CSV, Excel ve PDF tasarruf raporları")
         + "</ul></div>"
+    )
+
+    try:
+        api_acik = bool(api.health())
+    except ApiError:
+        api_acik = False
+    durum_html = (
+        '<div class="lg-status"><i></i>Tüm sistemler çalışıyor</div>'
+        if api_acik
+        else '<div class="lg-status off"><i></i>Sunucuya şu an ulaşılamıyor</div>'
     )
 
     giris_ok = False
     with st.container(key="login_wrap"):
-        sol, sag = st.columns([1.1, 1], vertical_alignment="center", gap="small")
+        sol, sag = st.columns([1.1, 1], gap="small")
         sol.markdown(sol_html, unsafe_allow_html=True)
         with sag:
             st.markdown(
-                '<div class="lg-title">Tekrar hoş geldiniz</div>'
-                '<div class="lg-sub">Hesabınızla giriş yaparak devam edin.</div>',
+                durum_html
+                + '<div class="lg-title">Hesabınıza giriş yapın</div>'
+                '<div class="lg-sub">Devam etmek için kurumsal e-posta adresinizi ve şifrenizi girin.</div>',
                 unsafe_allow_html=True,
             )
             with st.form("giris"):
-                email = st.text_input("E-posta", placeholder="ornek@sirket.com")
-                sifre = st.text_input("Şifre", type="password", placeholder="Şifrenizi girin")
-                giris_btn = st.form_submit_button("Giriş yap", use_container_width=True)
+                email = st.text_input(
+                    "E-posta", placeholder="ornek@sirket.com", icon=":material/mail:", autocomplete="email"
+                )
+                sifre = st.text_input(
+                    "Şifre", type="password", placeholder="Şifrenizi girin", icon=":material/lock:",
+                    autocomplete="current-password",
+                )
+                giris_btn = st.form_submit_button("Giriş yap", icon=":material/arrow_forward:", use_container_width=True)
             if giris_btn:
                 if not email or not sifre:
-                    st.warning("E-posta ve şifre gerekli.")
+                    st.warning("Lütfen e-posta ve şifrenizi girin.")
                 else:
                     try:
                         with st.spinner("Giriş yapılıyor..."):
                             st.session_state.me = api.login(email.strip(), sifre)
                         giris_ok = True
                     except ApiError as e:
-                        st.error(f"Giriş başarısız: {e}")
-                    except Exception as e:
-                        st.error(f"API'ye ulaşılamadı: {e}")
+                        if e.status in (400, 401, 403, 422):
+                            st.error("E-posta veya şifre hatalı. Lütfen tekrar deneyin.")
+                        elif e.status == 429:
+                            st.error("Çok fazla deneme yapıldı. Lütfen biraz bekleyip tekrar deneyin.")
+                        elif e.status == 0:
+                            st.error("Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.")
+                        else:
+                            st.error(f"Giriş şu an yapılamıyor ({e.status}). Lütfen daha sonra tekrar deneyin.")
             st.markdown(
-                '<div class="lg-note">Giriş yapamıyorsanız sistem yöneticinize başvurun.</div>',
+                f'<div class="lg-secure"><i>{svg("lock", 16)}</i>'
+                "<span>Oturum bilgisi tarayıcınızda değil, sunucuda tutulur.</span></div>"
+                f'<div class="lg-foot">Giriş yapamıyorsanız sistem yöneticinize başvurun · © {datetime.now().year} {BRAND}</div>',
                 unsafe_allow_html=True,
             )
     if giris_ok:
@@ -470,6 +581,12 @@ if st.session_state.sayfa == "anomali":
     yazabilir = me["role"] in ("admin", "operator")
     KAT = {"waste": ("İsraf", "mid"), "data_issue": ("Veri sorunu", "data")}
     VER = {"confirmed": ("Onaylandı", "low"), "false_alarm": ("Yanlış alarm", "data"), "planned": ("Planlı", "blue")}
+    # Karar düğmeleri: (kod, etiket, simge). Renkleri style.css'te anahtar adına göre verilir.
+    KARAR = [
+        ("confirmed", "Onayla", ":material/check_circle:"),
+        ("false_alarm", "Yanlış alarm", ":material/block:"),
+        ("planned", "Planlı", ":material/event_available:"),
+    ]
 
     def gonder(aid, verdict, not_key=None):
         note = (st.session_state.get(not_key) or "").strip() if not_key else ""
@@ -505,7 +622,7 @@ if st.session_state.sayfa == "anomali":
         v = VER.get(a["verdict"])
         vb = f'<span class="badge sev-{v[1]}">{v[0]}</span>' if v else '<span class="badge sev-wait">Bekliyor</span>'
 
-        st.button("← Listeye dön", on_click=kapat_detay, key="detay_geri")
+        st.button("Listeye dön", icon=":material/arrow_back:", on_click=kapat_detay, key="detay_geri")
         st.markdown(
             '<div class="hello">Anomali Detayı</div>'
             f'<div class="hello-sub">{html.escape(names[bid])} · {tr_tarih_saat(s)} → {tr_tarih_saat(e)}</div>',
@@ -558,7 +675,7 @@ if st.session_state.sayfa == "anomali":
                 lejant = bant_lejant(kapali_p, durus_p)
                 if lejant:
                     st.markdown(f'<div class="legend">{lejant}</div>', unsafe_allow_html=True)
-                fig = consumption_chart(pencere, tah_p, ev, "Hafta", kapali_p, durus_p)
+                fig = consumption_chart(pencere, tah_p, ev, "Hafta", kapali_p, durus_p, figsize=(12, 4.2))
                 st.markdown(fig_html(fig, "chart", chart_alt(pencere, tah_p, ev, durus_p)), unsafe_allow_html=True)
                 grafik_tablosu(pencere, tah_p)
 
@@ -567,7 +684,7 @@ if st.session_state.sayfa == "anomali":
             st.markdown('<div class="card-title">Açıklama ve öneri</div>', unsafe_allow_html=True)
             st.markdown(
                 f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>'
-                + (f'<div class="an-advice">💡 {html.escape(a["advice"])}</div>' if a["advice"] else ""),
+                + (f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>' if a["advice"] else ""),
                 unsafe_allow_html=True,
             )
 
@@ -576,7 +693,10 @@ if st.session_state.sayfa == "anomali":
             st.markdown('<div class="card-title">Değerlendirme</div>', unsafe_allow_html=True)
             # API şimdilik notu döndürmüyor; alan eklenince burada görünür.
             if a.get("note"):
-                st.markdown(f'<div class="an-desc">💬 {html.escape(a["note"])}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="an-note">{svg("message", 16)}<span>{html.escape(a["note"])}</span></div>',
+                    unsafe_allow_html=True,
+                )
             if not yazabilir:
                 st.caption("Değerlendirme yapmak için operatör veya yönetici rolü gerekir.")
             else:
@@ -587,14 +707,12 @@ if st.session_state.sayfa == "anomali":
                     "Not (isteğe bağlı)", key=nk, max_chars=1000, height=90,
                     placeholder="Örn. kompresör arızası, bakım ekibine iletildi.",
                 )
-                b1, b2, b3, _ = st.columns([1, 1.3, 1, 3])
-                for col, kod, etiket in (
-                    (b1, "confirmed", "✅ Onayla"), (b2, "false_alarm", "🚫 Yanlış alarm"), (b3, "planned", "📅 Planlı"),
-                ):
-                    col.button(
-                        etiket, key=f"d_{kod}_{a['id']}", on_click=gonder, args=(a["id"], kod, nk),
-                        type="primary" if a["verdict"] == kod else "secondary",
-                    )
+                with st.container(horizontal=True, gap="small"):
+                    for kod, etiket, ikon in KARAR:
+                        st.button(
+                            etiket, key=f"d_{kod}_{a['id']}", icon=ikon, on_click=gonder, args=(a["id"], kod, nk),
+                            type="primary" if a["verdict"] == kod else "secondary",
+                        )
         st.stop()
 
     bekleyen = sum(1 for a in tum if a["verdict"] is None)
@@ -639,7 +757,9 @@ if st.session_state.sayfa == "anomali":
         bas = tr_tarih_saat(pd.to_datetime(a["ts_start"], utc=True))
         bit = tr_tarih_saat(pd.to_datetime(a["ts_end"], utc=True))
         fazla = f"{num(a['excess_kwh'], 1)} kWh" if a["excess_kwh"] is not None else "-"
-        tavsiye = f'<div class="an-advice">💡 {html.escape(a["advice"])}</div>' if a["advice"] else ""
+        tavsiye = (
+            f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>' if a["advice"] else ""
+        )
         with st.container(key=f"anom_{a['id']}"):
             st.markdown(
                 f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{vb}'
@@ -649,22 +769,20 @@ if st.session_state.sayfa == "anomali":
                 f'Tahmini maliyet etkisi: <b>{tl(a["est_cost_tl"])}</b></div>{tavsiye}',
                 unsafe_allow_html=True,
             )
-            b0, b1, b2, b3, _ = st.columns([1, 1, 1.3, 1, 2])
-            b0.button("🔍 Detay", key=f"dt_{a['id']}", on_click=ac_detay, args=(a["id"],))
-            if yazabilir:
-                for col, kod, etiket in (
-                    (b1, "confirmed", "✅ Onayla"), (b2, "false_alarm", "🚫 Yanlış alarm"), (b3, "planned", "📅 Planlı"),
-                ):
-                    col.button(
-                        etiket, key=f"{kod}_{a['id']}", on_click=gonder, args=(a["id"], kod),
-                        type="primary" if a["verdict"] == kod else "secondary",
-                    )
+            with st.container(horizontal=True, gap="small", key=f"anbtn_{a['id']}"):
+                st.button("Detay", key=f"dt_{a['id']}", icon=":material/visibility:", on_click=ac_detay, args=(a["id"],))
+                if yazabilir:
+                    for kod, etiket, ikon in KARAR:
+                        st.button(
+                            etiket, key=f"{kod}_{a['id']}", icon=ikon, on_click=gonder, args=(a["id"], kod),
+                            type="primary" if a["verdict"] == kod else "secondary",
+                        )
     st.stop()
 
 # ---------- Ayarlar sayfası ----------
 if st.session_state.sayfa == "ayar":
     st.markdown(
-        '<div class="hello">Ayarlar</div>'
+        '<span class="pg-okunur" hidden></span><div class="hello">Ayarlar</div>'
         f'<div class="hello-sub">Hesap bilgileri · {html.escape(names[bid])} için çalışma saatleri ve planlı duruşlar</div>',
         unsafe_allow_html=True,
     )
@@ -737,7 +855,7 @@ if st.session_state.sayfa == "ayar":
                     st.session_state.saat_taslak = (bid, SABLON[sablon])
                     st.session_state.saat_ver = ver + 1
                     st.rerun()
-                if c3.button("💾 Kaydet", key="saat_kaydet", type="primary"):
+                if c3.button("Kaydet", key="saat_kaydet", type="primary", icon=":material/save:"):
                     hata, periyot = saatleri_dogrula(duzen)
                     if hata:
                         st.error(hata)
@@ -802,7 +920,7 @@ if st.session_state.sayfa == "ayar":
                     sag.button("Evet, sil", key=f"sil_ok_{d['id']}", type="primary", on_click=sil, args=(d["id"],))
                     sag.button("Vazgeç", key=f"sil_no_{d['id']}", on_click=sil_iste, args=(None,))
                 else:
-                    sag.button("🗑️ Sil", key=f"sil_{d['id']}", on_click=sil_iste, args=(d["id"],))
+                    sag.button("Sil", key=f"sil_{d['id']}", icon=":material/delete:", on_click=sil_iste, args=(d["id"],))
 
             if gecmis:
                 with st.expander(f"Geçmiş duruşlar ({len(gecmis)})"):
@@ -821,7 +939,7 @@ if st.session_state.sayfa == "ayar":
                     bit_g = g3.date_input("Bitiş tarihi", value=bugun + timedelta(days=1), format="DD.MM.YYYY")
                     bit_s = g4.time_input("Bitiş saati", value=dtime(0, 0), step=900)
                     not_ = st.text_input("Not (isteğe bağlı)", max_chars=500, placeholder="Örn. yıllık kompresör bakımı")
-                    if st.form_submit_button("➕ Ekle", type="primary"):
+                    if st.form_submit_button("Ekle", type="primary", icon=":material/add:"):
                         bas = datetime.combine(bas_g, bas_s)
                         bit = datetime.combine(bit_g, bit_s)
                         if bit <= bas:
@@ -984,7 +1102,7 @@ if st.session_state.sayfa == "tuketim":
 # ---------- Raporlar sayfası ----------
 if st.session_state.sayfa == "rapor":
     st.markdown(
-        '<div class="hello">Raporlar</div>'
+        '<span class="pg-okunur" hidden></span><div class="hello">Raporlar</div>'
         '<div class="hello-sub">Tasarruf özeti ve dışa aktarma (CSV, Excel, PDF)</div>',
         unsafe_allow_html=True,
     )
