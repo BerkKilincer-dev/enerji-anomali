@@ -1,3 +1,5 @@
+import base64
+from pathlib import Path
 from urllib.parse import quote
 
 PATHS = {
@@ -29,23 +31,13 @@ def svg(name, size=20, color="currentColor", sw=2):
     )
 
 
-# Wattwise logosu: yeşil-mavi kutuda W biçimli tüketim sinyali; sarı nokta izlenen tepe ölçümü.
-# Aynı çizim dashboard/logo.svg dosyasında (sekme simgesi ve sunumlar için); değiştirirken ikisini birlikte güncelleyin.
-LOGO_PATHS = (
-    '<defs><linearGradient id="ww-bg" x1="0" y1="0" x2="1" y2="1">'
-    '<stop offset="0" stop-color="#34D399"/><stop offset=".55" stop-color="#10B981"/><stop offset="1" stop-color="#0284C7"/>'
-    '</linearGradient><linearGradient id="ww-gl" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>'
-    "</linearGradient></defs>"
-    '<rect x="2" y="2" width="44" height="44" rx="13" fill="url(#ww-bg)"/>'
-    '<path d="M2 15a13 13 0 0 1 13-13h18a13 13 0 0 1 13 13v4C34 24 14 24 2 19z" fill="url(#ww-gl)"/>'
-    '<path d="M10 16 16.8 33 24 21.5 31.2 33 36 19" fill="none" stroke="#fff" stroke-width="4.4" '
-    'stroke-linecap="round" stroke-linejoin="round"/>'
-    '<circle cx="37" cy="14.5" r="3.6" fill="#FDE047" stroke="#fff" stroke-width="1.6"/>'
-)
+# Wattwise logosu: brand/logo_160.png, kaynağı assets/logo.jpg (brand/make_logo.py ile şeffaf PNG'ye çevrilir).
+# Menüde 38 px gösterilir; 160 px'lik sürüm yüksek çözünürlüklü ekranlarda da keskin kalır.
+# Sekme simgesi ve sunumlar için 512 px'lik brand/logo.png kullanılır.
+_LOGO_B64 = base64.b64encode((Path(__file__).parent / "brand" / "logo_160.png").read_bytes()).decode()
 LOGO = (
-    '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="38" height="38" '
-    f'viewBox="0 0 48 48">{LOGO_PATHS}</svg>'
+    f'<img src="data:image/png;base64,{_LOGO_B64}" width="38" height="38" alt="" aria-hidden="true" '
+    'style="display:block;flex:none">'
 )
 
 NAV_ICONS = {"genel": "home", "tuketim": "chart", "anomali": "alert", "rapor": "file", "ayar": "settings"}

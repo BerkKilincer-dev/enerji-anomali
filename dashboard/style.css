@@ -61,6 +61,10 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 [data-testid="stSidebar"] [data-testid="stLayoutWrapper"]:has(> .st-key-bina_box) { margin-top: auto; padding-top: 1rem; }
 
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 6px 18px; }
+/* Logo: menüde ve giriş ekranında 45 px (kaynak 160 px, yüksek çözünürlükte de keskin) */
+.brand img, .lg-brand img { width: 45px !important; height: 45px !important; }
+.brand { gap: 6px; }
+.lg-brand { gap: 6px !important; }  /* giriş ekranının kendi stili 12px veriyor */
 .brand-name { font-size: 21px; font-weight: 700; color: #FFFFFF; line-height: 1.1; }
 .brand-sub { font-size: 12px; color: #94A3B8; }
 

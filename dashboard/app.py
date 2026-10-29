@@ -34,7 +34,7 @@ BRAND = "Wattwise"  # tasarım görselindeki ad: EnerjiVista
 BRAND_SUB = "Daha verimli bir yarın"
 TARIFF_TL = 3.5  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
 
-st.set_page_config(page_title=BRAND, page_icon=str(Path(__file__).parent / "logo.svg"), layout="wide")
+st.set_page_config(page_title=BRAND, page_icon=str(Path(__file__).parent / "brand" / "logo.png"), layout="wide")
 css = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
 st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
