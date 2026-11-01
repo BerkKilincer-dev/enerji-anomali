@@ -54,7 +54,7 @@ schemas, so the model data is apart from customer setup and operations:
 | `core` | `tenants`, `users`, `buildings`, `operating_hours`, `planned_downtime`, `assets`, `meters` | onboarding (CLI, `POST /tenants`, `POST /buildings`) |
 | `telemetry` | `readings`, `weather` | CSV import, MQTT ingest, weather backfill, `load_db` |
 | `ml` | `predictions`, `anomalies`, `anomaly_feedback`, `scoring_state`, `model_artifacts`; views `readings_enriched`, `current_predictions`, `current_anomalies` | training, scoring, feedback |
-| `ops` | `alert_settings`, `notifications`, `work_orders`; view `daily_kpis` | alerts, reporting |
+| `ops` | view `daily_kpis` | reporting |
 
 Every connection from `src.common.db.connect` sets `search_path` to
 `core,telemetry,ml,ops,public`, and `load_db` sets the same path on the database for psql and
@@ -163,9 +163,10 @@ buildings as live Istanbul customers for demos, all buildings of one hour togeth
 
 ### Feedback as labels
 
-Operators mark events as `confirmed`, `false_alarm` or `planned` (`POST /anomalies/{id}/feedback`).
-`src/data/feedback.py` turns verdicts into hourly labels: confirmed is 1, false alarm and
-planned are 0, and the latest verdict wins. `python -m src.models.train --source db` trains on
+Operators mark events as `confirmed`, `false_alarm`, `planned`, `sent` or `applied`
+(`POST /anomalies/{id}/feedback`). `src/data/feedback.py` turns verdicts into hourly labels:
+confirmed and applied are 1, false alarm and planned are 0, sent labels nothing, and the
+latest labeling verdict wins. `python -m src.models.train --source db` trains on
 LEAD labels plus this feedback.
 
 ### Demo tenants

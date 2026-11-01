@@ -21,7 +21,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-energy}
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
@@ -51,8 +51,8 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # Fills the database without anyone installing Python or training: downloads LEAD, loads it
-  # and publishes the committed model in models_out/. The first start takes a few minutes, later
+  # Fills the database without anyone installing Python or training: downloads LEAD, loads it,
+  # loads the demo businesses from data/meter_catalog.csv and publishes the committed model. The first start takes a few minutes, later
   # ones seconds. Watch it with: docker compose logs -f setup
   setup:
     build: .
@@ -62,7 +62,12 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-energy}
       DATA_DIR: /app/cache
-    command: ["sh", "-c", "python -m src.data.load_db && python -m src.models.publish --if-missing"]
+      # Local demo only; older .env files do not have this line yet.
+      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-tenant-demo-pass}
+    command:
+      - sh
+      - -c
+      - python -m src.data.load_db && python -m src.data.catalog && python -m src.models.publish --if-missing
     volumes:
       - datacache:/app/cache
       - ./models_out:/app/models_out:ro

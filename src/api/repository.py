@@ -7,6 +7,8 @@ buildings; a building outside the scope answers as not found.
 
 from __future__ import annotations
 
+from collections import Counter
+from dataclasses import asdict, dataclass
 from datetime import datetime, time, timedelta
 from typing import NoReturn, Protocol
 
@@ -17,6 +19,7 @@ from psycopg import errors
 from psycopg.rows import dict_row
 
 from src.api.auth import User
+from src.api.schemas import CLOSED_VERDICTS
 from src.common.db import connect
 from src.api.recommendations import get_recommendation
 from src.data.customer import (
@@ -43,6 +46,50 @@ class ConflictError(ValueError):
 
 # Building rows visible to the current scope; queries alias buildings as b.
 VISIBLE = "(%(tenant)s::int IS NULL OR b.tenant_id = %(tenant)s::int)"
+# Latest verdict of the anomaly aliased a; a verdict on a time range outlives a re-published row.
+VERDICT = """(SELECT f.verdict FROM anomaly_feedback f
+    WHERE f.anomaly_id = a.id OR (f.anomaly_id IS NULL
+        AND f.building_id = a.building_id
+        AND f.ts_start <= a.ts_end AND f.ts_end >= a.ts_start)
+    ORDER BY f.created_at DESC LIMIT 1)"""
+# The main meter of building b and the asset it measures (equipment type).
+MAIN_ASSET = """LEFT JOIN meters m ON m.building_id = b.building_id AND m.is_main
+    LEFT JOIN assets ast ON ast.asset_id = m.asset_id"""
+
+
+@dataclass(frozen=True)
+class AnomalyFilter:
+    """Optional narrowing of the alarm list; None means no filter."""
+
+    tenant_id: int | None = None
+    category: str | None = None
+    status: str | None = None  # a verdict, or new / open / closed (see schemas.StatusFilter)
+    equipment_type: str | None = None
+    since: datetime | None = None  # events that end at or after this hour
+    until: datetime | None = None  # events that start at or before this hour
+    min_cost_tl: float | None = None
+    order: str = "recent"  # or "cost": costliest first
+
+
+NO_FILTER = AnomalyFilter()
+TOTALS = ("waste_tl", "waste_kwh", "open_alerts", "data_issues")
+
+
+def summarize_tenant(tenant: dict, meters: list[dict], days: int) -> dict:
+    """A business row from its meter rows (already costliest first)."""
+    own = [m for m in meters if m["tenant_id"] == tenant["tenant_id"]]
+    segments = Counter(m["segment"] for m in own if m["segment"])
+    ends = [m["end_ts"] for m in own if m["end_ts"] is not None]
+    return {
+        "tenant_id": tenant["tenant_id"],
+        "name": tenant["name"],
+        "city": tenant["city"],
+        "segment": segments.most_common(1)[0][0] if segments else None,
+        "days": days,
+        "period_end": max(ends) if ends else None,
+        **{k: sum(m[k] for m in own) for k in TOTALS},
+        "meters": own,
+    }
 
 
 class Repository(Protocol):
@@ -52,8 +99,11 @@ class Repository(Protocol):
     def buildings(self) -> list[dict]: ...
     def readings(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]: ...
     def forecast(self, building_id: int, hours: int, end: datetime | None = None) -> list[dict]: ...
-    def anomalies(self, building_id: int | None, limit: int) -> list[dict]: ...
-    def summary(self) -> dict: ...
+    def anomalies(
+        self, building_id: int | None, limit: int, flt: AnomalyFilter = NO_FILTER
+    ) -> list[dict]: ...
+    def summary(self, customers_only: bool = False) -> dict: ...
+    def tenant_summaries(self, days: int) -> list[dict]: ...
     def tenants(self) -> list[dict]: ...
     def add_feedback(
         self, anomaly_id: int, verdict: str, note: str | None, created_by: str | None
@@ -140,12 +190,14 @@ class PostgresRepository:
             f"""
             SELECT b.building_id, b.external_id, b.name, b.source, b.primary_use, b.segment,
                    b.square_feet, b.timezone, b.country, b.lat, b.lng, b.tenant_id,
-                   b.tariff_tl_per_kwh,
-                   s.last_scored_ts,
+                   b.tariff_tl_per_kwh, t.name AS tenant_name, ast.name AS asset_name,
+                   ast.equipment_type, s.last_scored_ts,
                    (SELECT count(*) FROM current_anomalies a
                     WHERE a.building_id = b.building_id) AS anomaly_count,
                    b.tenant, b.location, b.asset_name, b.equipment_type
             FROM buildings b LEFT JOIN scoring_state s USING (building_id)
+            LEFT JOIN tenants t ON t.tenant_id = b.tenant_id
+            {MAIN_ASSET}
             WHERE b.active AND {VISIBLE} ORDER BY b.building_id
             """,
             self._params(),
@@ -172,36 +224,59 @@ class PostgresRepository:
                 (building_id, start, end),
             )
 
-    def anomalies(self, building_id: int | None, limit: int) -> list[dict]:
-        rows = self._query(
+    def anomalies(
+        self, building_id: int | None, limit: int, flt: AnomalyFilter = NO_FILTER
+    ) -> list[dict]:
+        return self._query(
             f"""
-            SELECT a.id, a.building_id, a.ts_start, a.ts_end, a.score, a.source, a.rule_type,
-                   a.excess_kwh, a.est_cost_tl, a.category, a.explanation, a.advice, a.origin,
-                   b.equipment_type,
-                   (SELECT f.verdict FROM anomaly_feedback f
-                    WHERE f.anomaly_id = a.id OR (f.anomaly_id IS NULL
-                        AND f.building_id = a.building_id
-                        AND f.ts_start <= a.ts_end AND f.ts_end >= a.ts_start)
-                    ORDER BY f.created_at DESC LIMIT 1) AS verdict
-            FROM current_anomalies a JOIN buildings b USING (building_id)
-            WHERE (%(building)s::int IS NULL OR a.building_id = %(building)s::int) AND {VISIBLE}
-            ORDER BY a.ts_start DESC LIMIT %(limit)s
+            WITH listed AS (
+                SELECT a.id, a.building_id, b.name AS building_name, b.tenant_id,
+                       ast.name AS asset_name, ast.equipment_type, a.ts_start, a.ts_end,
+                       a.score, a.source, a.rule_type, a.excess_kwh, a.est_cost_tl, a.category,
+                       a.explanation, a.advice, a.origin, {VERDICT} AS verdict
+                FROM current_anomalies a JOIN buildings b USING (building_id)
+                {MAIN_ASSET}
+                WHERE {VISIBLE}
+                  AND (%(building)s::int IS NULL OR a.building_id = %(building)s::int)
+                  AND (%(tenant_id)s::int IS NULL OR b.tenant_id = %(tenant_id)s::int)
+                  AND (%(category)s::text IS NULL OR a.category = %(category)s::text)
+                  AND (%(equipment_type)s::text IS NULL
+                       OR ast.equipment_type = %(equipment_type)s::text)
+                  AND (%(since)s::timestamp IS NULL OR a.ts_end >= %(since)s::timestamp)
+                  AND (%(until)s::timestamp IS NULL OR a.ts_start <= %(until)s::timestamp)
+                  AND (%(min_cost_tl)s::float8 IS NULL
+                       OR a.est_cost_tl >= %(min_cost_tl)s::float8)
+            )
+            SELECT * FROM listed
+            WHERE CASE %(status)s::text
+                WHEN 'new' THEN verdict IS NULL
+                WHEN 'open' THEN verdict IS NULL OR verdict <> ALL(%(closed)s)
+                WHEN 'closed' THEN verdict = ANY(%(closed)s)
+                ELSE %(status)s::text IS NULL OR verdict = %(status)s::text
+            END
+            ORDER BY CASE WHEN %(order)s = 'cost' THEN est_cost_tl END DESC NULLS LAST,
+                     ts_start DESC
+            LIMIT %(limit)s
             """,
-            self._params(building=building_id, limit=limit),
+            self._params(
+                building=building_id, limit=limit, closed=list(CLOSED_VERDICTS), **asdict(flt)
+            ),
         )
         for row in rows:
             if not row.get("advice"):
                 row["advice"] = get_recommendation(row.get("equipment_type"))
         return rows
 
-    def summary(self) -> dict:
+    def summary(self, customers_only: bool = False) -> dict:
+        """Totals over visible buildings; `customers_only` skips buildings without a tenant."""
         row = self._query(
             f"""
             WITH latest AS (
                 SELECT b.building_id,
-                    (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
-                    AS end_ts
-                FROM buildings b WHERE b.active AND {{VISIBLE}}
+                       (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
+                           AS end_ts
+                FROM buildings b WHERE b.active AND {VISIBLE}
+                    AND (NOT %(customers)s OR b.tenant_id IS NOT NULL)
             ),
             costs AS (
                 SELECT building_id, sum(est_cost_tl) AS cost FROM current_anomalies
@@ -214,7 +289,7 @@ class PostgresRepository:
                    AS worst_building_id,
                    (SELECT count(*) FROM latest) AS buildings
             """,
-            self._params(),
+            self._params(customers=customers_only),
         )
         if not row:
             return {
@@ -238,6 +313,42 @@ class PostgresRepository:
             "WHERE %(tenant)s::int IS NULL OR tenant_id = %(tenant)s::int ORDER BY name",
             self._params(),
         )
+
+    def tenant_summaries(self, days: int) -> list[dict]:
+        """Each visible business with its meters over their last `days` days of data."""
+        meters = self._query(
+            f"""
+            WITH meter AS (
+                SELECT b.building_id, b.tenant_id, b.name, b.segment, ast.name AS asset_name,
+                       ast.equipment_type,
+                       (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
+                           AS end_ts
+                FROM buildings b {MAIN_ASSET}
+                WHERE b.active AND b.tenant_id IS NOT NULL AND {VISIBLE}
+            ),
+            recent AS (
+                SELECT a.building_id, a.category, a.est_cost_tl, a.excess_kwh,
+                       {VERDICT} AS verdict
+                FROM current_anomalies a JOIN meter USING (building_id)
+                WHERE a.ts_end > meter.end_ts - make_interval(days => %(days)s)
+            )
+            SELECT meter.building_id, meter.tenant_id, meter.name, meter.segment,
+                   meter.asset_name, meter.equipment_type, meter.end_ts,
+                   COALESCE(sum(r.est_cost_tl) FILTER (WHERE r.category = 'waste'), 0)
+                       AS waste_tl,
+                   COALESCE(sum(r.excess_kwh) FILTER (WHERE r.category = 'waste'), 0)
+                       AS waste_kwh,
+                   count(r.building_id) FILTER (WHERE r.category = 'waste'
+                       AND (r.verdict IS NULL OR r.verdict <> ALL(%(closed)s))) AS open_alerts,
+                   count(r.building_id) FILTER (WHERE r.category = 'data_issue') AS data_issues
+            FROM meter LEFT JOIN recent r USING (building_id)
+            GROUP BY meter.building_id, meter.tenant_id, meter.name, meter.segment,
+                     meter.asset_name, meter.equipment_type, meter.end_ts
+            ORDER BY waste_tl DESC, meter.building_id
+            """,
+            self._params(days=days, closed=list(CLOSED_VERDICTS)),
+        )
+        return [summarize_tenant(t, meters, days) for t in self.tenants()]
 
     def add_feedback(
         self, anomaly_id: int, verdict: str, note: str | None, created_by: str | None
@@ -420,6 +531,9 @@ class DemoRepository:
             "lng": 28.9784,
             "tenant_id": None,
             "tariff_tl_per_kwh": None,
+            "tenant_name": None,
+            "asset_name": None,
+            "equipment_type": None,
             "last_scored_ts": END,
             "anomaly_count": 1,
             "tenant": "Özel Kolej",
@@ -441,6 +555,9 @@ class DemoRepository:
             "lng": 29.03,
             "tenant_id": None,
             "tariff_tl_per_kwh": None,
+            "tenant_name": None,
+            "asset_name": None,
+            "equipment_type": None,
             "last_scored_ts": END,
             "anomaly_count": 0,
             "tenant": "Özel Kolej",
@@ -493,10 +610,16 @@ class DemoRepository:
         cols = ["building_id", "ts", "expected_kwh", "alarm", "source", "origin"]
         return frame[cols].astype(object).where(frame[cols].notna(), None).to_dict("records")
 
-    def anomalies(self, building_id: int | None, limit: int) -> list[dict]:
+    def anomalies(
+        self, building_id: int | None, limit: int, flt: AnomalyFilter = NO_FILTER
+    ) -> list[dict]:
         item = {
             "id": 1,
             "building_id": 100000,
+            "building_name": "Demo ofis",
+            "tenant_id": None,
+            "asset_name": None,
+            "equipment_type": None,
             "ts_start": self.WASTE[0],
             "ts_end": self.WASTE[1],
             "score": 0.91,
@@ -511,9 +634,21 @@ class DemoRepository:
             "origin": "live",
             "verdict": None,
         }
-        return [item] if building_id in (None, 100000) else []
+        # The one demo event is new, waste, from the rules and has no tenant or equipment.
+        matches = (
+            building_id in (None, 100000)
+            and flt.tenant_id is None
+            and flt.category in (None, "waste")
+            and flt.status in (None, "new", "open")
+            and flt.equipment_type is None
+            and (flt.since is None or flt.since <= item["ts_end"])
+            and (flt.until is None or flt.until >= item["ts_start"])
+            and (flt.min_cost_tl is None or flt.min_cost_tl <= item["est_cost_tl"])
+        )
+        return [item] if matches else []
 
-    def summary(self) -> dict:
+    def summary(self, customers_only: bool = False) -> dict:
+        # Demo buildings have no tenant, so customers_only would leave nothing to show.
         return {
             "total_cost_tl": 945.0,
             "active_alerts": 1,
@@ -522,6 +657,9 @@ class DemoRepository:
         }
 
     def tenants(self) -> list[dict]:
+        return []
+
+    def tenant_summaries(self, days: int) -> list[dict]:
         return []
 
     def operating_hours(self, building_id: int) -> list[dict]:

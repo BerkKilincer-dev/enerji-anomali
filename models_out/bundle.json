@@ -1,13 +1,13 @@
 {
   "name": "anomaly-scorer",
-  "version": "20261023-1958-0e010a3",
+  "version": "20261027-2336-2fdb98f",
   "thresholds": {
     "detector": 0.8159176006107561,
     "residual": 4.072021007537842,
     "rule": 0.5
   },
   "metrics": {
-    "version": "20261023-1958-0e010a3",
+    "version": "20261027-2336-2fdb98f",
     "chosen_detector": "lgbm",
     "quick": false,
     "source": "files",
@@ -31,33 +31,33 @@
     },
     "combined_on_test": {
       "combined": {
-        "precision": 0.26277850589777196,
-        "recall": 0.7379462642620538,
-        "f1": 0.3875519474243742,
-        "event_recall": 0.5551558752997602,
-        "event_precision": 0.22262396694214875,
-        "alarms_per_building_week": 1.3230445058230587,
-        "false_alarms_per_building_week": 1.0285030894957146
+        "precision": 0.23766418175363863,
+        "recall": 0.7392344497607656,
+        "f1": 0.35968839541547276,
+        "event_recall": 0.5587529976019184,
+        "event_precision": 0.19095697980684812,
+        "alarms_per_building_week": 1.556764144764942,
+        "false_alarms_per_building_week": 1.2594891654090379
       },
-      "source_share_rule": 0.8169069462647445,
-      "source_share_ml_sup": 0.029357798165137616,
-      "source_share_ml_unsup": 0.15373525557011797
+      "source_share_rule": 0.8351674358064134,
+      "source_share_ml_sup": 0.026505738965802862,
+      "source_share_ml_unsup": 0.1383268252277837
     },
     "timings_s": {
-      "expected_model": 245.3,
+      "expected_model": 260.7,
       "rules": 0.9,
-      "random_forest": 78.7,
-      "isolation_forest": 4.4,
-      "lgbm": 75.1,
-      "lgbm_no_weather": 30.8,
-      "lgbm_hybrid": 41.7
+      "random_forest": 69.4,
+      "isolation_forest": 3.0,
+      "lgbm": 73.5,
+      "lgbm_no_weather": 28.3,
+      "lgbm_hybrid": 46.8
     },
     "test_events": {
-      "count": 1095,
-      "waste": 857,
-      "data_issue": 238,
-      "excess_kwh": 121777.6796875,
-      "est_cost_tl": 426221.84375
+      "count": 1403,
+      "waste": 1166,
+      "data_issue": 237,
+      "excess_kwh": 145345.28125,
+      "est_cost_tl": 508708.46875
     }
   }
 }

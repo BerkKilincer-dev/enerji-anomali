@@ -10,6 +10,8 @@ RUN pip install -r requirements.txt
 COPY src ./src
 COPY db ./db
 COPY data/splits.json ./data/splits.json
+COPY data/meter_catalog.csv ./data/meter_catalog.csv
+COPY data/recommendations.csv ./data/recommendations.csv
 # Downloaded datasets go to a volume the app user can write (DATA_DIR in docker-compose.yml).
 RUN mkdir -p /app/cache && chown app /app/cache
 USER app

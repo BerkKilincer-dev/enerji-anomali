@@ -66,7 +66,7 @@ class AnomalyScorer:
         History is counted inside `frame`, so live callers pass some context before new hours.
         """
         features = self.featurize(frame)
-        rule_out = rules.evaluate(features)
+        rule_out = rules.evaluate(features, frame.get("equipment_type"))
         present = frame["kwh"].notna().to_numpy()
         history = pd.Series(present).groupby(frame["building_id"].to_numpy()).cumsum().to_numpy()
         rule_ready, ml_ready = history > RULE_WARMUP_HOURS, history > ML_WARMUP_HOURS

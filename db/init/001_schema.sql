@@ -15,8 +15,7 @@ BEGIN
         ('tenants', 'core'), ('users', 'core'), ('buildings', 'core'), ('assets', 'core'),
         ('meters', 'core'), ('weather', 'telemetry'), ('readings', 'telemetry'),
         ('scoring_state', 'ml'), ('predictions', 'ml'), ('anomalies', 'ml'),
-        ('anomaly_feedback', 'ml'), ('model_artifacts', 'ml'),
-        ('alert_settings', 'ops'), ('notifications', 'ops'), ('work_orders', 'ops')
+        ('anomaly_feedback', 'ml'), ('model_artifacts', 'ml')
     ) AS t (name, target)
     LOOP
         IF to_regclass('public.' || m.name) IS NOT NULL
@@ -223,12 +222,17 @@ CREATE TABLE IF NOT EXISTS ml.anomaly_feedback (
     building_id   INT NOT NULL REFERENCES core.buildings,
     ts_start      TIMESTAMP NOT NULL,
     ts_end        TIMESTAMP NOT NULL CHECK (ts_end >= ts_start),
-    verdict       TEXT NOT NULL CHECK (verdict IN ('confirmed', 'false_alarm', 'planned')),
+    verdict       TEXT NOT NULL,
     note          TEXT CHECK (length(note) <= 1000),
     created_by    TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_anomaly_feedback_anomaly ON ml.anomaly_feedback (anomaly_id);
+-- Recommendation status too: sent = told the business, applied = the business acted on it.
+-- Re-created on every run so databases made with the older, shorter list accept the new ones.
+ALTER TABLE ml.anomaly_feedback DROP CONSTRAINT IF EXISTS anomaly_feedback_verdict_check;
+ALTER TABLE ml.anomaly_feedback ADD CONSTRAINT anomaly_feedback_verdict_check
+    CHECK (verdict IN ('confirmed', 'false_alarm', 'planned', 'sent', 'applied'));
 
 CREATE TABLE IF NOT EXISTS ml.model_artifacts (
     id              BIGSERIAL PRIMARY KEY,
@@ -241,41 +245,8 @@ CREATE TABLE IF NOT EXISTS ml.model_artifacts (
     UNIQUE (name, version)
 );
 
--- Alert thresholds per building; buildings without a row use the defaults.
-CREATE TABLE IF NOT EXISTS ops.alert_settings (
-    building_id  INT PRIMARY KEY REFERENCES core.buildings,
-    notify       BOOLEAN NOT NULL DEFAULT true,
-    min_cost_tl  DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (min_cost_tl >= 0),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Sent alerts; one row per event and channel, so each event goes out once.
-CREATE TABLE IF NOT EXISTS ops.notifications (
-    anomaly_id  BIGINT NOT NULL REFERENCES ml.anomalies ON DELETE CASCADE,
-    channel     TEXT NOT NULL,
-    sent_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (anomaly_id, channel)
-);
-
--- Follow-up of an alarm: review, assign, resolve.
-CREATE TABLE IF NOT EXISTS ops.work_orders (
-    id           BIGSERIAL PRIMARY KEY,
-    anomaly_id   BIGINT REFERENCES ml.anomalies ON DELETE SET NULL,
-    building_id  INT NOT NULL REFERENCES core.buildings,
-    title        TEXT NOT NULL CHECK (length(title) <= 200),
-    status       TEXT NOT NULL DEFAULT 'open'
-                 CHECK (status IN ('open', 'in_progress', 'resolved', 'dismissed')),
-    assignee_id  INT REFERENCES core.users,
-    created_by   INT REFERENCES core.users,
-    note         TEXT CHECK (length(note) <= 2000),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    resolved_at  TIMESTAMPTZ,
-    CHECK ((status IN ('resolved', 'dismissed')) = (resolved_at IS NOT NULL))
-);
-CREATE INDEX IF NOT EXISTS idx_work_orders_building_status
-    ON ops.work_orders (building_id, status);
-CREATE INDEX IF NOT EXISTS idx_work_orders_anomaly ON ops.work_orders (anomaly_id);
+-- Alert and work-order tables were never used; databases made before 2026-10-30 drop them.
+DROP TABLE IF EXISTS ops.notifications, ops.alert_settings, ops.work_orders;
 
 -- Once the scoring service covers a building, its live output replaces the offline batch.
 CREATE OR REPLACE VIEW ml.current_predictions AS

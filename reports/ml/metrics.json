@@ -1,5 +1,5 @@
 {
-  "version": "20261023-1958-0e010a3",
+  "version": "20261027-2336-2fdb98f",
   "chosen_detector": "lgbm",
   "quick": false,
   "source": "files",
@@ -23,33 +23,33 @@
   },
   "combined_on_test": {
     "combined": {
-      "precision": 0.262779,
-      "recall": 0.737946,
-      "f1": 0.387552,
-      "event_recall": 0.555156,
-      "event_precision": 0.222624,
-      "alarms_per_building_week": 1.323045,
-      "false_alarms_per_building_week": 1.028503
+      "precision": 0.237664,
+      "recall": 0.739234,
+      "f1": 0.359688,
+      "event_recall": 0.558753,
+      "event_precision": 0.190957,
+      "alarms_per_building_week": 1.556764,
+      "false_alarms_per_building_week": 1.259489
     },
-    "source_share_rule": 0.816907,
-    "source_share_ml_sup": 0.029358,
-    "source_share_ml_unsup": 0.153735
+    "source_share_rule": 0.835167,
+    "source_share_ml_sup": 0.026506,
+    "source_share_ml_unsup": 0.138327
   },
   "timings_s": {
-    "expected_model": 245.3,
+    "expected_model": 260.7,
     "rules": 0.9,
-    "random_forest": 78.7,
-    "isolation_forest": 4.4,
-    "lgbm": 75.1,
-    "lgbm_no_weather": 30.8,
-    "lgbm_hybrid": 41.7
+    "random_forest": 69.4,
+    "isolation_forest": 3.0,
+    "lgbm": 73.5,
+    "lgbm_no_weather": 28.3,
+    "lgbm_hybrid": 46.8
   },
   "test_events": {
-    "count": 1095,
-    "waste": 857,
-    "data_issue": 238,
-    "excess_kwh": 121777.679688,
-    "est_cost_tl": 426221.84375
+    "count": 1403,
+    "waste": 1166,
+    "data_issue": 237,
+    "excess_kwh": 145345.28125,
+    "est_cost_tl": 508708.46875
   },
   "models": [
     {
@@ -182,22 +182,22 @@
       "model": "rules",
       "family": "rules",
       "val_pr_auc": 0.250598,
-      "pr_auc": 0.225107,
-      "roc_auc": 0.812792,
-      "pr_auc_ci_low": 0.089104,
-      "pr_auc_ci_high": 0.603519,
+      "pr_auc": 0.216939,
+      "roc_auc": 0.811164,
+      "pr_auc_ci_low": 0.086784,
+      "pr_auc_ci_high": 0.572488,
       "threshold": 0.705047,
-      "precision": 0.342387,
-      "recall": 0.577659,
-      "f1": 0.429941,
-      "event_recall": 0.203837,
-      "event_precision": 0.209011,
-      "alarms_per_building_week": 0.546029,
-      "false_alarms_per_building_week": 0.431903,
-      "day_pr_auc": 0.19798,
-      "day_precision": 0.311515,
-      "day_recall": 0.358939,
-      "day_f1": 0.33355
+      "precision": 0.324424,
+      "recall": 0.580788,
+      "f1": 0.416304,
+      "event_recall": 0.206235,
+      "event_precision": 0.178311,
+      "alarms_per_building_week": 0.655372,
+      "false_alarms_per_building_week": 0.538512,
+      "day_pr_auc": 0.184738,
+      "day_precision": 0.274841,
+      "day_recall": 0.363128,
+      "day_f1": 0.312876
     }
   ],
   "scenarios": [
@@ -270,7 +270,7 @@
       "detector": "rules",
       "injections": 30,
       "detection_rate": 1.0,
-      "hourly_recall": 0.808333,
+      "hourly_recall": 0.811111,
       "median_hours_to_detect": 5.0
     },
     {
@@ -294,16 +294,16 @@
       "detector": "combined",
       "injections": 30,
       "detection_rate": 1.0,
-      "hourly_recall": 0.819444,
+      "hourly_recall": 0.820833,
       "median_hours_to_detect": 5.0
     },
     {
       "scenario": "drift",
       "detector": "rules",
       "injections": 30,
-      "detection_rate": 0.566667,
-      "hourly_recall": 0.03254,
-      "median_hours_to_detect": 156.0
+      "detection_rate": 0.7,
+      "hourly_recall": 0.053373,
+      "median_hours_to_detect": 162.0
     },
     {
       "scenario": "drift",
@@ -325,9 +325,9 @@
       "scenario": "drift",
       "detector": "combined",
       "injections": 30,
-      "detection_rate": 0.466667,
-      "hourly_recall": 0.031052,
-      "median_hours_to_detect": 98.5
+      "detection_rate": 0.566667,
+      "hourly_recall": 0.048909,
+      "median_hours_to_detect": 155.0
     },
     {
       "scenario": "night_base_load",

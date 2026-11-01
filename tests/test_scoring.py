@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from src.data.dataset import model_frame
+from src.data.dataset import equipment_types, model_frame
 from src.models import registry
 from src.models.detector import CONTEXT_HOURS, ML_WARMUP_HOURS, RULE_WARMUP_HOURS, SOURCES
 from src.models.events import _TEMPLATES, build_events
-from src.models.rules import FLATLINE_HOURS, RULES, persistent
+from src.models.rules import FLATLINE_HOURS, RULES, evaluate, persistent
 from tests.conftest import make_tables
 
 
@@ -188,3 +188,34 @@ def test_waste_without_excess_is_dropped():
     event = events.iloc[0]
     assert event.category == "waste" and event.excess_kwh == 60.0
     assert event.est_cost_tl == 240.0
+
+
+def test_off_hours_equipment_fires_at_a_smaller_excess():
+    # Night load 1.4x the same hour in past weeks: waste for an air conditioner, not yet for a
+    # whole-building meter.
+    night = pd.DataFrame(
+        {
+            "log_kwh": np.log1p(14.0),
+            "hw_median": np.log1p(10.0),
+            "median_168": np.log1p(10.0),
+            "z_168": 0.0,
+            "flat_run": 0,
+            "hour": 2,
+            "is_weekend": 0,
+            "is_holiday": 0,
+        },
+        index=[0, 1, 2],
+    )
+    out = evaluate(night, pd.Series(["klima", "genel", None]))
+    assert out["rule_type"].tolist()[0] == "night_base_load"
+    assert out["rule_type"].isna().tolist()[1:] == [True, True]
+    assert evaluate(night)["rule_type"].isna().all()
+
+
+def test_equipment_comes_from_the_catalog_unless_the_database_gave_it():
+    buildings = pd.DataFrame({"external_id": ["Hog_industrial_Jay", "not-in-catalog"]})
+    assert equipment_types(buildings).tolist()[0] == "plc"
+    assert pd.isna(equipment_types(buildings).tolist()[1])
+    given = buildings.assign(equipment_type=["klima", None])
+    from_db = equipment_types(given).tolist()
+    assert from_db[0] == "klima" and pd.isna(from_db[1])

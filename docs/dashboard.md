@@ -4,7 +4,7 @@ Owner: frontend developer. The Streamlit CRM panel in `dashboard/`: a business s
 its meters, their consumption against the expected level, the anomalies with their TL cost and
 advice, gives feedback on each alarm and exports reports. It reads everything through the API
 ([api.md](api.md)); the session cookie stays on the Streamlit server, never in the browser.
-The panel says bina (building) where the CRM plan says meter (sayaç); see the README.
+The sidebar picks a sayaç (meter); some older cards still say bina (building).
 
 | Item | Choice |
 |---|---|
@@ -23,12 +23,26 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 
 | File | Role |
 |---|---|
-| `app.py` | login, sidebar and the pages: Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar (account, weekly operating hours, planned downtime; editing needs operator or admin) |
+| `app.py` | login, sidebar and the pages: İşletmeler, Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar (account, weekly operating hours, planned downtime; editing needs operator or admin) |
 | `api_client.py` | API client; one `requests.Session` per signed-in user keeps the cookie |
 | `charts.py` | consumption and donut charts, Turkish date formats |
 | `reports.py` | report data and the CSV, Excel and PDF exports |
 | `icons.py` | SVG icons and the logo |
 | `style.css` | look and feel |
+
+## CRM flow
+
+- **İşletmeler** (first page): platform staff see one card per business (`GET /tenants/summary`)
+  with waste, open alarms and data issues for 30 days, 90 days (default, the LEAD data ends in a
+  quiet December) or a year. A business user goes straight to its own page.
+- **İşletme**: the same totals, "Bugün ne yapmalı?" (the three costliest open waste alarms with
+  their recommendation) and the meters sorted by location; "Aç" opens a meter in Genel Bakış.
+- **Anomaliler**: filters for scope, status, equipment and order, served by `GET /anomalies`;
+  waste and data issues sit in separate tabs. Each alarm shows its recommendation card.
+- Status buttons (operator and admin): İletildi (`sent`), Uygulandı (`applied`), Yanlış alarm
+  (`false_alarm`), Planlı (`planned`). Applied, false alarm and planned close an alarm. The
+  detail page also takes an optional note. Button colours come from `style.css` by key prefix
+  (`d_<code>_` on the detail page, `<code>_` in lists), so keep those keys when moving buttons.
 
 ## Conventions
 

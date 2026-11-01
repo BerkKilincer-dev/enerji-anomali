@@ -1,6 +1,6 @@
 # Kurulum: projeyi kendi bilgisayarında çalıştırmak
 
-Bu adımları sırayla yapan herkes paneli açabilir. Python, Node ya da model eğitimi gerekmez;
+Bu adımları sırayla yapan herkes paneli açabilir. Python ya da model eğitimi gerekmez;
 her şey Docker içinde çalışır. Toplam süre ilk seferde yaklaşık 15 dakika.
 
 ## 1. Kurulması gerekenler
@@ -46,7 +46,9 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 ## 3. Paneli aç
 
 1. Tarayıcıda **http://localhost:5173** adresini aç.
-2. Giriş: `admin@enerji.local` / `admin-demo-pass`
+2. Giriş: `admin@enerji.local` / `admin-demo-pass` (bütün işletmeleri görür). Bir işletmenin
+   gözünden bakmak için ör. `otel@enerji.local` / `tenant-demo-pass`; diğerleri
+   `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu` (hepsi `@enerji.local`).
 3. Solda menü, üstte "Toplam Enerji Tüketimi" kartı görünüyorsa kurulum tamam.
 
 API'nin tüm uç noktaları: http://localhost:8000/docs
@@ -88,7 +90,8 @@ Sadece paneli kullanacaksan bu bölümü atla.
 
   `activate` "running scripts is disabled" derse bir kere
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` yaz ve tekrar dene.
-- **Panel üzerinde çalışanlar**: [Node.js 22 (LTS)](https://nodejs.org) kur.
+- **Panel üzerinde çalışanlar**: ayrıca bir şey kurmaya gerek yok; panel Streamlit ile Docker
+  içinde çalışır, `dashboard/` klasöründeki değişiklik tarayıcı yenilenince görünür.
 - **Kod editörü**: [VS Code](https://code.visualstudio.com) önerilir.
 
 Kod yazma ve GitHub'a gönderme kuralları README'deki "Çalışma şekli" bölümünde.
