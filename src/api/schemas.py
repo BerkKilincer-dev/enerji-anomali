@@ -31,6 +31,7 @@ CLOSED_VERDICTS = ("applied", "false_alarm", "planned")
 # new = no verdict yet, open = not closed (new, confirmed or sent), closed = CLOSED_VERDICTS.
 StatusFilter = Literal["new", "open", "closed", Verdict]
 
+
 class Building(BaseModel):
     building_id: int
     external_id: str
@@ -50,10 +51,6 @@ class Building(BaseModel):
     equipment_type: str | None
     last_scored_ts: datetime | None
     anomaly_count: int
-    tenant: str | None = None
-    location: str | None = None
-    asset_name: str | None = None
-    equipment_type: str | None = None
 
 
 class Reading(BaseModel):

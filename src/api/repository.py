@@ -21,7 +21,6 @@ from psycopg.rows import dict_row
 from src.api.auth import User
 from src.api.schemas import CLOSED_VERDICTS
 from src.common.db import connect
-from src.api.recommendations import get_recommendation
 from src.data.customer import (
     BuildingInfo,
     TenantInfo,
@@ -193,8 +192,7 @@ class PostgresRepository:
                    b.tariff_tl_per_kwh, t.name AS tenant_name, ast.name AS asset_name,
                    ast.equipment_type, s.last_scored_ts,
                    (SELECT count(*) FROM current_anomalies a
-                    WHERE a.building_id = b.building_id) AS anomaly_count,
-                   b.tenant, b.location, b.asset_name, b.equipment_type
+                    WHERE a.building_id = b.building_id) AS anomaly_count
             FROM buildings b LEFT JOIN scoring_state s USING (building_id)
             LEFT JOIN tenants t ON t.tenant_id = b.tenant_id
             {MAIN_ASSET}
@@ -262,10 +260,6 @@ class PostgresRepository:
                 building=building_id, limit=limit, closed=list(CLOSED_VERDICTS), **asdict(flt)
             ),
         )
-        for row in rows:
-            if not row.get("advice"):
-                row["advice"] = get_recommendation(row.get("equipment_type"))
-        return rows
 
     def summary(self, customers_only: bool = False) -> dict:
         """Totals over visible buildings; `customers_only` skips buildings without a tenant."""
@@ -283,29 +277,15 @@ class PostgresRepository:
                 JOIN latest USING (building_id) GROUP BY 1
             )
             SELECT (SELECT COALESCE(sum(cost), 0) FROM costs) AS total_cost_tl,
-                   (SELECT count(*) FROM current_anomalies a JOIN latest 1 USING (building_id)
+                   (SELECT count(*) FROM current_anomalies a JOIN latest l USING (building_id)
                     WHERE a.ts_end >= l.end_ts - interval '24 hours') AS active_alerts,
                    (SELECT building_id FROM costs ORDER BY cost DESC NULLS LAST LIMIT 1)
-                   AS worst_building_id,
+                       AS worst_building_id,
                    (SELECT count(*) FROM latest) AS buildings
             """,
             self._params(customers=customers_only),
         )
-        if not row:
-            return {
-                "total_cost_tl": 0.0,
-                "active_alerts": 0,
-                "worst_building_id": None,
-                "buildings": 0,
-            }
-        
-        res = row[0]
-        return {
-            "total_cost_tl": float(res[0]),
-            "active_alerts": int(res[1]),
-            "worst_building_id": res[2],
-            "buildings": int(res[3]),
-        }
+        return row[0]
 
     def tenants(self) -> list[dict]:
         return self._query(
@@ -536,10 +516,6 @@ class DemoRepository:
             "equipment_type": None,
             "last_scored_ts": END,
             "anomaly_count": 1,
-            "tenant": "Özel Kolej",
-            "location": "A Blok Derslikler",
-            "asset_name": "Derslik aydınlatması",
-            "equipment_type": "aydinlatma",
         },
         {
             "building_id": 100001,
@@ -560,10 +536,6 @@ class DemoRepository:
             "equipment_type": None,
             "last_scored_ts": END,
             "anomaly_count": 0,
-            "tenant": "Özel Kolej",
-            "location": "A Blok Derslikler",
-            "asset_name": "Derslik aydınlatması",
-            "equipment_type": "aydinlatma",
         },
     ]
 
@@ -629,7 +601,7 @@ class DemoRepository:
             "est_cost_tl": 945.0,
             "explanation": "2026-10-19 01:00-06:00: Gece tüketimi son haftalardaki aynı saatin "
             "1,6 katına çıktı. Beklenenden yaklaşık 270 kWh fazla (3,50 TL/kWh ile 945 TL).",
-            "advice": get_recommendation(self._building(100000).get("equipment_type")),
+            "advice": None,
             "category": "waste",
             "origin": "live",
             "verdict": None,
