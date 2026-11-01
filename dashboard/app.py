@@ -593,6 +593,7 @@ en_cok = max(buildings, key=lambda b: b["anomaly_count"])["building_id"]
 # ---------- Sol menü ----------
 PAGES = [
     ("isletme", ":material/storefront:", "İşletmeler" if me.get("tenant_id") is None else "İşletmem"),
+    ("canli", ":material/sensors:", "Canlı İzleme"),
     ("genel", ":material/home:", "Genel Bakış"),
     ("tuketim", ":material/bar_chart:", "Tüketim Analizi"),
     ("anomali", ":material/warning:", "Anomaliler"),
@@ -727,6 +728,10 @@ if st.session_state.sayfa == "isletme":
         k4.markdown(kpi_card(svg("zap", 24), "green", "Sayaç", str(sum(len(x["meters"]) for x in ozetler)),
                              f"<span>({len(ozetler)} işletmede)</span>"), unsafe_allow_html=True)
         st.write("")
+        try:
+            canli_tid = api.live_demo().get("tenant_id")
+        except ApiError:
+            canli_tid = None
         cols = st.columns(3)
         for k, x in enumerate(sorted(ozetler, key=lambda x: -x["waste_tl"])):
             pahali = x["meters"][0] if x["meters"] and x["meters"][0]["waste_tl"] > 0 else None
@@ -734,7 +739,9 @@ if st.session_state.sayfa == "isletme":
             with cols[k % 3], st.container(key=f"card_isl_{x['tenant_id']}"):
                 st.markdown(
                     f'<div class="tn-head"><span class="tn-name">{html.escape(x["name"])}</span>'
-                    f'<span class="badge sev-blue">{SEGMENT_TR.get(x["segment"], "İşletme")}</span></div>'
+                    + ('<span class="badge sev-low">● Canlı</span>' if x["tenant_id"] == canli_tid
+                       else f'<span class="badge sev-blue">{SEGMENT_TR.get(x["segment"], "İşletme")}</span>')
+                    + '</div>'
                     f'<div class="tn-sub">{html.escape(alt)}</div>'
                     '<div class="tn-stats">'
                     f'<div><b>{tl(x["waste_tl"])}</b><span>İsraf ({gun} gün)</span></div>'
@@ -817,6 +824,136 @@ if st.session_state.sayfa == "isletme":
             r[5].markdown(f'<div class="mt-v">{m["data_issues"]}</div>', unsafe_allow_html=True)
             r[6].button("Aç", key=f"sy_ac_{m['building_id']}", icon=":material/arrow_forward:",
                         on_click=ac_sayac, args=(m["building_id"],), use_container_width=True)
+    st.stop()
+
+# ---------- Canlı İzleme sayfası ----------
+if st.session_state.sayfa == "canli":
+    st.markdown(
+        '<div class="hello">Canlı İzleme</div>'
+        '<div class="hello-sub">Canlı Demo Tesisi · sanal sayaçlar MQTT ile veri gönderir, '
+        "model yeni saatleri birkaç saniyede bir kontrol eder</div>",
+        unsafe_allow_html=True,
+    )
+    st.write("")
+
+    def canli_islem(baslat):
+        try:
+            (api.live_start if baslat else api.live_stop)()
+            st.session_state.fb_msg = (
+                ("ok", "Canlı demo başladı; ilk alarmlar 1-2 dakika içinde düşer.")
+                if baslat else ("ok", "Canlı demo durduruldu.")
+            )
+        except ApiError as e:
+            st.session_state.fb_msg = ("err", f"İşlem yapılamadı: {e}")
+
+    @st.fragment(run_every=10)
+    def canli_ekran():
+        mesaj_goster()
+        try:
+            d = api.live_demo()
+        except ApiError as e:
+            st.error(f"Canlı demo durumu alınamadı: {e}")
+            return
+        sim = pd.Timestamp(d["sim_ts"]) if d["sim_ts"] else None
+        platform_admin = me["role"] == "admin" and me.get("tenant_id") is None
+
+        if not d["available"]:
+            durum = ('<span class="lv-dot off"></span>Canlı demo servisi çalışmıyor. '
+                     "Proje klasöründe <code>docker compose up -d</code> çalıştırın.")
+        elif d["running"] and sim is None:
+            durum = '<span class="lv-dot on"></span>Başlatılıyor: son 4 haftanın verisi gönderiliyor…'
+        elif d["running"]:
+            durum = (f'<span class="lv-dot on"></span>Canlı veri akıyor · sanal saat '
+                     f"<b>{tr_tarih_saat(sim)}</b> · her dakika 1 saat ilerler")
+        else:
+            durum = '<span class="lv-dot idle"></span>Canlı demo hazır, başlatılmayı bekliyor.'
+        s1, s2 = st.columns([4, 1.6], vertical_alignment="center")
+        s1.markdown(f'<div class="lv-status">{durum}</div>', unsafe_allow_html=True)
+        with s2, st.container(horizontal=True, horizontal_alignment="right", gap="small"):
+            if platform_admin and d["available"]:
+                st.button("Baştan başlat" if d["running"] else "Canlı demoyu başlat",
+                          icon=":material/play_circle:", type="primary", key="lv_start",
+                          on_click=canli_islem, args=(True,))
+                if d["running"]:
+                    st.button("Durdur", icon=":material/stop_circle:", key="lv_stop",
+                              on_click=canli_islem, args=(False,))
+
+        if not d["meters"]:
+            st.info("Canlı demo tesisinin sayaçları henüz yok ya da bu hesap onları göremiyor.")
+            return
+        try:
+            alarmlar = api.anomalies(None, limit=100, fresh=True, tenant_id=d["tenant_id"])
+        except ApiError as e:
+            st.error(f"Alarmlar alınamadı: {e}")
+            return
+
+        # Sayaç kartları: son okuma ve son 3 saatte süren alarm
+        aktif = {}
+        for a in alarmlar:
+            if sim is not None and pd.Timestamp(a["ts_end"]) >= sim - timedelta(hours=3):
+                aktif.setdefault(a["building_id"], a)
+        st.write("")
+        for col, m in zip(st.columns(len(d["meters"])), d["meters"], strict=True):
+            a = aktif.get(m["building_id"])
+            if a is None:
+                rozet = '<span class="badge sev-low">Normal</span>'
+            elif a["category"] == "data_issue":
+                rozet = '<span class="badge sev-data">Veri sorunu</span>'
+            else:
+                rozet = '<span class="badge sev-high">Alarm</span>'
+            son = (f'{num(m["last_kwh"], 1)} kWh' if m["last_kwh"] is not None else "veri yok") if m["last_ts"] else "-"
+            zaman = tr_tarih_saat(pd.Timestamp(m["last_ts"])) if m["last_ts"] else "henüz veri yok"
+            col.markdown(
+                f'<div class="lv-card"><div class="lv-top"><span class="lv-name">{html.escape(m["name"] or "-")}</span>{rozet}</div>'
+                f'<div class="lv-eq">{EKIPMAN_TR.get(m["equipment_type"], "-")}</div>'
+                f'<div class="lv-kwh">{son}</div><div class="lv-ts">{zaman}</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        st.write("")
+        sol, sag = st.columns([1.6, 1])
+        with sol, st.container(key="card_lv_grafik"):
+            secenek = {m["building_id"]: m["name"] or str(m["building_id"]) for m in d["meters"]}
+            if st.session_state.get("lv_sayac") not in secenek:
+                st.session_state.lv_sayac = next(iter(secenek))
+            t1, t2 = st.columns([1.4, 2], vertical_alignment="center")
+            t1.markdown('<div class="card-title">Son 48 saat</div>', unsafe_allow_html=True)
+            secili = t2.selectbox("Sayaç", list(secenek), format_func=secenek.get, key="lv_sayac",
+                                  label_visibility="collapsed")
+            try:
+                ham = pd.DataFrame(api.readings(secili, 48, fresh=True))
+                tah = pd.DataFrame(api.forecast(secili, 48, fresh=True))
+            except ApiError:
+                ham = tah = pd.DataFrame()
+            if ham.empty:
+                st.info("Bu sayaçta henüz veri yok; canlı demo başlatılınca dolar.")
+            else:
+                ham["ts"] = pd.to_datetime(ham["ts"], utc=True)
+                if not tah.empty:
+                    tah["ts"] = pd.to_datetime(tah["ts"], utc=True)
+                ev = build_events(ham, tah, [a for a in alarmlar if a["building_id"] == secili])
+                fig = consumption_chart(ham, tah, ev, "Gün", figsize=(10, 4))
+                st.markdown(fig_html(fig, "chart", chart_alt(ham, tah, ev)), unsafe_allow_html=True)
+
+        with sag, st.container(key="card_lv_alarm"):
+            st.markdown('<div class="card-title">Son düşen alarmlar</div>', unsafe_allow_html=True)
+            if not alarmlar:
+                st.caption("Henüz alarm yok. Başlattıktan sonra ilk alarmlar 1-2 dakika içinde düşer.")
+            for a in alarmlar[:6]:
+                ad, ton = KAT.get(a["category"], ("Diğer", "data"))
+                with st.container(key=f"anom_lv{a['id']}"):
+                    st.markdown(
+                        f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{verdict_badge(a)}'
+                        f'<b class="todo-meter">{html.escape(a.get("building_name") or "-")}</b>'
+                        f'<span class="an-time">{tr_tarih_saat(pd.Timestamp(a["ts_start"]))}</span></div>'
+                        f'<div class="an-desc">{html.escape(kisa_aciklama(a["explanation"] or ""))}</div>'
+                        + rec_html(a),
+                        unsafe_allow_html=True,
+                    )
+                    with st.container(horizontal=True, gap="small", key=f"anbtn_lv{a['id']}"):
+                        durum_dugmeleri(a, "lv")
+
+    canli_ekran()
     st.stop()
 
 # ---------- Anomaliler sayfası ----------
@@ -1411,9 +1548,16 @@ karsilas = {
     "Ay": "Geçen aya göre", "Özel": "Önceki döneme göre",
 }[aralik]
 
-raw = pd.DataFrame(api.readings(bid, 1440 if ozel else hours * 2))
-forecast = pd.DataFrame(api.forecast(bid, 720 if ozel else hours))
-anomalies = api.anomalies(bid, limit=50)
+try:
+    raw = pd.DataFrame(api.readings(bid, 1440 if ozel else hours * 2))
+    forecast = pd.DataFrame(api.forecast(bid, 720 if ozel else hours))
+    anomalies = api.anomalies(bid, limit=50)
+except ApiError as e:
+    if e.status != 404:
+        raise
+    st.info(f"{names[bid]} sayacında henüz veri yok. Canlı demo sayaçları Canlı İzleme ekranından "
+            "başlatılınca dolar.")
+    st.stop()
 
 son = None
 cutoff = ust = None

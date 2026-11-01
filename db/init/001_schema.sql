@@ -248,6 +248,20 @@ CREATE TABLE IF NOT EXISTS ml.model_artifacts (
 -- Alert and work-order tables were never used; databases made before 2026-10-30 drop them.
 DROP TABLE IF EXISTS ops.notifications, ops.alert_settings, ops.work_orders;
 
+-- Live demo switch: the panel's start and stop buttons write it, the live-demo service
+-- (src/ingest/live_demo.py) polls it. One row; run_id grows on every start, which makes the
+-- service wipe the previous run and play from the beginning.
+CREATE TABLE IF NOT EXISTS ops.live_demo (
+    id            SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    running       BOOLEAN NOT NULL DEFAULT false,
+    run_id        INT NOT NULL DEFAULT 0,
+    started_at    TIMESTAMPTZ,
+    tenant_id     INT REFERENCES core.tenants,
+    heartbeat_at  TIMESTAMPTZ,
+    sim_ts        TIMESTAMP
+);
+INSERT INTO ops.live_demo (id) VALUES (1) ON CONFLICT DO NOTHING;
+
 -- Once the scoring service covers a building, its live output replaces the offline batch.
 CREATE OR REPLACE VIEW ml.current_predictions AS
 SELECT p.* FROM ml.predictions p

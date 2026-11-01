@@ -1,5 +1,5 @@
-# Local stack on 127.0.0.1. `docker compose up -d` fills the database on first start (setup);
-# `--profile live` adds live scoring and MQTT ingest.
+# Local stack on 127.0.0.1. `docker compose up -d` fills the database on first start (setup)
+# and runs live scoring, MQTT ingest and the live demo, which waits for the panel's start button.
 x-app: &app
   build: .
   env_file:
@@ -81,17 +81,28 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  # Scores customer meters (not the LEAD history) as new hours arrive; a short interval keeps
+  # the live demo's alarms close behind its fast play.
   scoring:
     <<: *app
-    profiles: ["live"]
-    command: ["python", "-m", "src.scoring.service", "--interval", "300"]
+    command: ["python", "-m", "src.scoring.service", "--interval", "20"]
     volumes:
       - ./models_out:/app/models_out:ro
 
   ingest:
     <<: *app
-    profiles: ["live"]
     command: ["python", "-m", "src.ingest.mqtt_ingest"]
+
+  # Five virtual meters of "Canlı Demo Tesisi"; idle until an admin presses start in the panel.
+  live-demo:
+    <<: *app
+    command: ["python", "-m", "src.ingest.live_demo"]
+    environment:
+      DATABASE_URL: postgresql://${DB_TEAM_USER:-team}:${DB_TEAM_PASSWORD:?set DB_TEAM_PASSWORD in .env}@db:5432/${POSTGRES_DB:-energy}
+      MQTT_HOST: mqtt
+      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-tenant-demo-pass}
+      # Real seconds per simulated hour while the demo catches up with the current hour.
+      LIVE_DEMO_SECONDS_PER_HOUR: ${LIVE_DEMO_SECONDS_PER_HOUR:-60}
 
   dashboard:
     build: ./dashboard

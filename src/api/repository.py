@@ -103,6 +103,8 @@ class Repository(Protocol):
     ) -> list[dict]: ...
     def summary(self, customers_only: bool = False) -> dict: ...
     def tenant_summaries(self, days: int) -> list[dict]: ...
+    def live_demo(self) -> dict: ...
+    def set_live_demo(self, running: bool) -> None: ...
     def tenants(self) -> list[dict]: ...
     def add_feedback(
         self, anomaly_id: int, verdict: str, note: str | None, created_by: str | None
@@ -293,6 +295,39 @@ class PostgresRepository:
             "WHERE %(tenant)s::int IS NULL OR tenant_id = %(tenant)s::int ORDER BY name",
             self._params(),
         )
+
+    def live_demo(self) -> dict:
+        with connect(self.url) as conn:
+            state = self._rows(
+                conn,
+                "SELECT running, started_at, sim_ts, tenant_id, "
+                "COALESCE(heartbeat_at > now() - interval '30 seconds', false) AS available "
+                "FROM live_demo",
+            )[0]
+            meters = self._rows(
+                conn,
+                f"""
+                SELECT b.building_id, b.name, ast.name AS asset_name, ast.equipment_type,
+                       r.ts AS last_ts, r.kwh AS last_kwh
+                FROM buildings b {MAIN_ASSET}
+                LEFT JOIN LATERAL (SELECT ts, kwh FROM readings r
+                                   WHERE r.building_id = b.building_id
+                                   ORDER BY ts DESC LIMIT 1) r ON true
+                WHERE b.active AND b.tenant_id = %(live)s AND {VISIBLE}
+                ORDER BY b.name
+                """,
+                self._params(live=state["tenant_id"]),
+            )
+        return {**state, "meters": meters}
+
+    def set_live_demo(self, running: bool) -> None:
+        """Every start is a new run: the service wipes the previous one and plays again."""
+        with connect(self.url) as conn:
+            conn.execute(
+                "UPDATE live_demo SET running = %(on)s, run_id = run_id + %(on)s::int, "
+                "started_at = CASE WHEN %(on)s THEN now() ELSE started_at END",
+                {"on": running},
+            )
 
     def tenant_summaries(self, days: int) -> list[dict]:
         """Each visible business with its meters over their last `days` days of data."""
@@ -634,6 +669,16 @@ class DemoRepository:
     def tenant_summaries(self, days: int) -> list[dict]:
         return []
 
+    def live_demo(self) -> dict:
+        return {
+            "available": False,
+            "running": False,
+            "started_at": None,
+            "sim_ts": None,
+            "tenant_id": None,
+            "meters": [],
+        }
+
     def operating_hours(self, building_id: int) -> list[dict]:
         self._building(building_id)
         return [{"weekday": d, "opens": time(8), "closes": time(19)} for d in range(1, 6)]
@@ -651,6 +696,6 @@ class DemoRepository:
     def _read_only(self, *args: object, **kwargs: object) -> NoReturn:
         raise ReadOnlyError("demo mode has no database")
 
-    add_feedback = register = register_tenant = _read_only
+    add_feedback = register = register_tenant = set_live_demo = _read_only
     set_operating_hours = add_downtime = delete_downtime = import_readings = _read_only
     login_user = create_session = delete_session = create_user = _read_only

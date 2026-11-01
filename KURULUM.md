@@ -49,7 +49,9 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 2. Giriş: `admin@enerji.local` / `admin-demo-pass` (bütün işletmeleri görür). Bir işletmenin
    gözünden bakmak için ör. `otel@enerji.local` / `tenant-demo-pass`; diğerleri
    `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu` (hepsi `@enerji.local`).
-3. Solda menü, üstte "Toplam Enerji Tüketimi" kartı görünüyorsa kurulum tamam.
+3. Solda menü ve İşletmeler kartları görünüyorsa kurulum tamam.
+4. Canlı demo için soldan **Canlı İzleme**'ye geç ve **Canlı demoyu başlat**'a bas (admin
+   hesabıyla). 1-2 dakika içinde ilk alarmlar düşer, sonra her dakika 1 saat ilerler.
 
 API'nin tüm uç noktaları: http://localhost:8000/docs
 
@@ -73,6 +75,7 @@ API'nin tüm uç noktaları: http://localhost:8000/docs
 | Şifre doğru ama giriş olmuyor, "çok fazla" deneme diyor | 5 yanlış denemeden sonra o e-posta 15 dakika kilitlenir. Bekle ya da `docker compose restart api` çalıştır. |
 | "API'ye ulaşılamıyor" yazıyor | `docker compose ps` çalıştır; `api` satırı `running` olmalı. Değilse `docker compose logs api` çıktısını grupta paylaş. |
 | Panel açılıyor ama anomali yok, israf 0 | Kurulum bitmemiş. `docker compose logs setup` ile kontrol et, bir dakika bekle. |
+| Canlı İzleme "servis çalışmıyor" diyor | `docker compose up -d` çalıştır; düzelmezse `docker compose logs live-demo` çıktısını grupta paylaş. |
 | Hiçbiri değil | Çalıştırdığın komutu ve hata mesajının tamamını grupta paylaş. |
 
 ## 6. Kod yazacaklar için (isteğe bağlı)

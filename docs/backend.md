@@ -55,9 +55,8 @@ With Docker:
 
 ```bash
 cp .env.example .env              # fill in every password
-docker compose up -d --build      # db, mqtt, init, setup, api, dashboard
-docker compose --profile live up -d
-docker compose logs -f api scoring ingest
+docker compose up -d --build      # db, mqtt, init, setup, api, dashboard, scoring, ingest, live-demo
+docker compose logs -f api scoring ingest live-demo
 ```
 
 Without Docker (Postgres and an MQTT broker reachable from your machine):
@@ -164,6 +163,32 @@ restart. A failed database write puts the batch back into the buffer, which keep
 
 ## Virtual meters and the live demo
 
+### Live demo (panel button)
+
+`src.ingest.live_demo` runs as the compose service `live-demo`. At start-up it registers
+"Canlı Demo Tesisi", its five meters from `data/live_meters.csv` (LEAD validation buildings,
+which neither the catalog nor training uses), their assets and the user
+`canlidemotesisi@enerji.local`, then polls the one-row table `ops.live_demo` every second and
+writes a heartbeat there.
+
+- `POST /live-demo/start` (platform admin) sets `running` and increments `run_id`. A new
+  `run_id` makes the service delete the live meters' readings, predictions, anomalies,
+  feedback and scoring state, then send the backlog: at least four weeks ending at fast
+  start, the latest 22:00 at least a day back.
+- After the backlog it sends one hour every `LIVE_DEMO_SECONDS_PER_HOUR` seconds (60 by
+  default) until it reaches the current hour, then each hour once it has ended. Hours go out
+  one at a time with a 20 ms pause; Mosquitto queues up to 20,000 messages per client.
+- Each meter has one problem: `stuck` 24 hours and `spike` (5x) 10 hours before fast start, so
+  they are in the backlog and show at once; `dropout` one hour and `night_base_load` at fast
+  start, so they show within minutes. `drift` is left out: it needs days to raise an alarm.
+- `POST /live-demo/stop` clears `running`; the data stays. `GET /live-demo` returns the switch,
+  `available` (heartbeat within 30 s), the last hour sent (`sim_ts`) and each live meter's last
+  reading.
+- The scoring service runs every 20 seconds, so alarms follow fast play closely. The LEAD
+  history of the other meters is untouched: scoring skips LEAD buildings.
+
+### Replay tool
+
 `src.ingest.replay` publishes LEAD buildings as live meters on `meters/<prefix>-<building>`.
 Timestamps are shifted by whole weeks so the backlog (`--days`, 28 by default) ends at the
 current hour and weekdays still line up. Every hour carries all replayed buildings together;
@@ -183,13 +208,12 @@ data is replayed unchanged.
 Demo script:
 
 ```bash
-docker compose --profile live up -d
+docker compose up -d
 python -m src.ingest.replay --building 1 2 3 --register --tenant Otel \
     --inject night_base_load --inject-building 2 --magnitude 2.5
 ```
 
-Run the scoring service with a short `--interval` (for example 30) during a demo, so the
-event shows up within a minute after the backlog ends. Check each hop if it does not:
+If an event does not show up, check each hop:
 `readings` rows with `source = 'mqtt'` (ingest), `predictions` and `anomalies` with
 `origin = 'live'` (scoring), then the dashboard.
 

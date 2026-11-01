@@ -292,6 +292,25 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 .todo-meter { font-size: 16px; color: #0F172A; }
 [class*="st-key-anom_todo_"] { margin-top: 6px; }
 
+/* ---------- Canlı İzleme ---------- */
+.lv-status { font-size: 16px; color: #334155; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lv-status code { font-size: 14px; }
+.lv-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.lv-dot.on { background: #047857; box-shadow: 0 0 0 0 rgba(4, 120, 87, .5); animation: lv-pulse 1.6s infinite; }
+.lv-dot.idle { background: #94A3B8; }
+.lv-dot.off { background: #DC2626; }
+@keyframes lv-pulse { 0% { box-shadow: 0 0 0 0 rgba(4, 120, 87, .5); } 70% { box-shadow: 0 0 0 10px rgba(4, 120, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0); } }
+@media (prefers-reduced-motion: reduce) { .lv-dot.on { animation: none; } }
+.lv-card {
+  background: #FFFFFF; border: 1px solid #E8EDF5; border-radius: 14px; padding: 14px 16px; height: 100%;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, .06);
+}
+.lv-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lv-name { font-size: 16.5px; font-weight: 700; color: #0F172A; }
+.lv-eq { font-size: 13.5px; color: #64748B; margin: 2px 0 10px; }
+.lv-kwh { font-size: 24px; font-weight: 700; color: #0F172A; }
+.lv-ts { font-size: 13px; color: #64748B; }
+
 /* ---------- İşletmeler sayfası ---------- */
 [class*="st-key-card_isl_"] { min-height: 250px; }
 .tn-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

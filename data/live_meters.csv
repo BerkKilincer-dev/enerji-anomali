@@ -1,0 +1,6 @@
+external_id,location,asset_name,equipment_type,scenario
+Lamb_education_Augustine,Üretim Holü,Hol aydınlatması,aydinlatma,night_base_load
+Fox_office_Essie,İdari Bina,Ofis klimaları,klima,night_base_load
+Robin_office_Wai,Kompresör Odası,Hava kompresörü,kompresor,spike
+Lamb_education_Darrel,Soğuk Depo,Soğuk depo ünitesi,sogutma,stuck
+Robin_education_Julius,Ana Pano,Fabrika genel tüketim,genel,dropout

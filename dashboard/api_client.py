@@ -63,10 +63,11 @@ class Api:
         if self.stats is None:
             self.reset_stats()
 
-    def _req(self, method, path, **kw):
+    def _req(self, method, path, fresh=False, **kw):
+        # fresh: önbelleği atla (Canlı İzleme her yenilemede son okumayı ister).
         self._state()
         key = (path, json.dumps(kw.get("params"), sort_keys=True, default=str)) if method == "GET" else None
-        hit = self._cache.get(key) if key else None
+        hit = self._cache.get(key) if key and not fresh else None
         if hit and time.monotonic() - hit[0] < CACHE_TTL:
             self.stats["cached"] += 1
             return json.loads(hit[1])  # her seferinde yeni kopya: çağıran değiştirse önbellek bozulmaz
@@ -131,20 +132,29 @@ class Api:
     def buildings(self):
         return self._req("GET", "/buildings")
 
-    def readings(self, bid, hours, end=None):
+    def readings(self, bid, hours, end=None, fresh=False):
         # end: pencerenin son saati (bina yerel saati, ISO); yoksa son okumada biter.
         params = {"hours": hours, **({"end": end} if end else {})}
-        return self._req("GET", f"/buildings/{bid}/readings", params=params)
+        return self._req("GET", f"/buildings/{bid}/readings", fresh=fresh, params=params)
 
-    def forecast(self, bid, hours, end=None):
+    def forecast(self, bid, hours, end=None, fresh=False):
         params = {"hours": hours, **({"end": end} if end else {})}
-        return self._req("GET", f"/buildings/{bid}/forecast", params=params)
+        return self._req("GET", f"/buildings/{bid}/forecast", fresh=fresh, params=params)
 
-    def anomalies(self, bid=None, limit=50, **filters):
+    def anomalies(self, bid=None, limit=50, fresh=False, **filters):
         # filters: tenant_id, category, status, equipment_type, since, until, min_cost_tl, order
         params = {"limit": limit, **({"building_id": bid} if bid is not None else {})}
         params.update({k: v for k, v in filters.items() if v is not None})
-        return self._req("GET", "/anomalies", params=params)
+        return self._req("GET", "/anomalies", fresh=fresh, params=params)
+
+    def live_demo(self):
+        return self._req("GET", "/live-demo", fresh=True)
+
+    def live_start(self):
+        return self._req("POST", "/live-demo/start")
+
+    def live_stop(self):
+        return self._req("POST", "/live-demo/stop")
 
     def tenant_summaries(self, days=30):
         return self._req("GET", "/tenants/summary", params={"days": days})

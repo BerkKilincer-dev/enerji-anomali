@@ -68,10 +68,11 @@ Any signed-in role.
 | `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48; `end` optional | `expected_kwh`, `alarm`, `source`, `origin` |
 | `GET /anomalies` | filters below, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) and a `recommendation` |
 | `GET /recommendations` | | the recommendation table: `equipment_type`, `anomaly_type`, `title`, `action` |
-| `GET /summary` | | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings` |
+| `GET /summary` | `customers_only` optional | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings`; `customers_only=true` counts only buildings that belong to a business |
 | `GET /tenants` | | `tenant_id`, `name`, `status`, `city`; tenant users see their own |
 | `GET /tenants/summary` | `days` 1-365, default 30 | each business: `waste_tl`, `waste_kwh`, `open_alerts`, `data_issues` and its `meters` with the same fields, costliest first |
 | `GET /tenants/{id}/summary` | `days` 1-365, default 30 | one business, as above; 404 outside your scope |
+| `GET /live-demo` | | the live demo switch: `available`, `running`, `started_at`, `sim_ts`, `tenant_id` and the live meters you may see with their last reading |
 
 - The `hours` window ends at the building's latest reading, not at the current time, so a
   building that stopped sending data still shows its last period. `end` (building local time
@@ -229,6 +230,12 @@ curl -X POST http://localhost:8000/anomalies/1/feedback \
   -b jar.txt -H "X-Requested-With: curl" -H "Content-Type: application/json" \
   -d '{"verdict": "confirmed", "note": "chiller left on"}'
 ```
+
+### `POST /live-demo/start` and `POST /live-demo/stop`
+
+Platform admin only, no body; both return the same object as `GET /live-demo`. Every start
+wipes the previous run of the live meters and plays from the beginning; stop only stops
+sending. The `live-demo` service does the work ([backend.md](backend.md#live-demo-panel-button)).
 
 ## Errors
 

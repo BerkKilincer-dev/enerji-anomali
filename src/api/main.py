@@ -273,6 +273,26 @@ def tenants(repo: Repo) -> list[schemas.TenantOut]:
     return repo.tenants()
 
 
+@app.get("/live-demo")
+def live_demo(repo: Repo) -> schemas.LiveDemo:
+    """Whether the live demo runs and its meters' latest readings."""
+    return repo.live_demo()
+
+
+@app.post("/live-demo/start", dependencies=[Depends(require_platform_admin)])
+def live_demo_start(repo: Repo) -> schemas.LiveDemo:
+    """Start from scratch: the service wipes the previous run and plays four weeks plus fast
+    hours (src/ingest/live_demo.py)."""
+    repo.set_live_demo(True)
+    return repo.live_demo()
+
+
+@app.post("/live-demo/stop", dependencies=[Depends(require_platform_admin)])
+def live_demo_stop(repo: Repo) -> schemas.LiveDemo:
+    repo.set_live_demo(False)
+    return repo.live_demo()
+
+
 Days = Annotated[int, Query(ge=1, le=365)]
 
 

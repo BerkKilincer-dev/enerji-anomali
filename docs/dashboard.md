@@ -39,6 +39,11 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
   their recommendation) and the meters sorted by location; "Aç" opens a meter in Genel Bakış.
 - **Anomaliler**: filters for scope, status, equipment and order, served by `GET /anomalies`;
   waste and data issues sit in separate tabs. Each alarm shows its recommendation card.
+- **Canlı İzleme**: the live demo (`GET /live-demo`). Platform admins start, restart and stop
+  it; everyone else only watches. The screen refreshes every 10 seconds inside a fragment and
+  reads with `fresh=True`, past the client's 30-second cache. It shows the five live meters
+  with their last reading and an Alarm / Veri sorunu / Normal badge, a 48-hour chart and the
+  newest alarms with their status buttons. The live business gets a "Canlı" badge on İşletmeler.
 - Status buttons (operator and admin): İletildi (`sent`), Uygulandı (`applied`), Yanlış alarm
   (`false_alarm`), Planlı (`planned`). Applied, false alarm and planned close an alarm. The
   detail page also takes an optional note. Button colours come from `style.css` by key prefix

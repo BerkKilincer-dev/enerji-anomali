@@ -28,7 +28,7 @@ Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pa
 
 Demo işletme kullanıcıları (şifre `tenant-demo-pass`); her biri yalnız kendi sayaçlarını görür:
 `ozelkolej@enerji.local`, `ofisplazasi@enerji.local`, `otel@enerji.local`,
-`kongremerkezi@enerji.local`, `universitekampusu@enerji.local`.
+`kongremerkezi@enerji.local`, `universitekampusu@enerji.local`, `canlidemotesisi@enerji.local`.
 
 `setup` servisi LEAD verisini indirip veritabanına yükler, 30 sayacı `data/meter_catalog.csv`'deki
 5 demo işletmeye dağıtır ve repodaki modelle anomalileri yazar. Sonraki açılışlarda her şeyi yerinde bulur, birkaç saniyede biter.
@@ -62,17 +62,18 @@ yayınlar.
 
 ### Canlı demo
 
-Sanal sayaçlar MQTT üzerinden veri gönderir; birine gece israfı eklenir ve panelde görünür
-(Python kurulu olmalı):
+Ek kurulum yok: `docker compose up -d` canlı demoyu da açar, demo başlatılmayı bekler.
 
-```bash
-docker compose --profile live up -d       # canlı skorlama ve MQTT alıcısı
-python -m src.ingest.replay --building 55 91 108 --register --tenant Otel --speed 0.05 \
-    --inject night_base_load --inject-building 91
-```
+1. Panelde admin ile gir, soldan **Canlı İzleme**'ye geç, **Canlı demoyu başlat**'a bas.
+2. "Canlı Demo Tesisi"nin 5 sayacı (`data/live_meters.csv`) MQTT ile veri göndermeye başlar:
+   önce son 4 haftası birkaç saniyede, sonra her dakika 1 saat (hızlandırılmış).
+3. Model yeni saatleri 20 saniyede bir kontrol eder. İlk alarmlar 1-2 dakikada, gece israfı
+   3-4 dakikada ekrana düşer: takılı sayaç, kompresör sıçraması, sayaç susması, gece yanan
+   aydınlatma ve gece çalışan klima.
 
-Sanal sayaçlar Otel'e bağlanır. Skorlama 5 dakikada bir çalışır; en geç o sürede panelde
-"Otel · Canlı sayaç (LEAD 91)" sayacında son iki gecenin israf alarmı çıkar. Durdurmak için `Ctrl+C`, her şeyi kapatmak için `docker compose --profile live down`.
+**Baştan başlat** önceki çalışmayı silip sıfırdan başlar; **Durdur** veriyi keser. Geçmiş analiz
+(diğer 5 işletme, 2016 verisi) bundan etkilenmez. Hızı `.env`'de `LIVE_DEMO_SECONDS_PER_HOUR`
+ile değiştirebilirsin (varsayılan 60).
 
 ## Kodda isimler
 
@@ -117,6 +118,7 @@ enerji-anomali/
 │   │   └── advice.py           isteğe bağlı: Claude ile ek Türkçe tavsiye (ücretli, anahtar gerekir)
 │   ├── ingest/               (Veri + Backend) canlı veri
 │   │   ├── mqtt_ingest.py      MQTT'den gelen sayaç okumalarını veritabanına yazar
+│   │   ├── live_demo.py        Canlı İzleme ekranının sanal sayaçları (başlat / durdur)
 │   │   └── replay.py           sanal sayaç: LEAD verisini canlıymış gibi gönderir
 │   ├── api/                  (Backend) FastAPI
 │   │   ├── main.py             tüm uç noktalar (http://localhost:8000/docs)
@@ -128,7 +130,7 @@ enerji-anomali/
 │   ├── common/               ortak yardımcılar (veritabanı bağlantısı vb.)
 │   └── config.py             .env ayarlarını okur
 ├── dashboard/                (Frontend) Streamlit CRM paneli
-│   ├── app.py                  giriş ve sayfalar: işletmeler, genel bakış, tüketim, anomaliler, raporlar
+│   ├── app.py                  giriş ve sayfalar: işletmeler, canlı izleme, genel bakış, tüketim, anomaliler, raporlar
 │   ├── api_client.py           API istemcisi (oturum çerezi dahil)
 │   ├── charts.py               grafikler
 │   ├── reports.py              CSV / Excel / PDF raporları
@@ -140,10 +142,11 @@ enerji-anomali/
 ├── reports/                  (Veri + ML) veri kalitesi ve model sonuçları, commit edilir
 ├── docs/                     ayrıntılı rehberler (İngilizce)
 ├── data/                     indirilen veri; commit edilenler: splits.json, meter_catalog.csv
-│                             (sayaç → işletme) ve recommendations.csv (öneri metinleri)
+│                             (sayaç → işletme), recommendations.csv (öneri metinleri) ve
+│                             live_meters.csv (canlı demo sayaçları)
 ├── docker/                   MQTT (Mosquitto) ayarı
 ├── .github/workflows/ci.yml  her push'ta lint, test ve panel derlemesi
-├── docker-compose.yml        veritabanı, MQTT, API, panel, otomatik kurulum (setup), skorlama
+├── docker-compose.yml        veritabanı, MQTT, API, panel, kurulum (setup), canlı skorlama, canlı demo
 ├── Dockerfile                API ve servislerin Python imajı
 ├── .env.example              yerel ayarlar; `.env` olarak kopyala
 └── requirements*.txt         Python paketleri (dev: test ve ML araçları, colab: notebook)

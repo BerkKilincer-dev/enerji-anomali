@@ -101,6 +101,26 @@ class Anomaly(BaseModel):
     recommendation: Recommendation
 
 
+class LiveMeter(BaseModel):
+    building_id: int
+    name: str | None
+    asset_name: str | None
+    equipment_type: str | None
+    last_ts: datetime | None
+    last_kwh: float | None
+
+
+class LiveDemo(BaseModel):
+    """The live demo switch and its meters (the ones the signed-in user may see)."""
+
+    available: bool  # the live-demo service is up (beat within 30 s)
+    running: bool
+    started_at: datetime | None
+    sim_ts: datetime | None  # last hour sent, building local time
+    tenant_id: int | None
+    meters: list[LiveMeter]
+
+
 class Summary(BaseModel):
     total_cost_tl: float
     active_alerts: int
