@@ -18,6 +18,7 @@ from psycopg.rows import dict_row
 
 from src.api.auth import User
 from src.common.db import connect
+from src.api.recommendations import get_recommendation
 from src.data.customer import (
     BuildingInfo,
     TenantInfo,
@@ -142,7 +143,8 @@ class PostgresRepository:
                    b.tariff_tl_per_kwh,
                    s.last_scored_ts,
                    (SELECT count(*) FROM current_anomalies a
-                    WHERE a.building_id = b.building_id) AS anomaly_count
+                    WHERE a.building_id = b.building_id) AS anomaly_count,
+                   b.tenant, b.location, b.asset_name, b.equipment_type
             FROM buildings b LEFT JOIN scoring_state s USING (building_id)
             WHERE b.active AND {VISIBLE} ORDER BY b.building_id
             """,
@@ -171,10 +173,11 @@ class PostgresRepository:
             )
 
     def anomalies(self, building_id: int | None, limit: int) -> list[dict]:
-        return self._query(
+        rows = self._query(
             f"""
             SELECT a.id, a.building_id, a.ts_start, a.ts_end, a.score, a.source, a.rule_type,
                    a.excess_kwh, a.est_cost_tl, a.category, a.explanation, a.advice, a.origin,
+                   b.equipment_type,
                    (SELECT f.verdict FROM anomaly_feedback f
                     WHERE f.anomaly_id = a.id OR (f.anomaly_id IS NULL
                         AND f.building_id = a.building_id
@@ -186,30 +189,48 @@ class PostgresRepository:
             """,
             self._params(building=building_id, limit=limit),
         )
+        for row in rows:
+            if not row.get("advice"):
+                row["advice"] = get_recommendation(row.get("equipment_type"))
+        return rows
 
     def summary(self) -> dict:
         row = self._query(
             f"""
             WITH latest AS (
                 SELECT b.building_id,
-                       (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
-                           AS end_ts
-                FROM buildings b WHERE b.active AND {VISIBLE}
+                    (SELECT max(ts) FROM readings r WHERE r.building_id = b.building_id)
+                    AS end_ts
+                FROM buildings b WHERE b.active AND {{VISIBLE}}
             ),
             costs AS (
                 SELECT building_id, sum(est_cost_tl) AS cost FROM current_anomalies
                 JOIN latest USING (building_id) GROUP BY 1
             )
             SELECT (SELECT COALESCE(sum(cost), 0) FROM costs) AS total_cost_tl,
-                   (SELECT count(*) FROM current_anomalies a JOIN latest l USING (building_id)
+                   (SELECT count(*) FROM current_anomalies a JOIN latest 1 USING (building_id)
                     WHERE a.ts_end >= l.end_ts - interval '24 hours') AS active_alerts,
                    (SELECT building_id FROM costs ORDER BY cost DESC NULLS LAST LIMIT 1)
-                       AS worst_building_id,
+                   AS worst_building_id,
                    (SELECT count(*) FROM latest) AS buildings
             """,
             self._params(),
         )
-        return row[0]
+        if not row:
+            return {
+                "total_cost_tl": 0.0,
+                "active_alerts": 0,
+                "worst_building_id": None,
+                "buildings": 0,
+            }
+        
+        res = row[0]
+        return {
+            "total_cost_tl": float(res[0]),
+            "active_alerts": int(res[1]),
+            "worst_building_id": res[2],
+            "buildings": int(res[3]),
+        }
 
     def tenants(self) -> list[dict]:
         return self._query(
@@ -401,6 +422,10 @@ class DemoRepository:
             "tariff_tl_per_kwh": None,
             "last_scored_ts": END,
             "anomaly_count": 1,
+            "tenant": "Özel Kolej",
+            "location": "A Blok Derslikler",
+            "asset_name": "Derslik aydınlatması",
+            "equipment_type": "aydinlatma",
         },
         {
             "building_id": 100001,
@@ -418,6 +443,10 @@ class DemoRepository:
             "tariff_tl_per_kwh": None,
             "last_scored_ts": END,
             "anomaly_count": 0,
+            "tenant": "Özel Kolej",
+            "location": "A Blok Derslikler",
+            "asset_name": "Derslik aydınlatması",
+            "equipment_type": "aydinlatma",
         },
     ]
 
@@ -477,7 +506,7 @@ class DemoRepository:
             "est_cost_tl": 945.0,
             "explanation": "2026-10-19 01:00-06:00: Gece tüketimi son haftalardaki aynı saatin "
             "1,6 katına çıktı. Beklenenden yaklaşık 270 kWh fazla (3,50 TL/kWh ile 945 TL).",
-            "advice": None,
+            "advice": get_recommendation(self._building(100000).get("equipment_type")),
             "category": "waste",
             "origin": "live",
             "verdict": None,

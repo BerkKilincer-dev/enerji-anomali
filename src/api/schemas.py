@@ -23,7 +23,6 @@ INT_MAX = 2**31 - 1
 BIGINT_MAX = 2**63 - 1
 EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
-
 class Building(BaseModel):
     building_id: int
     external_id: str
@@ -40,6 +39,10 @@ class Building(BaseModel):
     tariff_tl_per_kwh: float
     last_scored_ts: datetime | None
     anomaly_count: int
+    tenant: str | None = None
+    location: str | None = None
+    asset_name: str | None = None
+    equipment_type: str | None = None
 
 
 class Reading(BaseModel):
