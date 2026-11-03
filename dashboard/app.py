@@ -1167,8 +1167,9 @@ if st.session_state.sayfa == "ayar":
     with st.container(key="card_saatler"):
         st.markdown('<div class="card-title">Çalışma saatleri (vardiyalar)</div>', unsafe_allow_html=True)
         st.caption(
-            "Model, bu saatlerin dışındaki tüketimi daha sıkı izler. Kapanış saati açılıştan önceyse "
-            "(örn. 22:00 → 06:00) vardiya gece yarısını geçer."
+            "Bu saatlerin dışı tüketim grafiklerinde bantla gösterilir ve Genel Bakış'ta mesai dışı "
+            "tüketim hesaplanır. Kapanış saati açılıştan önceyse (örn. 22:00 → 06:00) vardiya gece "
+            "yarısını geçer."
         )
         try:
             kayitli = [
@@ -1231,7 +1232,7 @@ if st.session_state.sayfa == "ayar":
     st.write("")
     with st.container(key="card_durus"):
         st.markdown('<div class="card-title">Planlı duruşlar</div>', unsafe_allow_html=True)
-        st.caption("Tatil, bakım ve duruş dönemlerindeki düşük tüketim anomali sayılmaz.")
+        st.caption("Tatil, bakım ve duruş dönemleri tüketim grafiklerinde işaretlenir.")
         try:
             duruslar = api.downtime(bid)
         except ApiError as e:
