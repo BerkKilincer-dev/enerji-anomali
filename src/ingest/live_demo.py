@@ -107,9 +107,7 @@ def register(conn: psycopg.Connection, meters: pd.DataFrame, password: str | Non
         link_main_meter(conn, building_id, external_id, upsert_asset(conn, building_id, row))
         live[lead_id] = building_id
     if password:
-        from src.api.auth import hash_password
-
-        upsert_demo_user(conn, tenant_id, TENANT, PLAN, hash_password(password))
+        upsert_demo_user(conn, tenant_id, TENANT, PLAN, password)
     conn.execute("UPDATE live_demo SET tenant_id = %s", (tenant_id,))
     return live
 

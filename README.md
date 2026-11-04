@@ -23,10 +23,10 @@ docker compose up -d --build              # veritabanı, MQTT, API, panel + otom
 docker compose logs -f setup              # ilk açılışta ~1 dk: veri iner, yüklenir, model yayınlanır
 ```
 
-Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `admin-demo-pass`
+Panel: **http://localhost:5173** · giriş `admin@enerji.local` / `Wtw.Yonetim!8426`
 · API belgeleri: http://localhost:8000/docs
 
-Demo işletme kullanıcıları (şifre `tenant-demo-pass`); her biri yalnız kendi sayaçlarını görür:
+Demo işletme kullanıcıları (şifre `Wtw.Isletme!3157`); her biri yalnız kendi sayaçlarını görür:
 `ozelkolej@enerji.local`, `ofisplazasi@enerji.local`, `otel@enerji.local`,
 `kongremerkezi@enerji.local`, `universitekampusu@enerji.local`, `canlidemotesisi@enerji.local`.
 

@@ -63,7 +63,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-owner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-energy}
       DATA_DIR: /app/cache
       # Local demo only; older .env files do not have this line yet.
-      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-tenant-demo-pass}
+      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-Wtw.Isletme!3157}
     command:
       - sh
       - -c
@@ -100,7 +100,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_TEAM_USER:-team}:${DB_TEAM_PASSWORD:?set DB_TEAM_PASSWORD in .env}@db:5432/${POSTGRES_DB:-energy}
       MQTT_HOST: mqtt
-      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-tenant-demo-pass}
+      DEMO_TENANT_PASSWORD: ${DEMO_TENANT_PASSWORD:-Wtw.Isletme!3157}
       # Real seconds per simulated hour while the demo catches up with the current hour.
       LIVE_DEMO_SECONDS_PER_HOUR: ${LIVE_DEMO_SECONDS_PER_HOUR:-60}
 

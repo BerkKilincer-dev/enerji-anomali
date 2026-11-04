@@ -3,7 +3,8 @@
 Usage: python -m src.data.load_db [--schema-only] [--force]
 DATABASE_URL must point at the database owner. Optional roles come from
 DB_TEAM_USER/DB_TEAM_PASSWORD (read-write) and DB_READER_USER/DB_READER_PASSWORD (read-only).
-With DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD set, that dashboard admin is created if missing.
+With DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD set, that dashboard admin is created, and its
+password set again on every run so a changed .env applies.
 """
 
 from __future__ import annotations
@@ -108,18 +109,26 @@ def grant_rights(conn: psycopg.Connection, name: str, read_only: bool) -> None:
 
 
 def ensure_demo_admin(conn: psycopg.Connection) -> str | None:
-    """Create the platform admin from DEMO_ADMIN_* once, so a fresh stack can be signed into."""
+    """The platform admin from DEMO_ADMIN_*, so a fresh stack can be signed into; its password
+    follows DEMO_ADMIN_PASSWORD."""
     email = (os.getenv("DEMO_ADMIN_EMAIL") or "").strip().lower()
     password = os.getenv("DEMO_ADMIN_PASSWORD") or ""
     if not email or not password:
         return None
-    from src.api.auth import hash_password
+    from src.api.auth import hash_password, verify_password
 
-    conn.execute(
-        "INSERT INTO users (email, name, role, password_hash) "
-        "VALUES (%s, 'Demo admin', 'admin', %s) ON CONFLICT (email) DO NOTHING",
-        (email, hash_password(password)),
-    )
+    row = conn.execute("SELECT password_hash FROM users WHERE email = %s", (email,)).fetchone()
+    if row is None:
+        conn.execute(
+            "INSERT INTO users (email, name, role, password_hash) "
+            "VALUES (%s, 'Demo admin', 'admin', %s)",
+            (email, hash_password(password)),
+        )
+    elif not verify_password(password, row[0]):
+        conn.execute(
+            "UPDATE users SET password_hash = %s WHERE email = %s",
+            (hash_password(password), email),
+        )
     return email
 
 

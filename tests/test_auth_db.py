@@ -180,7 +180,7 @@ def test_reader_cannot_see_passwords_or_sessions(db):  # noqa: F811
             conn.execute(f"DROP ROLE {reader}")
 
 
-def test_demo_admin_comes_from_env_once(db, monkeypatch):  # noqa: F811
+def test_demo_admin_password_follows_env(db, monkeypatch):  # noqa: F811
     monkeypatch.setenv("DEMO_ADMIN_EMAIL", "Admin@Enerji.Local")
     monkeypatch.setenv("DEMO_ADMIN_PASSWORD", PASSWORD)
     with connect(db) as conn:
@@ -189,8 +189,8 @@ def test_demo_admin_comes_from_env_once(db, monkeypatch):  # noqa: F811
         ensure_demo_admin(conn)
     found = PostgresRepository(db).login_user("admin@enerji.local")
     assert found is not None and found[0].is_platform and found[0].is_admin
-    # A second start keeps the first password.
-    assert auth.verify_password(PASSWORD, found[1])
+    # A changed .env applies on the next start.
+    assert auth.verify_password("another-password-1", found[1])
     monkeypatch.delenv("DEMO_ADMIN_EMAIL")
     with connect(db) as conn:
         assert ensure_demo_admin(conn) is None

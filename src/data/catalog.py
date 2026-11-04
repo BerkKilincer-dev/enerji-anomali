@@ -2,7 +2,8 @@
 
 Usage: python -m src.data.catalog [--file data/meter_catalog.csv]
 DATABASE_URL must allow writes. DEMO_TENANT_PASSWORD (12+ characters) is the password of the
-demo users; without it tenants, buildings, assets and meters are loaded and users are skipped.
+demo users, set again on every run so a changed .env applies; without it tenants, buildings,
+assets and meters are loaded and users are skipped.
 The run is one transaction and can be repeated: rows are matched and updated, never duplicated.
 """
 
@@ -154,15 +155,27 @@ def link_main_meter(
 
 
 def upsert_demo_user(
-    conn: psycopg.Connection, tenant_id: int, tenant: str, plan: str, password_hash: str
+    conn: psycopg.Connection, tenant_id: int, tenant: str, plan: str, password: str
 ) -> str:
-    """Role follows the plan on every run; an existing password is kept."""
+    """Role follows the plan and the password follows `password` on every run."""
+    from src.api.auth import hash_password, verify_password
+
     email = demo_email(tenant)
+    row = conn.execute("SELECT password_hash FROM users WHERE email = %s", (email,)).fetchone()
+    # Hashing is slow on purpose; keep the stored hash when the password has not changed.
+    same = row is not None and verify_password(password, row[0])
     conn.execute(
         "INSERT INTO users (tenant_id, email, name, role, password_hash) "
         "VALUES (%s, %s, %s, %s, %s) "
-        "ON CONFLICT (email) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, role = EXCLUDED.role",
-        (tenant_id, email, f"{tenant} yöneticisi", PLAN_ROLES[plan], password_hash),
+        "ON CONFLICT (email) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, role = EXCLUDED.role, "
+        "password_hash = EXCLUDED.password_hash",
+        (
+            tenant_id,
+            email,
+            f"{tenant} yöneticisi",
+            PLAN_ROLES[plan],
+            row[0] if same else hash_password(password),
+        ),
     )
     return email
 
@@ -186,11 +199,8 @@ def load_catalog(
         link_main_meter(conn, building_id, row["external_id"], asset_id)
     users = 0
     if password:
-        from src.api.auth import hash_password
-
-        password_hash = hash_password(password)
         for name, plan in plans.items():
-            upsert_demo_user(conn, tenants[name], name, plan, password_hash)
+            upsert_demo_user(conn, tenants[name], name, plan, password)
             users += 1
     return {"tenants": len(tenants), "buildings": len(frame), "users": users}
 

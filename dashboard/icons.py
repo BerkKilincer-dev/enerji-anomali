@@ -33,7 +33,7 @@ def svg(name, size=20, color="currentColor", sw=2):
     )
 
 
-# Wattwise logosu: brand/logo_160.png, kaynağı assets/logo.jpg (brand/make_logo.py ile şeffaf PNG'ye çevrilir).
+# Wattwise logosu (iki daire ve şimşek): beyaz, köşeleri yuvarlak bir kutuda, koyu menüde de okunur.
 # Menüde 38 px gösterilir; 160 px'lik sürüm yüksek çözünürlüklü ekranlarda da keskin kalır.
 # Sekme simgesi ve sunumlar için 512 px'lik brand/logo.png kullanılır.
 _LOGO_B64 = base64.b64encode((Path(__file__).parent / "brand" / "logo_160.png").read_bytes()).decode()

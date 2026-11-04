@@ -112,7 +112,8 @@ def test_catalog_load_is_idempotent(db):
     assert assets == 3
     assert users["otel@enerji.local"][0] == "operator"
     assert users["ozelkolej@enerji.local"][0] == "viewer"
-    assert verify_password("demo-tenant-password", users["otel@enerji.local"][1])
+    # The second run's password applies.
+    assert verify_password("another-password-1", users["otel@enerji.local"][1])
 
 
 @needs_db

@@ -46,9 +46,9 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 ## 3. Paneli aç
 
 1. Tarayıcıda **http://localhost:5173** adresini aç.
-2. Giriş: `admin@enerji.local` / `admin-demo-pass` (bütün işletmeleri görür). Bir işletmenin
-   gözünden bakmak için ör. `otel@enerji.local` / `tenant-demo-pass`; diğerleri
-   `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu` (hepsi `@enerji.local`).
+2. Giriş: `admin@enerji.local` / `Wtw.Yonetim!8426` (bütün işletmeleri görür). Bir işletmenin
+   gözünden bakmak için ör. `otel@enerji.local` / `Wtw.Isletme!3157`; diğerleri
+   `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu`, `canlidemotesisi` (hepsi `@enerji.local`).
 3. Solda menü ve İşletmeler kartları görünüyorsa kurulum tamam.
 4. Canlı demo için soldan **Canlı İzleme**'ye geç ve **Canlı demoyu başlat**'a bas (admin
    hesabıyla). 1-2 dakika içinde ilk alarmlar düşer, sonra her dakika 1 saat ilerler.
