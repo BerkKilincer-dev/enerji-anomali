@@ -9,6 +9,7 @@ PATHS = {
     "leaf": '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
     "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    "check": '<polyline points="20 6 9 17 4 12"/>',
     "chevron-down": '<polyline points="6 9 12 15 18 9"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
     "home": '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
@@ -33,7 +34,7 @@ def svg(name, size=20, color="currentColor", sw=2):
     )
 
 
-# Wattwise logosu (iki daire ve şimşek): beyaz, köşeleri yuvarlak bir kutuda, koyu menüde de okunur.
+# Wattwise logosu: brand/logo_160.png, kaynağı brand/wlogo.png (beyaz zemini şeffaflaştırılıp kareye ortalandı).
 # Menüde 38 px gösterilir; 160 px'lik sürüm yüksek çözünürlüklü ekranlarda da keskin kalır.
 # Sekme simgesi ve sunumlar için 512 px'lik brand/logo.png kullanılır.
 _LOGO_B64 = base64.b64encode((Path(__file__).parent / "brand" / "logo_160.png").read_bytes()).decode()

@@ -1,4 +1,5 @@
 import base64
+import csv
 import html
 import io
 import re
@@ -347,116 +348,178 @@ api.reset_stats()  # durum çubuğundaki çağrı sayacı bu çalıştırmaya ai
 sayfa_t0 = time.perf_counter()
 
 if "me" not in st.session_state:
+    # Tanıtım sayfası: Wattwise'ı tek ekranda anlatır; giriş sağ üstteki "Giriş yap" penceresinden yapılır.
     st.markdown(
         """<style>
-        .stApp{background:radial-gradient(1100px 560px at 8% -10%,#DBEAFE 0%,transparent 60%),
-               radial-gradient(900px 500px at 100% 110%,#D1FAE5 0%,transparent 55%),#F4F7FC;}
-        [data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{display:none !important;}
-        .block-container{zoom:1 !important;max-width:1120px !important;padding:6vh 1rem 2rem !important;}
-        .st-key-login_wrap{background:#fff;border-radius:24px;overflow:hidden;padding:0 !important;gap:0 !important;
-               box-shadow:0 30px 80px rgba(15,23,42,.14),0 0 0 1px rgba(15,23,42,.04);}
-        .st-key-login_wrap [data-testid="stHorizontalBlock"]{gap:0 !important;align-items:stretch !important;}
-        .st-key-login_wrap [data-testid="stColumn"]:first-child > div{height:100%;}
-        .st-key-login_wrap [data-testid="stColumn"]:last-child{padding:40px 56px 32px !important;
-               display:flex;flex-direction:column;justify-content:center;}
-        .st-key-login_wrap [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"]{
-               flex:0 0 auto !important;height:auto !important;}
-        .st-key-login_wrap [data-testid="stForm"]{border:0 !important;padding:0 !important;}
+        .stApp{background:radial-gradient(1100px 600px at 0% -10%,rgba(59,130,246,.28),transparent 60%),
+               radial-gradient(900px 520px at 100% 110%,rgba(74,222,128,.16),transparent 60%),
+               linear-gradient(160deg,#0B1222 0%,#111C3A 55%,#172554 100%);}
+        .stApp::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;
+            background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+                             linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+            background-size:36px 36px;mask-image:linear-gradient(180deg,#000 0%,transparent 70%);
+            -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 70%);}
+        [data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"],
+        [data-testid="stHeader"]{display:none !important;}
+        .block-container{zoom:1 !important;max-width:1240px !important;padding:22px 32px 18px !important;}
+        .block-container > [data-testid="stVerticalBlock"]{gap:0 !important;}
+        /* İlk ekran (üst çubuk, tanıtım, özellikler) pencereyi tam doldurur; fiyatlar kaydırınca altta görünür */
+        .st-key-lp_ekran{min-height:calc(100vh - 40px);gap:0 !important;}
+        /* Tanıtım bölümü üst çubuk ile özellik kartları arasındaki boşluğu doldurur, içerik dikeyde ortalanır */
+        [data-testid="stLayoutWrapper"]:has(> .st-key-lp_hero){flex:1 1 auto !important;display:flex;flex-direction:column;}
+        .st-key-lp_hero{flex:1 1 auto !important;justify-content:center !important;padding:24px 0;}
 
-        /* Giriş alanları: çerçeve Streamlit'in kök öğesine verilir, iç katmanlar şeffaf */
-        .st-key-login_wrap [data-testid="stTextInputRootElement"]{
-            border:1.5px solid #CBD5E1 !important;border-radius:12px !important;background:#F8FAFC !important;
-            min-height:50px;transition:border-color .15s, box-shadow .15s, background .15s;}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"]:hover{border-color:#94A3B8 !important;}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"]:focus-within{
-            border-color:#2563EB !important;background:#fff !important;box-shadow:0 0 0 4px rgba(37,99,235,.14);}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"] *{background:transparent !important;border:0 !important;}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"] input{font-size:15px;color:#0F172A;padding-left:4px;}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"] input:focus-visible{outline:none !important;}
-        .st-key-login_wrap [data-testid="stTextInputRootElement"] [data-testid="stIconMaterial"]{color:#64748B;}
-        .st-key-login_wrap label p{font-size:13.5px;font-weight:600;color:#334155;}
+        /* Üst çubuk */
+        .lp-brand{display:flex;align-items:center;gap:12px;color:#fff;}
+        .lp-brand img{width:50px !important;height:50px !important;}
+        .lp-brand b{display:block;font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
+        .lp-brand span{display:block;font-size:12.5px;color:#94A3B8;margin-top:2px;}
+        .lp-status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#A7F3D0;
+            background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);padding:6px 12px;border-radius:999px;
+            white-space:nowrap;}
+        .lp-status i{width:8px;height:8px;border-radius:50%;background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.2);}
+        .lp-status.off{color:#FECACA;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);}
+        .lp-status.off i{background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.2);}
+        .st-key-lp_giris button{min-height:44px;padding:0 20px;border:0;border-radius:12px;color:#fff;
+            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.35);}
+        .st-key-lp_giris button p{font-size:15px;font-weight:600;}
+        .st-key-lp_giris button:hover,.st-key-lp_giris button:focus{color:#fff;filter:brightness(1.1);}
+        .st-key-lp_giris button:focus-visible{outline:3px solid #93C5FD;outline-offset:2px;}
 
-        .st-key-login_wrap [data-testid="stFormSubmitButton"]{margin-top:10px;}
-        .st-key-login_wrap [data-testid="stFormSubmitButton"] button{
-            min-height:52px;border:0;border-radius:12px;color:#fff;
-            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.28);
-            transition:transform .15s, box-shadow .15s, filter .15s;}
-        .st-key-login_wrap [data-testid="stFormSubmitButton"] button p{font-size:16px;font-weight:600;}
-        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.07);color:#fff;
-            transform:translateY(-1px);box-shadow:0 14px 28px rgba(37,99,235,.32);}
-        .st-key-login_wrap [data-testid="stFormSubmitButton"] button:active{transform:none;}
+        /* Tanıtım */
+        .lp-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:.6px;
+            text-transform:uppercase;color:#93C5FD;margin-bottom:16px;}
+        .lp-hero h1{font-size:44px;line-height:1.1;font-weight:800;letter-spacing:-1.2px;margin:0 0 16px;color:#fff;padding:0;}
+        .lp-hero h1 em{font-style:normal;color:#4ADE80;}
+        .lp-hero p{font-size:16px;line-height:1.65;color:#CBD5E1;margin:0;max-width:540px;}
+        .lp-flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:26px;list-style:none;padding:0;}
+        .lp-flow li{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:13.5px;font-weight:600;color:#E2E8F0;
+            background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);padding:8px 12px;border-radius:10px;}
+        .lp-flow li.ok{color:#BBF7D0;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.10);}
+        .lp-flow li + li{margin-left:22px;position:relative;}
+        .lp-flow li + li::before{content:"→";position:absolute;left:-20px;color:#64748B;font-size:15px;}
 
-        /* Sol panel */
-        .lg-left{position:relative;height:100%;min-height:620px;box-sizing:border-box;padding:40px 44px 36px;color:#fff;
-            display:flex;flex-direction:column;overflow:hidden;
-            background:radial-gradient(420px 320px at 90% 0%,rgba(74,222,128,.20),transparent 70%),
-                       radial-gradient(380px 300px at 0% 100%,rgba(59,130,246,.30),transparent 70%),
-                       linear-gradient(160deg,#0B1222 0%,#172554 100%);}
-        .lg-left::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
-            background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
-                             linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
-            background-size:32px 32px;mask-image:linear-gradient(180deg,#000 0%,transparent 75%);
-            -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 75%);}
-        .lg-left > *{position:relative;}
-        .lg-brand{display:flex;align-items:center;gap:12px;}
-        .lg-brand b{display:block;font-size:22px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
-        .lg-brand span{display:block;font-size:12.5px;color:#94A3B8;margin-top:2px;}
-
-        .lg-preview{margin:34px 0 30px;padding:18px 18px 14px;border-radius:16px;
-            background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-            box-shadow:0 20px 40px rgba(0,0,0,.25);}
-        .lg-prev-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
-        .lg-prev-k{font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
-        .lg-prev-v{font-size:24px;font-weight:700;margin-top:4px;letter-spacing:-.4px;}
-        .lg-prev-v small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:4px;}
-        .lg-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;
+        .lp-card{padding:26px 26px 20px;border-radius:20px;background:rgba(255,255,255,.06);
+            border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 50px rgba(0,0,0,.30);color:#fff;}
+        .lp-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+        .lp-k{font-size:13px;color:#94A3B8;text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
+        .lp-v{font-size:32px;font-weight:700;margin-top:6px;letter-spacing:-.6px;}
+        .lp-v small{font-size:15px;font-weight:600;color:#94A3B8;margin-left:5px;}
+        .lp-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:6px 12px;
             border-radius:999px;background:rgba(248,113,113,.16);color:#FCA5A5;border:1px solid rgba(248,113,113,.30);
             white-space:nowrap;}
-        .lg-pill i{width:7px;height:7px;border-radius:50%;background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.25);}
-        .lg-preview svg.spark{display:block;width:100%;height:96px;margin-top:10px;}
-        .lg-prev-leg{display:flex;gap:16px;font-size:12px;color:#94A3B8;margin-top:6px;}
-        .lg-prev-leg span{display:inline-flex;align-items:center;gap:6px;}
-        .lg-prev-leg .a{width:14px;border-top:2px solid #60A5FA;}
-        .lg-prev-leg .b{width:14px;border-top:2px dashed #94A3B8;}
+        .lp-pill i{width:7px;height:7px;border-radius:50%;background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.25);}
+        .lp-card svg.spark{display:block;width:100%;height:auto;aspect-ratio:320/154;margin-top:18px;overflow:visible;}
+        .lp-leg{display:flex;gap:18px;font-size:13px;color:#94A3B8;margin-top:12px;}
+        .lp-leg span{display:inline-flex;align-items:center;gap:6px;}
+        .lp-leg .a{width:14px;border-top:2px solid #60A5FA;}
+        .lp-leg .b{width:14px;border-top:2px dashed #94A3B8;}
 
-        .lg-hero h1{font-size:32px;line-height:1.15;font-weight:800;letter-spacing:-.8px;margin:0 0 12px;color:#fff;padding:0;}
-        .lg-hero p{font-size:15px;line-height:1.6;color:#CBD5E1;margin:0;max-width:390px;}
-        .lg-feats{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;}
-        .lg-feats li{display:flex;align-items:center;gap:12px;font-size:14.5px;color:#E2E8F0;margin:0;}
-        .lg-feats li i{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.10);
-            border:1px solid rgba(255,255,255,.10);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+        .lp-feats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+        .lp-feat{padding:16px 16px 14px;border-radius:14px;background:rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.10);}
+        .lp-feat i{width:34px;height:34px;border-radius:10px;background:rgba(96,165,250,.16);
+            border:1px solid rgba(96,165,250,.25);display:inline-flex;align-items:center;justify-content:center;}
+        .lp-feat b{display:block;font-size:14.5px;color:#fff;margin:10px 0 4px;}
+        .lp-feat span{display:block;font-size:13px;line-height:1.5;color:#94A3B8;}
+        .lp-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12.5px;color:#94A3B8;
+            margin-top:40px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
 
-        /* Sağ panel */
-        .lg-status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#047857;
-            background:#ECFDF5;border:1px solid #A7F3D0;padding:5px 11px;border-radius:999px;margin-bottom:26px;}
-        .lg-status i{width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.2);}
-        .lg-status.off{color:#B91C1C;background:#FEF2F2;border-color:#FECACA;}
-        .lg-status.off i{background:#EF4444;box-shadow:0 0 0 3px rgba(239,68,68,.2);}
-        .lg-title{font-size:28px;font-weight:800;letter-spacing:-.6px;color:#0F172A;margin-bottom:6px;line-height:1.2;}
-        .lg-sub{font-size:15px;color:#64748B;margin-bottom:24px;}
-        .lg-secure{display:flex;align-items:center;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #EEF2F7;
-            font-size:13px;color:#64748B;line-height:1.45;}
-        .lg-secure i{width:32px;height:32px;border-radius:9px;background:#EFF6FF;color:#2563EB;flex:none;
+        /* Fiyatlandırma */
+        .lp-fiyat{margin-top:72px;}
+        .lp-fiyat-bas{text-align:center;max-width:640px;margin:0 auto 32px;}
+        .lp-fiyat-bas h2{font-size:32px;line-height:1.2;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px;padding:0;}
+        .lp-fiyat-bas p{font-size:15.5px;line-height:1.6;color:#CBD5E1;margin:0;}
+        /* Paket kartları: her biri bir Streamlit kapsayıcısı (düğme içinde olsun diye); üzerine gelince öne çıkar */
+        [data-testid="stHorizontalBlock"]:has([class*="st-key-lp_plan_"]){gap:18px !important;align-items:stretch !important;}
+        [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"] [class*="st-key-lp_plan_"]) > [data-testid="stVerticalBlock"],
+        [data-testid="stLayoutWrapper"]:has(> [class*="st-key-lp_plan_"]){height:100%;}
+        [class*="st-key-lp_plan_"]{height:100%;padding:24px 22px 22px;border-radius:18px;color:#fff;gap:0 !important;
+            background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+            transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;}
+        [class*="st-key-lp_plan_"]:hover,[class*="st-key-lp_plan_"]:focus-within{transform:translateY(-6px);
+            background:rgba(255,255,255,.08);border-color:rgba(96,165,250,.75);
+            box-shadow:0 28px 60px rgba(37,99,235,.28),0 0 0 1px rgba(96,165,250,.35);}
+        .st-key-lp_plan_pro{background:linear-gradient(180deg,rgba(37,99,235,.24),rgba(37,99,235,.08));
+            border:1.5px solid rgba(96,165,250,.6);box-shadow:0 24px 50px rgba(37,99,235,.20);}
+        .st-key-lp_plan_pro:hover,.st-key-lp_plan_pro:focus-within{background:linear-gradient(180deg,rgba(37,99,235,.32),rgba(37,99,235,.12));}
+        [class*="st-key-lp_plan_"] [data-testid="stElementContainer"]:has(.stButton){margin-top:auto;padding-top:22px;}
+        [class*="st-key-lp_plan_"] .stButton button{min-height:46px;border-radius:12px;color:#fff;
+            background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.28);transition:background .15s, border-color .15s;}
+        [class*="st-key-lp_plan_"] .stButton button p{font-size:15px;font-weight:600;}
+        [class*="st-key-lp_plan_"] .stButton button:hover{background:rgba(255,255,255,.14);border-color:#fff;color:#fff;}
+        [class*="st-key-lp_plan_"] .stButton button:focus-visible{outline:3px solid #93C5FD;outline-offset:2px;}
+        .st-key-lp_plan_pro .stButton button{border:0;background:linear-gradient(135deg,#2563EB,#1D4ED8);
+            box-shadow:0 10px 24px rgba(37,99,235,.35);}
+        .st-key-lp_plan_pro .stButton button:hover{background:linear-gradient(135deg,#2563EB,#1D4ED8);filter:brightness(1.12);}
+        .lp-plan-ust{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+        .lp-rozet{font-size:12px;font-weight:700;color:#fff;background:#2563EB;padding:4px 10px;border-radius:999px;}
+        [class*="st-key-lp_plan_"] h3{font-size:19px;font-weight:700;margin:0;padding:0;color:#fff;}
+        .lp-kim{font-size:13.5px;color:#94A3B8;margin-top:4px;}
+        .lp-ucret{margin:18px 0 4px;font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1.1;}
+        .lp-ucret small{font-size:14px;font-weight:600;color:#94A3B8;letter-spacing:0;margin-left:4px;}
+        .lp-ucret.teklif{font-size:30px;}
+        .lp-kapsam{font-size:13.5px;font-weight:600;color:#93C5FD;padding-bottom:16px;margin-bottom:16px;
+            border-bottom:1px solid rgba(255,255,255,.10);}
+        .lp-maddeler{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+        .lp-maddeler li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;color:#E2E8F0;margin:0;}
+        .lp-maddeler li svg{flex:none;margin-top:2px;}
+        .lp-notlar{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 26px;margin-top:26px;
+            font-size:13px;color:#94A3B8;}
+        .lp-notlar span{display:inline-flex;align-items:center;gap:7px;}
+
+        /* Giriş penceresi */
+        [data-testid="stPopoverBody"]{width:380px;max-width:calc(100vw - 32px);padding:22px 22px 16px !important;
+            border-radius:16px !important;}
+        [data-testid="stPopoverBody"] [data-testid="stForm"]{border:0 !important;padding:0 !important;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"]{
+            border:1.5px solid #CBD5E1 !important;border-radius:12px !important;background:#F8FAFC !important;
+            min-height:48px;transition:border-color .15s, box-shadow .15s, background .15s;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"]:hover{border-color:#94A3B8 !important;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"]:focus-within{
+            border-color:#2563EB !important;background:#fff !important;box-shadow:0 0 0 4px rgba(37,99,235,.14);}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"] *{background:transparent !important;border:0 !important;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"] input{font-size:15px;color:#0F172A;padding-left:4px;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"] input:focus-visible{outline:none !important;}
+        [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"] [data-testid="stIconMaterial"]{color:#64748B;}
+        [data-testid="stPopoverBody"] label p{font-size:13.5px;font-weight:600;color:#334155;}
+        [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"]{margin-top:6px;}
+        [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"] button{
+            min-height:48px;border:0;border-radius:12px;color:#fff;
+            background:linear-gradient(135deg,#2563EB,#1D4ED8);box-shadow:0 10px 24px rgba(37,99,235,.28);}
+        [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"] button p{font-size:15.5px;font-weight:600;}
+        [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.07);color:#fff;}
+        .lg-title{font-size:22px;font-weight:800;letter-spacing:-.4px;color:#0F172A;margin-bottom:4px;line-height:1.2;}
+        .lg-sub{font-size:14px;color:#64748B;margin-bottom:14px;}
+        .lg-secure{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #EEF2F7;
+            font-size:12.5px;color:#64748B;line-height:1.45;}
+        .lg-secure i{width:30px;height:30px;border-radius:9px;background:#EFF6FF;color:#2563EB;flex:none;
             display:inline-flex;align-items:center;justify-content:center;}
-        .lg-foot{text-align:center;font-size:12.5px;color:#64748B;margin-top:22px;}
+        .lg-foot{text-align:center;font-size:12px;color:#64748B;margin-top:12px;}
 
+        @media (max-width:1100px){.lp-hero h1{font-size:36px;}.lp-feats{grid-template-columns:repeat(2,1fr);}}
+        @media (prefers-reduced-motion: reduce){[class*="st-key-lp_plan_"]:hover,[class*="st-key-lp_plan_"]:focus-within{transform:none;}}
         @media (max-width:768px){
-            .block-container{padding:1.25rem .75rem 1.5rem !important;}
-            .lg-left{min-height:auto;padding:24px 22px;}
-            .lg-preview,.lg-feats,.lg-hero p{display:none;}
-            .lg-hero{margin-top:18px;}.lg-hero h1{font-size:22px;margin:0;}
-            .st-key-login_wrap [data-testid="stColumn"]:last-child{padding:26px 22px !important;}
-            .lg-status{margin-bottom:18px;}
-        }
-        @media (prefers-reduced-motion: reduce){
-            .st-key-login_wrap [data-testid="stFormSubmitButton"] button:hover{transform:none;}
+            .st-key-lp_ekran{min-height:0;}
+            .lp-fiyat{margin-top:48px;}
+            .lp-fiyat-bas h2{font-size:26px;}
+            .block-container{padding:16px 16px 20px !important;}
+            .lp-brand span,.lp-status{display:none;}
+            .lp-hero h1{font-size:28px;}
+            .lp-hero p{font-size:15px;}
+            .lp-feats{grid-template-columns:1fr;}
         }
         </style>""",
         unsafe_allow_html=True,
     )
 
-    def _oz(ikon, metin):
-        return f'<li><i>{svg(ikon, 18, "#FFFFFF")}</i>{metin}</li>'
+    try:
+        api_acik = bool(api.health())
+    except ApiError:
+        api_acik = False
+
+    def _ozellik(ikon, baslik, metin):
+        return f'<div class="lp-feat"><i>{svg(ikon, 18, "#93C5FD")}</i><b>{baslik}</b><span>{metin}</span></div>'
 
     # Ürün önizlemesi: gerçek veri değil, temsili bir çizim; ekran okuyucudan gizli.
     egri = (
@@ -464,56 +527,114 @@ if "me" not in st.session_state:
         "L210 18 L222 12 L236 30 L250 50 L270 46 L290 52 L320 44"
     )
     onizleme = (
-        '<div class="lg-preview" aria-hidden="true">'
-        '<div class="lg-prev-top"><div><div class="lg-prev-k">Anlık tüketim</div>'
-        '<div class="lg-prev-v">1.284<small>kWh</small></div></div>'
-        '<span class="lg-pill"><i></i>Anomali tespit edildi</span></div>'
-        '<svg class="spark" viewBox="0 0 320 96" preserveAspectRatio="none">'
-        '<defs><linearGradient id="lgf" x1="0" y1="0" x2="0" y2="1">'
+        '<div aria-hidden="true"><div class="lp-card">'
+        '<div class="lp-top"><div><div class="lp-k">Anlık tüketim · Pres hattı</div>'
+        '<div class="lp-v">1.284<small>kWh</small></div></div>'
+        '<span class="lp-pill"><i></i>Anomali tespit edildi</span></div>'
+        # Eğri 320x96'lık alanda çizilir, dikeyde 1.6 kat büyütülür; çizgi kalınlığı ve nokta bozulmasın diye
+        # ölçek yalnız gruba uygulanır, çizgiler non-scaling-stroke ile ekrandaki kalınlığını korur.
+        '<svg class="spark" viewBox="0 0 320 154">'
+        '<defs><linearGradient id="lpf" x1="0" y1="0" x2="0" y2="1">'
         '<stop offset="0" stop-color="#60A5FA" stop-opacity=".35"/>'
         '<stop offset="1" stop-color="#60A5FA" stop-opacity="0"/></linearGradient></defs>'
-        '<rect x="196" y="0" width="44" height="96" fill="#F87171" opacity=".12"/>'
+        '<rect x="196" y="0" width="44" height="154" fill="#F87171" opacity=".12"/>'
+        '<g transform="scale(1 1.6)">'
         '<path d="M0 72 L40 70 L80 64 L120 58 L160 56 L200 50 L240 50 L280 50 L320 50" fill="none" '
-        'stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="4 4"/>'
-        f'<path d="{egri} L320 96 L0 96 Z" fill="url(#lgf)"/>'
-        f'<path d="{egri}" fill="none" stroke="#60A5FA" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
-        '<circle cx="222" cy="12" r="4.5" fill="#F87171" stroke="#0B1222" stroke-width="2"/></svg>'
-        '<div class="lg-prev-leg"><span><i class="a"></i>Gerçekleşen</span><span><i class="b"></i>Beklenen</span></div>'
-        "</div>"
+        'stroke="#94A3B8" stroke-width="2" stroke-dasharray="5 5" vector-effect="non-scaling-stroke"/>'
+        f'<path d="{egri} L320 96 L0 96 Z" fill="url(#lpf)"/>'
+        f'<path d="{egri}" fill="none" stroke="#60A5FA" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" '
+        'vector-effect="non-scaling-stroke"/></g>'
+        '<circle cx="222" cy="19.2" r="5.5" fill="#F87171" stroke="#0B1222" stroke-width="2.5"/></svg>'
+        '<div class="lp-leg"><span><i class="a"></i>Gerçekleşen</span><span><i class="b"></i>Beklenen</span></div>'
+        "</div></div>"
     )
-    sol_html = (
-        '<div class="lg-left">'
-        f'<div class="lg-brand">{LOGO}<div><b>{BRAND}</b><span>{BRAND_SUB}</span></div></div>'
-        + onizleme
-        + '<div class="lg-hero"><h1>Enerji tüketiminizi tek ekrandan yönetin.</h1>'
-        "<p>Sayaçlarınızı canlıya yakın izleyin, beklenmeyen tüketimi model tahminiyle karşılaştırarak erken "
-        "yakalayın ve tasarruf fırsatlarını raporlayın.</p></div>"
-        '<ul class="lg-feats">'
-        + _oz("zap", "Beklenen ve gerçekleşen tüketim karşılaştırması")
-        + _oz("alert", "Maliyeti ve önerisiyle anomali uyarıları")
-        + _oz("file", "CSV, Excel ve PDF tasarruf raporları")
-        + "</ul></div>"
+    durum_html = (
+        '<span class="lp-status"><i></i>Tüm sistemler çalışıyor</span>'
+        if api_acik
+        else '<span class="lp-status off"><i></i>Sunucuya şu an ulaşılamıyor</span>'
     )
 
-    try:
-        api_acik = bool(api.health())
-    except ApiError:
-        api_acik = False
-    durum_html = (
-        '<div class="lg-status"><i></i>Tüm sistemler çalışıyor</div>'
-        if api_acik
-        else '<div class="lg-status off"><i></i>Sunucuya şu an ulaşılamıyor</div>'
-    )
+    def _plan_html(pl):
+        tik = svg("check", 16, "#4ADE80")
+        return (
+            f'<div class="lp-plan-ust"><h3>{pl["ad"]}</h3>'
+            + ('<span class="lp-rozet">Önerilen</span>' if pl["kod"] == "pro" else "")
+            + f'</div><div class="lp-kim">{pl["kim"]}</div>{pl["ucret"]}<div class="lp-kapsam">{pl["kapsam"]}</div>'
+            + '<ul class="lp-maddeler">' + "".join(f"<li>{tik}<span>{m}</span></li>" for m in pl["maddeler"]) + "</ul>"
+        )
+
+    @st.dialog("Paket talebi", width="medium")
+    def talep_formu(pl):
+        teklif = pl["kod"] == "kurumsal"
+        st.markdown(
+            f'<div class="lg-title">{pl["ad"]} · {"Teklif iste" if teklif else "Satın al"}</div>'
+            '<div class="lg-sub">Bilgilerinizi bırakın, satış ekibimiz bir iş günü içinde sizinle iletişime geçsin.</div>',
+            unsafe_allow_html=True,
+        )
+        with st.form("talep"):
+            c1, c2 = st.columns(2)
+            ad = c1.text_input("Ad soyad *", autocomplete="name")
+            sirket = c2.text_input("Şirket *", autocomplete="organization")
+            eposta = c1.text_input("E-posta *", placeholder="ornek@sirket.com", autocomplete="email")
+            tel = c2.text_input("Telefon", placeholder="05xx xxx xx xx", autocomplete="tel")
+            sayac = c1.number_input("Sayaç sayısı", min_value=1, max_value=10_000, value=pl["sayac"], step=1)
+            odeme = c2.radio("Ödeme", ["Aylık", "Yıllık"], horizontal=True, disabled=teklif)
+            notu = st.text_area("Mesajınız", placeholder="Tesisleriniz, ihtiyaçlarınız…", height=90)
+            gonder = st.form_submit_button(
+                "Teklif iste" if teklif else "Satın alma talebi gönder", type="primary", use_container_width=True
+            )
+        if gonder:
+            if not (ad.strip() and sirket.strip() and re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", eposta.strip())):
+                st.error("Ad soyad, şirket ve geçerli bir e-posta adresi gerekli.")
+                return
+            # Talepler panel klasöründe CSV'ye yazılır (git'e girmez); satış ekibi buradan izler.
+            dosya = Path(__file__).parent / "talepler.csv"
+            yeni = not dosya.exists()
+            with dosya.open("a", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                if yeni:
+                    w.writerow(["zaman", "paket", "ad_soyad", "sirket", "eposta", "telefon", "sayac", "odeme", "mesaj"])
+                w.writerow([
+                    datetime.now().isoformat(timespec="seconds"), pl["ad"], ad.strip(), sirket.strip(),
+                    eposta.strip(), tel.strip(), sayac, "" if teklif else odeme, notu.strip(),
+                ])
+            st.success("Talebiniz alındı. Satış ekibimiz en kısa sürede sizinle iletişime geçecek.")
+
+    PLANLAR = [
+        {
+            "kod": "baslangic", "ad": "Başlangıç", "kim": "Tek tesisli küçük işletmeler", "sayac": 5,
+            "ucret": '<div class="lp-ucret">₺1.490<small>/ ay</small></div>', "kapsam": "5 sayaca kadar",
+            "maddeler": ["Saatlik anomali tespiti ve TL maliyeti", "Her alarm için uygulanabilir öneri",
+                         "Çalışma saatleri ve planlı duruş takvimi", "Aylık PDF tasarruf raporu", "2 kullanıcı"],
+        },
+        {
+            "kod": "pro", "ad": "Profesyonel", "kim": "Fabrika, otel, AVM ve kampüsler", "sayac": 25,
+            "ucret": '<div class="lp-ucret">₺4.990<small>/ ay</small></div>', "kapsam": "25 sayaca kadar",
+            "maddeler": ["Başlangıç planındaki her şey", "Canlı izleme: dakikalık veri, anlık alarm",
+                         "CSV, Excel ve PDF raporlar", "Alarm durum takibi ve geri bildirim",
+                         "10 kullanıcı, operatör ve yönetici rolleri"],
+        },
+        {
+            "kod": "kurumsal", "ad": "Kurumsal", "kim": "Çok tesisli şirketler", "sayac": 50,
+            "ucret": '<div class="lp-ucret teklif">Teklif alın</div>', "kapsam": "25'ten fazla sayaç, sınırsız tesis",
+            "maddeler": ["Profesyonel planındaki her şey", "Tüm tesisler tek panelde",
+                         "API erişimi ve mevcut sistemlerle entegrasyon", "Kurum içi sunucuya kurulum seçeneği",
+                         "Öncelikli destek ve kurulum eğitimi"],
+        },
+    ]
 
     giris_ok = False
-    with st.container(key="login_wrap"):
-        sol, sag = st.columns([1.1, 1], gap="small")
-        sol.markdown(sol_html, unsafe_allow_html=True)
-        with sag:
+    ekran = st.container(key="lp_ekran")
+    with ekran.container(horizontal=True, vertical_alignment="center", wrap=False):
+        st.markdown(
+            f'<div class="lp-brand">{LOGO}<div><b>{BRAND}</b><span>{BRAND_SUB}</span></div></div>',
+            unsafe_allow_html=True, width="stretch",
+        )
+        st.markdown(durum_html, unsafe_allow_html=True, width="content")
+        with st.popover("Giriş yap", icon=":material/login:", key="lp_giris"):
             st.markdown(
-                durum_html
-                + '<div class="lg-title">Hesabınıza giriş yapın</div>'
-                '<div class="lg-sub">Devam etmek için kurumsal e-posta adresinizi ve şifrenizi girin.</div>',
+                '<div class="lg-title">Hesabınıza giriş yapın</div>'
+                '<div class="lg-sub">Kurumsal e-posta adresinizi ve şifrenizi girin.</div>',
                 unsafe_allow_html=True,
             )
             with st.form("giris"):
@@ -545,9 +666,62 @@ if "me" not in st.session_state:
             st.markdown(
                 f'<div class="lg-secure"><i>{svg("lock", 16)}</i>'
                 "<span>Oturum bilgisi tarayıcınızda değil, sunucuda tutulur.</span></div>"
-                f'<div class="lg-foot">Giriş yapamıyorsanız sistem yöneticinize başvurun · © {datetime.now().year} {BRAND}</div>',
+                '<div class="lg-foot">Giriş yapamıyorsanız sistem yöneticinize başvurun.</div>',
                 unsafe_allow_html=True,
             )
+
+    sol, sag = ekran.container(key="lp_hero").columns([1.15, 1], gap="large", vertical_alignment="center")
+    sol.markdown(
+        '<div class="lp-hero">'
+        f'<div class="lp-eyebrow">{svg("zap", 15, "#93C5FD")}Yapay zekâ destekli enerji izleme</div>'
+        "<h1>İsrafı yakalayın, <em>tasarrufa dönüştürün.</em></h1>"
+        f"<p>{BRAND}; AVM, fabrika, otel ve ofislerin elektrik sayaçlarını izler. Her saatin beklenen tüketimini "
+        "modelle tahmin eder, israfı ve arızayı erken yakalar; bulduğu her anomali için maliyetini ve ne "
+        "yapılması gerektiğini söyler.</p>"
+        '<ul class="lp-flow" aria-label="Nasıl çalışır">'
+        '<li>Sayaç verisi</li>'
+        '<li>Anomali modeli</li>'
+        '<li>TL maliyeti</li>'
+        '<li class="ok">Öneri ve takip</li></ul></div>',
+        unsafe_allow_html=True,
+    )
+    sag.markdown(onizleme, unsafe_allow_html=True)
+
+    ekran.markdown(
+        '<div class="lp-feats">'
+        + _ozellik("chart", "Beklenen ve gerçekleşen", "Hava, takvim ve çalışma saatlerine göre her saatin beklenen tüketimi.")
+        + _ozellik("alert", "Maliyetli anomali uyarıları", "Gece israfı, ani sıçrama, takılı ya da susan sayaç; her biri TL etkisiyle.")
+        + _ozellik("bulb", "Uygulanabilir öneriler", "Her alarm için ne yapılacağı; iletildi, uygulandı, planlı olarak takip edin.")
+        + _ozellik("radio", "Canlı izleme ve rapor", "MQTT ile anlık veri; CSV, Excel ve PDF tasarruf raporları.")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Fiyatlar öneri niteliğinde; ücret izlenen sayaç sayısına göre artar.
+    st.markdown(
+        '<section class="lp-fiyat" aria-labelledby="lp-fiyat-baslik"><div class="lp-fiyat-bas">'
+        f'<div class="lp-eyebrow">{svg("coins", 15, "#93C5FD")}Fiyatlandırma</div>'
+        '<h2 id="lp-fiyat-baslik">İşletmenize uygun planı seçin</h2>'
+        "<p>Ücret, izlenen sayaç sayısına göre belirlenir. Her planda anomali tespiti, TL maliyet hesabı ve "
+        "her alarm için öneri bulunur.</p></div></section>",
+        unsafe_allow_html=True,
+    )
+    for sutun, pl in zip(st.columns(3), PLANLAR):
+        with sutun.container(key=f"lp_plan_{pl['kod']}"):
+            st.markdown(_plan_html(pl), unsafe_allow_html=True)
+            etiket = "Teklif iste" if pl["kod"] == "kurumsal" else "Satın al"
+            if st.button(etiket, key=f"lp_al_{pl['kod']}", icon=":material/arrow_forward:", use_container_width=True):
+                talep_formu(pl)
+    st.markdown(
+        '<div class="lp-notlar">'
+        f'<span>{svg("zap", 14, "#93C5FD")}Ek sayaç: ₺149 / ay</span>'
+        f'<span>{svg("calendar", 14, "#93C5FD")}Yıllık ödemede 2 ay ücretsiz</span>'
+        f'<span>{svg("file", 14, "#93C5FD")}Fiyatlara KDV dahil değildir</span>'
+        "</div>"
+        f'<div class="lp-foot"><span>© {datetime.now().year} {BRAND} · {BRAND_SUB}</span>'
+        "<span>AVM · Fabrika · Otel · Ofis · Eğitim</span></div>",
+        unsafe_allow_html=True,
+    )
     if giris_ok:
         st.rerun()
     st.stop()
@@ -592,16 +766,16 @@ en_cok = max(buildings, key=lambda b: b["anomaly_count"])["building_id"]
 
 # ---------- Sol menü ----------
 PAGES = [
+    ("genel", ":material/home:", "Genel Bakış"),
     ("isletme", ":material/storefront:", "İşletmeler" if me.get("tenant_id") is None else "İşletmem"),
     ("canli", ":material/sensors:", "Canlı İzleme"),
-    ("genel", ":material/home:", "Genel Bakış"),
     ("tuketim", ":material/bar_chart:", "Tüketim Analizi"),
     ("anomali", ":material/warning:", "Anomaliler"),
     ("rapor", ":material/description:", "Raporlar"),
     ("ayar", ":material/settings:", "Ayarlar"),
 ]
 if "sayfa" not in st.session_state:
-    st.session_state.sayfa = "isletme"
+    st.session_state.sayfa = "genel"  # girişten sonra ilk açılan sayfa
 if st.session_state.get("bina") not in ids:
     st.session_state.bina = en_cok
 
@@ -1608,20 +1782,17 @@ sayac_bilgi = " · ".join(filter(None, [
     b_bil.get("tenant_name"), b_bil["name"] or b_bil["external_id"], b_bil.get("asset_name"),
     EKIPMAN_TR.get(b_bil.get("equipment_type")),
 ])) or "Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz."
-initials = "".join(w[0] for w in who.split()[:2]).upper() or "?"
 aralik_txt = "-" if cur.empty else f"{tr_tarih(cur['ts'].min())} – {tr_tarih(cur['ts'].max())}"
 h1, h3 = st.columns([1, 1.25], vertical_alignment="center")
 with h1:
     st.markdown(
-        f'<div class="hello">Merhaba, {html.escape(who)}</div>'
-        f'<div class="hello-sub">{html.escape(sayac_bilgi)}</div>'
-        # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
-        f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>",
+        '<div class="hello">Genel Bakış</div>'
+        f'<div class="hello-sub">{html.escape(sayac_bilgi)}</div>',
         unsafe_allow_html=True,
     )
 with h3:
     with st.container(horizontal=True, horizontal_alignment="right", gap="small", key="ust_sag"):
-        # Tarih, bildirimler ve kullanıcı aynı satırda, sağa yaslı.
+        # Tarih ve bildirimler aynı satırda, sağa yaslı.
         with st.container(key="tarih_box"):
             with st.popover(aralik_txt, icon=":material/calendar_month:", use_container_width=True):
                 if son is None:
@@ -1674,26 +1845,6 @@ with h3:
                     "Tüm anomalileri gör", key="nt_hepsi", icon=":material/arrow_forward:",
                     on_click=set_page, args=("anomali",), use_container_width=True,
                 )
-        # Kullanıcı menüsü: profil özeti, Ayarlar ve Çıkış.
-        with st.container(key="user_box"):
-            with st.popover(who, help="Hesap"):
-                st.markdown(
-                    f'<div class="um-head"><div class="avatar">{html.escape(initials)}</div><div>'
-                    f'<div class="um-name">{html.escape(who)}</div>'
-                    f'<div class="um-mail">{html.escape(me["email"])}</div>'
-                    f'<span class="um-role">{html.escape(me["role"])}</span></div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.button(
-                    "Ayarlar", key="um_ayar", icon=":material/settings:", on_click=set_page, args=("ayar",),
-                    use_container_width=True,
-                )
-                if st.button("Çıkış yap", key="um_cikis", icon=":material/logout:", use_container_width=True):
-                    try:
-                        api.logout()
-                    finally:
-                        st.session_state.clear()
-                        st.rerun()
 
 st.write("")
 

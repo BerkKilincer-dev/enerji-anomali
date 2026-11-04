@@ -23,7 +23,7 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 
 | File | Role |
 |---|---|
-| `app.py` | login, sidebar and the pages: İşletmeler, Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar (account, weekly operating hours, planned downtime; editing needs operator or admin) |
+| `app.py` | landing page (one screen about Wattwise; sign-in from the "Giriş yap" popover top right), sidebar and the pages: İşletmeler, Genel Bakış, Tüketim Analizi, Anomaliler, Raporlar, Ayarlar (account, weekly operating hours, planned downtime; editing needs operator or admin) |
 | `api_client.py` | API client; one `requests.Session` per signed-in user keeps the cookie |
 | `charts.py` | consumption and donut charts, Turkish date formats |
 | `reports.py` | report data and the CSV, Excel and PDF exports |
@@ -32,7 +32,8 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 
 ## CRM flow
 
-- **İşletmeler** (first page): platform staff see one card per business (`GET /tenants/summary`)
+- **Genel Bakış** is the first item in the menu and opens after sign-in.
+- **İşletmeler**: platform staff see one card per business (`GET /tenants/summary`)
   with waste, open alarms and data issues for 30 days, 90 days (default, the LEAD data ends in a
   quiet December) or a year. A business user goes straight to its own page.
 - **İşletme**: the same totals, "Bugün ne yapmalı?" (the three costliest open waste alarms with
