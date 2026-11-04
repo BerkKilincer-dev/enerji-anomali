@@ -458,7 +458,6 @@ if "me" not in st.session_state:
         .lp-kim{font-size:13.5px;color:#94A3B8;margin-top:4px;}
         .lp-ucret{margin:18px 0 4px;font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1.1;}
         .lp-ucret small{font-size:14px;font-weight:600;color:#94A3B8;letter-spacing:0;margin-left:4px;}
-        .lp-ucret.teklif{font-size:30px;}
         .lp-kapsam{font-size:13.5px;font-weight:600;color:#93C5FD;padding-bottom:16px;margin-bottom:16px;
             border-bottom:1px solid rgba(255,255,255,.10);}
         .lp-maddeler{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
@@ -578,7 +577,7 @@ if "me" not in st.session_state:
             eposta = c1.text_input("E-posta *", placeholder="ornek@sirket.com", autocomplete="email")
             tel = c2.text_input("Telefon", placeholder="05xx xxx xx xx", autocomplete="tel")
             sayac = c1.number_input("Sayaç sayısı", min_value=1, max_value=10_000, value=pl["sayac"], step=1)
-            odeme = c2.radio("Ödeme", ["Aylık", "Yıllık"], horizontal=True, disabled=teklif)
+            odeme = c2.radio("Ödeme modeli", ["Yıllık lisans", "Tasarruftan pay"], horizontal=True)
             notu = st.text_area("Mesajınız", placeholder="Tesisleriniz, ihtiyaçlarınız…", height=90)
             gonder = st.form_submit_button(
                 "Teklif iste" if teklif else "Satın alma talebi gönder", type="primary", use_container_width=True
@@ -596,27 +595,30 @@ if "me" not in st.session_state:
                     w.writerow(["zaman", "paket", "ad_soyad", "sirket", "eposta", "telefon", "sayac", "odeme", "mesaj"])
                 w.writerow([
                     datetime.now().isoformat(timespec="seconds"), pl["ad"], ad.strip(), sirket.strip(),
-                    eposta.strip(), tel.strip(), sayac, "" if teklif else odeme, notu.strip(),
+                    eposta.strip(), tel.strip(), sayac, odeme, notu.strip(),
                 ])
             st.success("Talebiniz alındı. Satış ekibimiz en kısa sürede sizinle iletişime geçecek.")
 
     PLANLAR = [
         {
-            "kod": "baslangic", "ad": "Başlangıç", "kim": "Tek tesisli küçük işletmeler", "sayac": 5,
-            "ucret": '<div class="lp-ucret">₺1.490<small>/ ay</small></div>', "kapsam": "5 sayaca kadar",
+            "kod": "baslangic", "ad": "Başlangıç", "kim": "Küçük işletme, tek bina", "sayac": 3,
+            "ucret": '<div class="lp-ucret">$120<small>/ sayaç / yıl</small></div>',
+            "kapsam": "1–9 sayaç · kurulum $300 · ör. 3 sayaç $360 / yıl",
             "maddeler": ["Saatlik anomali tespiti ve TL maliyeti", "Her alarm için uygulanabilir öneri",
                          "Çalışma saatleri ve planlı duruş takvimi", "Aylık PDF tasarruf raporu", "2 kullanıcı"],
         },
         {
-            "kod": "pro", "ad": "Profesyonel", "kim": "Fabrika, otel, AVM ve kampüsler", "sayac": 25,
-            "ucret": '<div class="lp-ucret">₺4.990<small>/ ay</small></div>', "kapsam": "25 sayaca kadar",
-            "maddeler": ["Başlangıç planındaki her şey", "Canlı izleme: dakikalık veri, anlık alarm",
+            "kod": "pro", "ad": "Profesyonel", "kim": "Otel, okul, kampüs", "sayac": 20,
+            "ucret": '<div class="lp-ucret">$90<small>/ sayaç / yıl</small></div>',
+            "kapsam": "10–39 sayaç · kurulum $1.000 · ör. 20 sayaç $2.070 / yıl",
+            "maddeler": ["Başlangıç planındaki her şey", "Canlı izleme: saatlik veri, anlık alarm",
                          "CSV, Excel ve PDF raporlar", "Alarm durum takibi ve geri bildirim",
                          "10 kullanıcı, operatör ve yönetici rolleri"],
         },
         {
-            "kod": "kurumsal", "ad": "Kurumsal", "kim": "Çok tesisli şirketler", "sayac": 50,
-            "ucret": '<div class="lp-ucret teklif">Teklif alın</div>', "kapsam": "25'ten fazla sayaç, sınırsız tesis",
+            "kod": "kurumsal", "ad": "Kurumsal", "kim": "AVM, fabrika, çok tesisli zincir", "sayac": 60,
+            "ucret": '<div class="lp-ucret">$60<small>/ sayaç / yıl</small></div>',
+            "kapsam": "40+ sayaç · kurulum $1.000 · ör. 60 sayaç $5.040 / yıl",
             "maddeler": ["Profesyonel planındaki her şey", "Tüm tesisler tek panelde",
                          "API erişimi ve mevcut sistemlerle entegrasyon", "Kurum içi sunucuya kurulum seçeneği",
                          "Öncelikli destek ve kurulum eğitimi"],
@@ -697,16 +699,17 @@ if "me" not in st.session_state:
         unsafe_allow_html=True,
     )
 
-    # Fiyatlar öneri niteliğinde; ücret izlenen sayaç sayısına göre artar.
+    # Fiyatlar sunumdaki gelir modeliyle aynı: sayaç başına yıllık lisans, basamaklı (ilk 9 sayaç $120,
+    # sonraki 30 sayaç $90, sonrası $60). Ön çalışmadır, pilotla kesinleşir.
     st.markdown(
         '<section class="lp-fiyat" aria-labelledby="lp-fiyat-baslik"><div class="lp-fiyat-bas">'
         f'<div class="lp-eyebrow">{svg("coins", 15, "#93C5FD")}Fiyatlandırma</div>'
         '<h2 id="lp-fiyat-baslik">İşletmenize uygun planı seçin</h2>'
-        "<p>Ücret, izlenen sayaç sayısına göre belirlenir. Her planda anomali tespiti, TL maliyet hesabı ve "
-        "her alarm için öneri bulunur.</p></div></section>",
+        "<p>Sayaç başına yıllık lisans; sayaç arttıkça sayaç başı fiyat düşer. Her planda anomali tespiti, "
+        "TL maliyet hesabı ve her alarm için öneri bulunur.</p></div></section>",
         unsafe_allow_html=True,
     )
-    for sutun, pl in zip(st.columns(3), PLANLAR):
+    for sutun, pl in zip(st.columns(3), PLANLAR, strict=True):
         with sutun.container(key=f"lp_plan_{pl['kod']}"):
             st.markdown(_plan_html(pl), unsafe_allow_html=True)
             etiket = "Teklif iste" if pl["kod"] == "kurumsal" else "Satın al"
@@ -714,8 +717,9 @@ if "me" not in st.session_state:
                 talep_formu(pl)
     st.markdown(
         '<div class="lp-notlar">'
-        f'<span>{svg("zap", 14, "#93C5FD")}Ek sayaç: ₺149 / ay</span>'
-        f'<span>{svg("calendar", 14, "#93C5FD")}Yıllık ödemede 2 ay ücretsiz</span>'
+        f'<span>{svg("zap", 14, "#93C5FD")}Basamaklı: ilk 9 sayaç $120, sonraki 30 sayaç $90, sonrası $60</span>'
+        f'<span>{svg("leaf", 14, "#93C5FD")}İsterseniz lisans yerine doğrulanmış tasarrufun %20’si</span>'
+        f'<span>{svg("calendar", 14, "#93C5FD")}Pilot: ilk 3 ay indirimli</span>'
         f'<span>{svg("file", 14, "#93C5FD")}Fiyatlara KDV dahil değildir</span>'
         "</div>"
         f'<div class="lp-foot"><span>© {datetime.now().year} {BRAND} · {BRAND_SUB}</span>'
