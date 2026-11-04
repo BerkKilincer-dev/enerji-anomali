@@ -6,6 +6,8 @@ data/*
 !data/recommendations.csv
 !data/live_meters.csv
 mlruns/
+# Landing page purchase / quote requests
+dashboard/talepler.csv
 # models_out/ is committed: the trained model everyone uses without training.
 *.pkl
 *.joblib
