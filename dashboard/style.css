@@ -565,21 +565,8 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 }
 .st-key-bell_box button [data-testid="stMarkdownContainer"] p { color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
 .st-key-bell_box button [data-testid="stIconMaterial"] { color: #334155; font-size: 22px; }
-.st-key-bell_box button [data-testid="stIconMaterial"]:last-child:not(:first-child),
-.st-key-user_box button [data-testid="stIconMaterial"] { color: #64748B; }
+.st-key-bell_box button [data-testid="stIconMaterial"]:last-child:not(:first-child) { color: #64748B; }
 .st-key-bell_box button > div > div[aria-hidden="true"] { display: none; }
-/* Kullanıcı düğmesi: baş harfli avatar + ad */
-.st-key-user_box button {
-  min-height: 52px; min-width: 190px; padding: 0 16px 0 6px; gap: 12px; border-radius: 999px; background: #fff;
-  border: 1px solid #E2E8F0; justify-content: flex-start;
-}
-.st-key-user_box button:hover { border-color: #93C5FD; background: #F8FAFC; }
-.st-key-user_box button::before {
-  width: 40px; height: 40px; flex: none; border-radius: 50%; background: linear-gradient(135deg, #0F172A, #1E3A8A);
-  color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-}
-.st-key-user_box button p { font-size: 15px; font-weight: 600; color: #0F172A; white-space: nowrap; }
-
 /* Bildirim listesi */
 .nt-list { margin: 8px 0 4px; max-height: 380px; overflow-y: auto; }
 .nt-item { display: flex; gap: 10px; padding: 10px 2px; border-top: 1px solid #EEF2F7; }
@@ -594,12 +581,6 @@ section[data-testid="stSidebar"] > div { width: 250px !important; height: 100% !
 [data-testid="stPopoverBody"]:has(.nt-list) { width: 400px; max-width: 92vw; }
 .nt-cost { font-size: 12.5px; color: #64748B; margin-top: 2px; }
 .nt-cost b { color: #DC2626; }
-/* Kullanıcı menüsü */
-.um-head { display: flex; align-items: center; gap: 12px; padding: 4px 0 12px; margin-bottom: 6px; border-bottom: 1px solid #EEF2F7; }
-.um-name { font-size: 15px; font-weight: 700; color: #0F172A; }
-.um-mail { font-size: 13px; color: #64748B; }
-.um-role { display: inline-block; margin-top: 4px; font-size: 11.5px; font-weight: 600; color: #1D4ED8; background: #EFF6FF;
-  border-radius: 999px; padding: 1px 8px; text-transform: capitalize; }
 /* Grafik lejantı: çalışma dışı ve planlı duruş bantları */
 .legend .sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
 .legend .sw.hatch { border: 1px solid var(--c); background: repeating-linear-gradient(45deg, var(--c) 0 1.5px, transparent 1.5px 4px); opacity: .8; }

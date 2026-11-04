@@ -32,7 +32,8 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 
 ## CRM flow
 
-- **İşletmeler** (first page): platform staff see one card per business (`GET /tenants/summary`)
+- **Genel Bakış** is the first item in the menu and opens after sign-in.
+- **İşletmeler**: platform staff see one card per business (`GET /tenants/summary`)
   with waste, open alarms and data issues for 30 days, 90 days (default, the LEAD data ends in a
   quiet December) or a year. A business user goes straight to its own page.
 - **İşletme**: the same totals, "Bugün ne yapmalı?" (the three costliest open waste alarms with

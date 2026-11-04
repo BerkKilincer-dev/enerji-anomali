@@ -766,16 +766,16 @@ en_cok = max(buildings, key=lambda b: b["anomaly_count"])["building_id"]
 
 # ---------- Sol menü ----------
 PAGES = [
+    ("genel", ":material/home:", "Genel Bakış"),
     ("isletme", ":material/storefront:", "İşletmeler" if me.get("tenant_id") is None else "İşletmem"),
     ("canli", ":material/sensors:", "Canlı İzleme"),
-    ("genel", ":material/home:", "Genel Bakış"),
     ("tuketim", ":material/bar_chart:", "Tüketim Analizi"),
     ("anomali", ":material/warning:", "Anomaliler"),
     ("rapor", ":material/description:", "Raporlar"),
     ("ayar", ":material/settings:", "Ayarlar"),
 ]
 if "sayfa" not in st.session_state:
-    st.session_state.sayfa = "isletme"
+    st.session_state.sayfa = "genel"  # girişten sonra ilk açılan sayfa
 if st.session_state.get("bina") not in ids:
     st.session_state.bina = en_cok
 
@@ -1782,20 +1782,17 @@ sayac_bilgi = " · ".join(filter(None, [
     b_bil.get("tenant_name"), b_bil["name"] or b_bil["external_id"], b_bil.get("asset_name"),
     EKIPMAN_TR.get(b_bil.get("equipment_type")),
 ])) or "Enerji tüketim verilerini ve anomali durumlarını aşağıda görebilirsiniz."
-initials = "".join(w[0] for w in who.split()[:2]).upper() or "?"
 aralik_txt = "-" if cur.empty else f"{tr_tarih(cur['ts'].min())} – {tr_tarih(cur['ts'].max())}"
 h1, h3 = st.columns([1, 1.25], vertical_alignment="center")
 with h1:
     st.markdown(
-        f'<div class="hello">Merhaba, {html.escape(who)}</div>'
-        f'<div class="hello-sub">{html.escape(sayac_bilgi)}</div>'
-        # Kullanıcı düğmesindeki avatar: baş harfler oturuma göre değiştiği için CSS'e burada yazılır.
-        f"<style>.st-key-user_box button::before{{content:'{html.escape(initials)}';}}</style>",
+        '<div class="hello">Genel Bakış</div>'
+        f'<div class="hello-sub">{html.escape(sayac_bilgi)}</div>',
         unsafe_allow_html=True,
     )
 with h3:
     with st.container(horizontal=True, horizontal_alignment="right", gap="small", key="ust_sag"):
-        # Tarih, bildirimler ve kullanıcı aynı satırda, sağa yaslı.
+        # Tarih ve bildirimler aynı satırda, sağa yaslı.
         with st.container(key="tarih_box"):
             with st.popover(aralik_txt, icon=":material/calendar_month:", use_container_width=True):
                 if son is None:
@@ -1848,26 +1845,6 @@ with h3:
                     "Tüm anomalileri gör", key="nt_hepsi", icon=":material/arrow_forward:",
                     on_click=set_page, args=("anomali",), use_container_width=True,
                 )
-        # Kullanıcı menüsü: profil özeti, Ayarlar ve Çıkış.
-        with st.container(key="user_box"):
-            with st.popover(who, help="Hesap"):
-                st.markdown(
-                    f'<div class="um-head"><div class="avatar">{html.escape(initials)}</div><div>'
-                    f'<div class="um-name">{html.escape(who)}</div>'
-                    f'<div class="um-mail">{html.escape(me["email"])}</div>'
-                    f'<span class="um-role">{html.escape(me["role"])}</span></div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.button(
-                    "Ayarlar", key="um_ayar", icon=":material/settings:", on_click=set_page, args=("ayar",),
-                    use_container_width=True,
-                )
-                if st.button("Çıkış yap", key="um_cikis", icon=":material/logout:", use_container_width=True):
-                    try:
-                        api.logout()
-                    finally:
-                        st.session_state.clear()
-                        st.rerun()
 
 st.write("")
 
