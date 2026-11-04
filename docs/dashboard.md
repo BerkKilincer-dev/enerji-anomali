@@ -41,7 +41,8 @@ shows after a browser refresh; a new package in `requirements.txt` needs `--buil
 - **Anomaliler**: filters for scope, status, equipment and order, served by `GET /anomalies`;
   waste and data issues sit in separate tabs. Each alarm shows its recommendation card.
 - **Canlı İzleme**: the live demo (`GET /live-demo`). Platform admins start, restart and stop
-  it; everyone else only watches. The screen refreshes every 10 seconds inside a fragment and
+  it; the live business's own users only watch, and other businesses' users do not see the menu
+  item (they cannot read the live meters). The screen refreshes every 10 seconds inside a fragment and
   reads with `fresh=True`, past the client's 30-second cache. It shows the five live meters
   with their last reading and an Alarm / Veri sorunu / Normal badge, a 48-hour chart and the
   newest alarms with their status buttons. The live business gets a "Canlı" badge on İşletmeler.

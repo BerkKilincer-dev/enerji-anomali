@@ -114,7 +114,7 @@ enerji-anomali/
 │   │   ├── publish.py          repodaki modelle sonuçları veritabanına yazar (eğitimsiz)
 │   │   └── report.py           sonuç tabloları ve grafikler (reports/ml/)
 │   ├── scoring/              (ML + Backend) canlı skorlama
-│   │   ├── service.py          yeni saatleri 5 dakikada bir skorlar
+│   │   ├── service.py          yeni saatleri skorlar (Docker'da 20 saniyede bir)
 │   │   └── advice.py           isteğe bağlı: Claude ile ek Türkçe tavsiye (ücretli, anahtar gerekir)
 │   ├── ingest/               (Veri + Backend) canlı veri
 │   │   ├── mqtt_ingest.py      MQTT'den gelen sayaç okumalarını veritabanına yazar
@@ -130,7 +130,7 @@ enerji-anomali/
 │   ├── common/               ortak yardımcılar (veritabanı bağlantısı vb.)
 │   └── config.py             .env ayarlarını okur
 ├── dashboard/                (Frontend) Streamlit CRM paneli
-│   ├── app.py                  giriş ve sayfalar: işletmeler, canlı izleme, genel bakış, tüketim, anomaliler, raporlar
+│   ├── app.py                  tanıtım sayfası (fiyatlar, giriş) ve sayfalar: genel bakış, işletmeler, canlı izleme, tüketim, anomaliler, raporlar, ayarlar
 │   ├── api_client.py           API istemcisi (oturum çerezi dahil)
 │   ├── charts.py               grafikler
 │   ├── reports.py              CSV / Excel / PDF raporları

@@ -44,6 +44,13 @@ SEGMENT_TR = {
     "education": "Eğitim", "factory": "Fabrika", "warehouse": "Depo", "data_center": "Veri merkezi",
     "residential": "Konut", "public": "Kamu / etkinlik", "other": "Diğer",
 }
+# Veri setindeki kullanım türleri (BDG2 / LEAD) İngilizce gelir; panelde Türkçe gösterilir.
+KULLANIM_TR = {
+    "Office": "Ofis", "Education": "Eğitim", "Entertainment/public assembly": "Eğlence / toplantı",
+    "Food sales and service": "Yiyecek satışı ve servis", "Manufacturing/industrial": "Üretim / sanayi",
+    "Lodging/residential": "Konaklama / konut", "Healthcare": "Sağlık", "Public services": "Kamu hizmeti",
+    "Religious worship": "İbadet yeri", "Parking": "Otopark", "Services": "Hizmet", "Other": "Diğer",
+}
 EKIPMAN_TR = {
     "klima": "Klima", "kompresor": "Kompresör", "aydinlatma": "Aydınlatma",
     "sogutma": "Soğutma", "plc": "PLC / makine", "genel": "Genel tüketim",
@@ -83,6 +90,14 @@ def fig_html(fig, kind="donut", alt=""):
     plt.close(fig)
     b64 = base64.b64encode(buf.getvalue()).decode()
     return f'<div class="{kind}-wrap"><img src="data:image/png;base64,{b64}" alt="{html.escape(alt)}"></div>'
+
+
+# Tablolardaki sayılar tarayıcının diline göre biçimlenir (Türkçe: 114.443,14).
+SAYI_SUTUN = {
+    ad: st.column_config.NumberColumn(format="localized")
+    for ad in ("Tüketim (kWh)", "Tahmini maliyet (TL)", "Tasarruf potansiyeli (TL)", "Fazla tüketim (kWh)",
+               "Toplam (kWh)", "Saatlik ort. (kWh)")
+}
 
 
 def num(x, d=0):
@@ -134,7 +149,7 @@ def severity(pct, cost):
 
 def anomaly_panel(items, bina, pct_by_id):
     if not items:
-        body = '<div class="an-empty">Bu bina için anomali yok.</div>'
+        body = '<div class="an-empty">Bu sayaç için anomali yok.</div>'
     else:
         rows = []
         for a in items:
@@ -281,9 +296,15 @@ def grafik_tablosu(df, fc):
         )
 
 
+def tarihsiz(metin):
+    """Açıklamanın başındaki "2016-12-30 01:00-06:00:" (ya da günler süren "…-2017-01-02 00:00:") tarih
+    önekini atar; kartlarda başlangıç ve bitiş zaten Türkçe tarihle ayrıca yazılı."""
+    return re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(-(\d{4}-\d{2}-\d{2} )?\d{2}:\d{2})?:\s*", "", metin or "")
+
+
 def kisa_aciklama(metin, n=110):
-    """Bildirim için açıklama: baştaki "2016-12-30 01:00-06:00:" tarih öneki atılır (saat zaten ayrıca yazılı)."""
-    metin = re.sub(r"^\d{4}-\d{2}-\d{2} [\d:]+(-[\d:]+)?:\s*", "", metin or "Beklenmeyen tüketim")
+    """Bildirim için kısa açıklama: tarih öneki atılır, uzunsa kısaltılır."""
+    metin = tarihsiz(metin) or "Beklenmeyen tüketim"
     return metin if len(metin) <= n else metin[: n - 1].rstrip() + "…"
 
 
@@ -313,7 +334,7 @@ def readings_paralel(_api, ids, hours):
         return {i: rows for i, rows in ex.map(oku, ids) if rows is not None}
 
 
-@st.cache_data(ttl=600, show_spinner="Binalar yükleniyor...")
+@st.cache_data(ttl=600, show_spinner="Sayaçlar yükleniyor...")
 def kwh_by_building(_api, user_id, ids, hours):
     # user_id önbellek anahtarında: farklı kullanıcıların verisi birbirine karışmasın.
     return {i: sum((r["kwh"] or 0) for r in rows) for i, rows in readings_paralel(_api, ids, hours).items()}
@@ -746,7 +767,7 @@ except ApiError as e:
     st.stop()
 
 if not buildings:
-    st.warning("Henüz bina verisi yok.")
+    st.warning("Henüz sayaç verisi yok.")
     st.stop()
 
 # CRM yalnız işletmeye bağlı sayaçları gösterir; geri kalan LEAD sayaçları model eğitimi içindir.
@@ -768,6 +789,14 @@ tarife = {b["building_id"]: b.get("tariff_tl_per_kwh") or TARIFF_TL for b in bui
 ids = sorted(names, key=lambda i: names[i].casefold())
 en_cok = max(buildings, key=lambda b: b["anomaly_count"])["building_id"]
 
+# Canlı İzleme yalnız platform yöneticisine ve canlı demo tesisinin kendi kullanıcısına görünür;
+# başka bir işletmenin kullanıcısı orada göremeyeceği bir tesisin boş sayfasıyla karşılaşmasın.
+try:
+    canli_tid = api.live_demo().get("tenant_id")
+except ApiError:
+    canli_tid = None
+canli_gorur = me.get("tenant_id") is None or me.get("tenant_id") == canli_tid
+
 # ---------- Sol menü ----------
 PAGES = [
     ("genel", ":material/home:", "Genel Bakış"),
@@ -778,7 +807,9 @@ PAGES = [
     ("rapor", ":material/description:", "Raporlar"),
     ("ayar", ":material/settings:", "Ayarlar"),
 ]
-if "sayfa" not in st.session_state:
+if not canli_gorur:
+    PAGES = [p for p in PAGES if p[0] != "canli"]
+if st.session_state.get("sayfa") not in {p[0] for p in PAGES}:
     st.session_state.sayfa = "genel"  # girişten sonra ilk açılan sayfa
 if st.session_state.get("bina") not in ids:
     st.session_state.bina = en_cok
@@ -906,10 +937,6 @@ if st.session_state.sayfa == "isletme":
         k4.markdown(kpi_card(svg("zap", 24), "green", "Sayaç", str(sum(len(x["meters"]) for x in ozetler)),
                              f"<span>({len(ozetler)} işletmede)</span>"), unsafe_allow_html=True)
         st.write("")
-        try:
-            canli_tid = api.live_demo().get("tenant_id")
-        except ApiError:
-            canli_tid = None
         cols = st.columns(3)
         for k, x in enumerate(sorted(ozetler, key=lambda x: -x["waste_tl"])):
             pahali = x["meters"][0] if x["meters"] and x["meters"][0]["waste_tl"] > 0 else None
@@ -975,7 +1002,7 @@ if st.session_state.sayfa == "isletme":
                     f'{verdict_badge(a)}<b class="todo-meter">{html.escape(sayac_adi(a))}</b>'
                     f'<span class="an-time">{tr_tarih_saat(pd.Timestamp(a["ts_start"]))}</span></div>'
                     + rec_html(a)
-                    + f'<div class="an-desc">{html.escape(a["explanation"] or "")}</div>',
+                    + f'<div class="an-desc">{html.escape(tarihsiz(a["explanation"]))}</div>',
                     unsafe_allow_html=True,
                 )
                 with st.container(horizontal=True, gap="small", key=f"anbtn_t{a['id']}"):
@@ -1214,7 +1241,7 @@ if st.session_state.sayfa == "anomali":
         with st.container(key="card_detay_bilgi"):
             st.markdown('<div class="card-title">Açıklama ve öneri</div>', unsafe_allow_html=True)
             st.markdown(
-                f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>'
+                f'<div class="an-desc">{html.escape(tarihsiz(a["explanation"]) or "-")}</div>'
                 + rec_html(a)
                 + (f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>' if a["advice"] else ""),
                 unsafe_allow_html=True,
@@ -1297,7 +1324,7 @@ if st.session_state.sayfa == "anomali":
                 st.markdown(
                     f'<div class="an-row-top"><span class="badge sev-{ton}">{ad}</span>{verdict_badge(a)}{sayac}'
                     f'<span class="an-time">{bas} → {bit}</span></div>'
-                    f'<div class="an-desc">{html.escape(a["explanation"] or "-")}</div>{maliyet}'
+                    f'<div class="an-desc">{html.escape(tarihsiz(a["explanation"]) or "-")}</div>{maliyet}'
                     + rec_html(a)
                     + (f'<div class="an-advice">{svg("bulb", 17)}<span>{html.escape(a["advice"])}</span></div>'
                        if a["advice"] else ""),
@@ -1520,7 +1547,7 @@ if st.session_state.sayfa == "ayar":
 # ---------- Tüketim Analizi sayfası (şimdilik bina listesi) ----------
 if st.session_state.sayfa == "tuketim":
     st.markdown(
-        '<span class="pg-okunur" hidden></span><div class="hello">Tüketim Analizi</div><div class="hello-sub">Tüm binalar</div>',
+        '<span class="pg-okunur" hidden></span><div class="hello">Tüketim Analizi</div><div class="hello-sub">Sayaçları karşılaştırın</div>',
         unsafe_allow_html=True,
     )
     st.write("")
@@ -1531,19 +1558,19 @@ if st.session_state.sayfa == "tuketim":
 
     k1, k2, k3 = st.columns([3, 1.2, 1.2])
     secili = k1.multiselect(
-        "Karşılaştırılacak binalar (en fazla 5)", ids, default=ilk3, max_selections=5,
+        "Karşılaştırılacak sayaçlar (en fazla 5)", ids, default=ilk3, max_selections=5,
         format_func=lambda i: names[i], key="kars_bina",
     )
     donem_k = k2.selectbox("Dönem", ["Son 24 saat", "Son 7 gün", "Son 30 gün"], index=1, key="kars_donem")
-    esitle = k3.toggle("Ölçeği eşitle", key="kars_esitle", help="Her binanın ortalaması 100 olacak şekilde gösterir; farklı büyüklükteki binaları kıyaslamak için.")
+    esitle = k3.toggle("Ölçeği eşitle", key="kars_esitle", help="Her sayacın ortalaması 100 olacak şekilde gösterir; farklı büyüklükteki sayaçları kıyaslamak için.")
     k_hours = {"Son 24 saat": 24, "Son 7 gün": 168, "Son 30 gün": 720}[donem_k]
 
     if not secili:
-        st.info("Karşılaştırmak için en az bir bina seç.")
+        st.info("Karşılaştırmak için en az bir sayaç seçin.")
     else:
         veri = readings_multi(api, me["user_id"], tuple(secili), k_hours)
         if not veri:
-            st.info("Seçilen binalar için bu dönemde veri yok.")
+            st.info("Seçilen sayaçlar için bu dönemde veri yok.")
         else:
             saatlik = k_hours == 24
             c_sol, c_sag = st.columns([2, 1])
@@ -1585,7 +1612,7 @@ if st.session_state.sayfa == "tuketim":
             with c_sag:
                 with st.container(key="card_kars_bar"):
                     st.markdown('<div class="card-title">Toplam tüketim (kWh)</div>', unsafe_allow_html=True)
-                    # Genel Bakış'taki "Bina Bazlı Tüketim" ile aynı HTML çubuklar: adlar kesilmez, yazı keskin kalır.
+                    # Genel Bakış'taki "Sayaç Bazlı Tüketim" ile aynı HTML çubuklar: adlar kesilmez, yazı keskin kalır.
                     renk_map = {i: PAL[n] for n, i in enumerate(secili)}
                     sirali_k = sorted(toplam.items(), key=lambda x: -x[1])
                     en_buyuk_k = max(toplam.values()) or 1
@@ -1607,22 +1634,23 @@ if st.session_state.sayfa == "tuketim":
                     n_saat = max(veri[i]["ts"].nunique(), 1)
                     satirlar.append(
                         {
-                            "Bina": names[i],
-                            "Kullanım": bmap[i]["primary_use"] or "-",
+                            "Sayaç": names[i],
+                            "Kullanım": KULLANIM_TR.get(bmap[i]["primary_use"], bmap[i]["primary_use"] or "-"),
                             "Toplam (kWh)": round(toplam[i], 1),
                             "Saatlik ort. (kWh)": round(toplam[i] / n_saat, 2),
                             "Tahmini maliyet (TL)": round(toplam[i] * tarife[i], 2),
                             "Anomali (toplam)": bmap[i]["anomaly_count"],
                         }
                     )
-                st.dataframe(pd.DataFrame(satirlar), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(satirlar), use_container_width=True, hide_index=True,
+                             column_config=SAYI_SUTUN)
             st.write("")
     with st.container(key="card_binalar"):
-        st.markdown('<div class="card-title">Binalar</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">Sayaçlar</div>', unsafe_allow_html=True)
         df = pd.DataFrame(
             {
-                "Bina": [names[b["building_id"]] for b in buildings],
-                "Kullanım": [b["primary_use"] or "-" for b in buildings],
+                "Sayaç": [names[b["building_id"]] for b in buildings],
+                "Kullanım": [KULLANIM_TR.get(b["primary_use"], b["primary_use"] or "-") for b in buildings],
                 "Son puanlama": [(b["last_scored_ts"] or "-")[:16].replace("T", " ") for b in buildings],
                 "Anomali": [b["anomaly_count"] for b in buildings],
             }
@@ -1639,10 +1667,10 @@ if st.session_state.sayfa == "rapor":
     )
     st.write("")
     r1, r2 = st.columns(2)
-    donem_sec = r1.selectbox("Dönem", ["Son 7 gün", "Son 30 gün"])
-    kapsam = r2.selectbox("Kapsam", ["Seçili bina", "Tüm binalar (en çok anomalili 20)"])
-    r_hours = {"Son 7 gün": 168, "Son 30 gün": 720}[donem_sec]
-    if kapsam == "Seçili bina":
+    donem_sec = r1.selectbox("Dönem", ["Son 7 gün", "Son 30 gün", "Son 90 gün"], index=2)
+    kapsam = r2.selectbox("Kapsam", ["Seçili sayaç", "Tüm sayaçlar (en çok anomalili 20)"])
+    r_hours = {"Son 7 gün": 168, "Son 30 gün": 720, "Son 90 gün": 2160}[donem_sec]
+    if kapsam == "Seçili sayaç":
         r_items = ((bid, names[bid]),)
     else:
         en_cok_20 = sorted(buildings, key=lambda b: b["anomaly_count"], reverse=True)[:20]
@@ -1650,7 +1678,7 @@ if st.session_state.sayfa == "rapor":
     r_tarife = tuple((i, tarife[i]) for i, _ in r_items)
     rapor = report_data(api, me["user_id"], r_items, r_hours, r_tarife)
     o, r_bina, r_an = rapor["ozet"], rapor["binalar"], rapor["anomaliler"]
-    st.caption(f"Dönem: {o['donem']} · {o['bina_sayisi']} bina")
+    st.caption(f"Dönem: {o['donem']} · {o['bina_sayisi']} sayaç")
 
     st.write("")
     k1, k2, k3, k4 = st.columns(4)
@@ -1693,11 +1721,11 @@ if st.session_state.sayfa == "rapor":
 
     st.write("")
     with st.container(key="card_rapor_bina"):
-        st.markdown('<div class="card-title">Bina bazlı özet</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">Sayaç bazlı özet</div>', unsafe_allow_html=True)
         if r_bina.empty:
             st.info("Bu dönem için veri yok.")
         else:
-            st.dataframe(r_bina, use_container_width=True, hide_index=True)
+            st.dataframe(r_bina, use_container_width=True, hide_index=True, column_config=SAYI_SUTUN)
 
     st.write("")
     with st.container(key="card_rapor_anomali"):
@@ -1705,7 +1733,8 @@ if st.session_state.sayfa == "rapor":
         if r_an.empty:
             st.success("Bu dönemde anomali yok.")
         else:
-            st.dataframe(r_an.drop(columns=["Bitiş"]), use_container_width=True, hide_index=True)
+            st.dataframe(r_an.drop(columns=["Bitiş"]), use_container_width=True, hide_index=True,
+                         column_config=SAYI_SUTUN)
     st.stop()
 
 if st.session_state.sayfa != "genel":
@@ -1823,12 +1852,12 @@ with h3:
         with st.container(key="bell_box"):
             with st.popover(str(summary["active_alerts"]), icon=":material/notifications:", help="Bildirimler"):
                 st.markdown(
-                    f'<div class="pop-title">Bildirimler</div><div class="pop-sub">Tüm binalarda son 24 saatte '
+                    f'<div class="pop-title">Bildirimler</div><div class="pop-sub">Tüm sayaçlarda son 24 saatte '
                     f'<b>{summary["active_alerts"]}</b> alarm · aşağıda {html.escape(names[bid])}</div>',
                     unsafe_allow_html=True,
                 )
                 if not anomalies:
-                    st.caption("Bu bina için bildirim yok.")
+                    st.caption("Bu sayaç için bildirim yok.")
                 satirlar = []
                 for a in anomalies[:5]:
                     if a["category"] == "data_issue":
@@ -1868,7 +1897,7 @@ c2.markdown(
     unsafe_allow_html=True,
 )
 c3.markdown(
-    kpi_card(svg("alert", 24), "red", "Tespit Edilen Anomali", str(n_an), f"<span>({donem}, bu bina)</span>"),
+    kpi_card(svg("alert", 24), "red", "Tespit Edilen Anomali", str(n_an), f"<span>({donem}, bu sayaç)</span>"),
     unsafe_allow_html=True,
 )
 c4.markdown(
@@ -1954,7 +1983,7 @@ with b1:
     with st.container(key="card_dagilim"):
         st.markdown('<div class="card-title">Tüketimin Dağılımı</div>', unsafe_allow_html=True)
         # Uyarı kartındaki alt başlıkla aynı satır: üç kartın başlıkları ve halkalar hizalı durur.
-        st.caption(f"{len(rows)} bina · {donem}")
+        st.caption(f"{len(rows)} sayaç · {donem}")
         if toplam_kwh <= 0:
             st.info("Dağılım için veri yok.")
         else:
@@ -1968,8 +1997,8 @@ with b1:
 
 with b2:
     with st.container(key="card_bina"):
-        st.markdown('<div class="card-title">Bina Bazlı Tüketim</div>', unsafe_allow_html=True)
-        st.caption(f"En çok tüketen {min(len(rows), 5)} bina · {donem}")
+        st.markdown('<div class="card-title">Sayaç Bazlı Tüketim</div>', unsafe_allow_html=True)
+        st.caption(f"En çok tüketen {min(len(rows), 5)} sayaç · {donem}")
         if toplam_kwh <= 0:
             st.info("Dağılım için veri yok.")
         else:

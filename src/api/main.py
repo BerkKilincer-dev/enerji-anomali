@@ -48,7 +48,8 @@ from src.config import get_settings
 from src.data.customer import BuildingInfo, TenantInfo, read_export
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-MAX_HOURS = 24 * 90
+# 180 days: a 90-day report also reads the 90 days before it to compare.
+MAX_HOURS = 24 * 180
 # Demo mode has no accounts; this user lets the dashboard read and shows writes as unavailable.
 DEMO_USER = User(0, None, "demo@localhost", "Demo", "admin")
 

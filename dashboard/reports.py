@@ -55,7 +55,7 @@ def collect(api, bina, hours, tariff):
                 tasarruf += maliyet
                 an_rows.append(
                     {
-                        "Bina": ad,
+                        "Sayaç": ad,
                         "Başlangıç": tr_tarih_saat(bas),
                         "Bitiş": tr_tarih_saat(pd.to_datetime(a["ts_end"], utc=True)),
                         "Tür": KATEGORI.get(a["category"], "Diğer"),
@@ -71,7 +71,7 @@ def collect(api, bina, hours, tariff):
         toplam_maliyet += kwh * tariff[bid]
         bina_rows.append(
             {
-                "Bina": ad,
+                "Sayaç": ad,
                 "Tüketim (kWh)": round(kwh, 1),
                 "Tahmini maliyet (TL)": round(kwh * tariff[bid], 2),
                 "Anomali sayısı": say,
@@ -81,7 +81,7 @@ def collect(api, bina, hours, tariff):
 
     binalar = pd.DataFrame(
         bina_rows,
-        columns=["Bina", "Tüketim (kWh)", "Tahmini maliyet (TL)", "Anomali sayısı", "Tasarruf potansiyeli (TL)"],
+        columns=["Sayaç", "Tüketim (kWh)", "Tahmini maliyet (TL)", "Anomali sayısı", "Tasarruf potansiyeli (TL)"],
     )
     if not binalar.empty:
         binalar = binalar.sort_values("Tüketim (kWh)", ascending=False).reset_index(drop=True)
@@ -90,7 +90,7 @@ def collect(api, bina, hours, tariff):
         anom = anom.sort_values("_ts", ascending=False).drop(columns="_ts").reset_index(drop=True)
     else:
         anom = pd.DataFrame(
-            columns=["Bina", "Başlangıç", "Bitiş", "Tür", "Fazla tüketim (kWh)", "Tahmini maliyet (TL)", "Durum", "Açıklama"]
+            columns=["Sayaç", "Başlangıç", "Bitiş", "Tür", "Fazla tüketim (kWh)", "Tahmini maliyet (TL)", "Durum", "Açıklama"]
         )
 
     baslangic = son_zaman - timedelta(hours=hours) if son_zaman is not None else None
@@ -116,7 +116,7 @@ def _ozet_tablosu(o):
     return pd.DataFrame(
         [
             ("Dönem", o["donem"]),
-            ("Bina sayısı", o["bina_sayisi"]),
+            ("Sayaç sayısı", o["bina_sayisi"]),
             ("Toplam tüketim (kWh)", round(o["kwh"], 1)),
             ("Önceki döneme göre değişim", degisim or "-"),
             ("Tahmini maliyet (TL)", round(o["maliyet"], 2)),
@@ -137,7 +137,7 @@ def to_xlsx(rapor):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         _ozet_tablosu(rapor["ozet"]).to_excel(w, sheet_name="Özet", index=False)
-        rapor["binalar"].to_excel(w, sheet_name="Binalar", index=False)
+        rapor["binalar"].to_excel(w, sheet_name="Sayaçlar", index=False)
         rapor["anomaliler"].to_excel(w, sheet_name="Anomaliler", index=False)
         for ws in w.book.worksheets:
             for kolon in ws.columns:
@@ -158,7 +158,7 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
         # --- Sayfa 1: özet ---
         fig = plt.figure(figsize=(8.27, 11.69))
         fig.text(0.07, 0.95, baslik, fontsize=18, fontweight="bold", color="#0F172A")
-        fig.text(0.07, 0.925, f"Dönem: {o['donem']}  ·  {o['bina_sayisi']} bina", fontsize=10, color="#475569")
+        fig.text(0.07, 0.925, f"Dönem: {o['donem']}  ·  {o['bina_sayisi']} sayaç", fontsize=10, color="#475569")
 
         kutular = [
             ("Toplam tüketim", _kwh(o["kwh"])),
@@ -180,8 +180,8 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
             ax.text(0.5, 0.5, "Veri yok", ha="center", va="center", color="#64748B")
             ax.axis("off")
         else:
-            ax.barh([_kisalt(b, 26) for b in ilk["Bina"]], ilk["Tüketim (kWh)"], color="#2563EB")
-            ax.set_title("Bina bazlı tüketim (kWh)", loc="left", fontsize=10, color="#0F172A")
+            ax.barh([_kisalt(b, 26) for b in ilk["Sayaç"]], ilk["Tüketim (kWh)"], color="#2563EB")
+            ax.set_title("Sayaç bazlı tüketim (kWh)", loc="left", fontsize=10, color="#0F172A")
             for s in ("top", "right"):
                 ax.spines[s].set_visible(False)
             ax.tick_params(labelsize=8, colors="#475569")
@@ -194,7 +194,7 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
         else:
             y = 0.37
             for _, r in en_yuksek.iterrows():
-                fig.text(0.07, y, f"• {_kisalt(r['Bina'], 28)}  {r['Başlangıç']}  —  {_tl(r['Tahmini maliyet (TL)'])}",
+                fig.text(0.07, y, f"• {_kisalt(r['Sayaç'], 28)}  {r['Başlangıç']}  —  {_tl(r['Tahmini maliyet (TL)'])}",
                          fontsize=8.5, color="#0F172A")
                 y -= 0.025
         tarife = f"{o['tarife']:.2f} TL/kWh" if o["tarife"] is not None else "sayaç bazında"
@@ -203,7 +203,7 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
         plt.close(fig)
 
         # --- Sonraki sayfalar: anomali tablosu (sayfa başına 28 satır, en fazla 6 sayfa) ---
-        sutunlar = ["Bina", "Başlangıç", "Tür", "Fazla tüketim (kWh)", "Tahmini maliyet (TL)", "Durum"]
+        sutunlar = ["Sayaç", "Başlangıç", "Tür", "Fazla tüketim (kWh)", "Tahmini maliyet (TL)", "Durum"]
         sayfa_boyu = 28
         parcalar = [anom.iloc[i : i + sayfa_boyu] for i in range(0, len(anom), sayfa_boyu)]
         for n, parca in enumerate(parcalar[:6], start=1):
@@ -211,7 +211,7 @@ def to_pdf(rapor, baslik="Enerji Tüketimi ve Tasarruf Raporu"):
             fig.text(0.07, 0.95, f"Anomali kayıtları ({n}/{min(len(parcalar), 6)})", fontsize=14, fontweight="bold")
             ax = fig.add_axes([0.05, 0.05, 0.9, 0.86])
             ax.axis("off")
-            hucre = [[_kisalt(r[c], 24) if c == "Bina" else ("" if pd.isna(r[c]) else r[c]) for c in sutunlar]
+            hucre = [[_kisalt(r[c], 24) if c == "Sayaç" else ("" if pd.isna(r[c]) else r[c]) for c in sutunlar]
                      for _, r in parca.iterrows()]
             tablo = ax.table(cellText=hucre, colLabels=sutunlar, loc="upper center", cellLoc="left")
             tablo.auto_set_font_size(False)

@@ -64,8 +64,8 @@ Any signed-in role.
 | `GET /buildings` | | active buildings with `segment`, `tariff_tl_per_kwh` (the meter's own or the default), `tenant_name`, `asset_name`, `equipment_type`, `last_scored_ts` and `anomaly_count` |
 | `GET /buildings/{id}/operating-hours` | | weekly periods `weekday`, `opens`, `closes` |
 | `GET /buildings/{id}/downtime` | | planned downtime windows, earliest first |
-| `GET /buildings/{id}/readings` | `hours` 1-2160, default 48; `end` optional | hourly `kwh` and label `anomaly` |
-| `GET /buildings/{id}/forecast` | `hours` 1-2160, default 48; `end` optional | `expected_kwh`, `alarm`, `source`, `origin` |
+| `GET /buildings/{id}/readings` | `hours` 1-4320, default 48; `end` optional | hourly `kwh` and label `anomaly` |
+| `GET /buildings/{id}/forecast` | `hours` 1-4320, default 48; `end` optional | `expected_kwh`, `alarm`, `source`, `origin` |
 | `GET /anomalies` | filters below, `limit` 1-500, default 50 | events, newest first, with the latest `verdict` (feedback whose event was re-published still applies by time range) and a `recommendation` |
 | `GET /recommendations` | | the recommendation table: `equipment_type`, `anomaly_type`, `title`, `action` |
 | `GET /summary` | `customers_only` optional | `total_cost_tl`, `active_alerts`, `worst_building_id`, `buildings`; `customers_only=true` counts only buildings that belong to a business |

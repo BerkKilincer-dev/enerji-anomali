@@ -45,11 +45,13 @@ Veri iner, veritabanına yüklenir ve model sonuçları yazılır (yaklaşık 1 
 
 ## 3. Paneli aç
 
-1. Tarayıcıda **http://localhost:5173** adresini aç.
+1. Tarayıcıda **http://localhost:5173** adresini aç. Önce Wattwise'ın tanıtım sayfası gelir; sağ
+   üstteki **Giriş yap**'a bas.
 2. Giriş: `admin@enerji.local` / `Wtw.Yonetim!8426` (bütün işletmeleri görür). Bir işletmenin
    gözünden bakmak için ör. `otel@enerji.local` / `Wtw.Isletme!3157`; diğerleri
    `ozelkolej`, `ofisplazasi`, `kongremerkezi`, `universitekampusu`, `canlidemotesisi` (hepsi `@enerji.local`).
-3. Solda menü ve İşletmeler kartları görünüyorsa kurulum tamam.
+3. Genel Bakış açılıyor ve grafikte veri görünüyorsa kurulum tamam. Soldaki **İşletmeler**'de 5 demo
+   işletme ve Canlı Demo Tesisi kart olarak görünür.
 4. Canlı demo için soldan **Canlı İzleme**'ye geç ve **Canlı demoyu başlat**'a bas (admin
    hesabıyla). 1-2 dakika içinde ilk alarmlar düşer, sonra her dakika 1 saat ilerler.
 
