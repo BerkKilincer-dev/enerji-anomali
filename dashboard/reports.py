@@ -9,7 +9,14 @@ from charts import tr_tarih, tr_tarih_saat
 from matplotlib.backends.backend_pdf import PdfPages
 
 KATEGORI = {"waste": "İsraf", "data_issue": "Veri sorunu"}
-DURUM = {"confirmed": "Onaylandı", "false_alarm": "Yanlış alarm", "planned": "Planlı"}
+# API'nin bütün durumları (src/api/schemas.py Verdict); karar verilmemiş alarm "Bekliyor".
+DURUM = {
+    "sent": "İletildi",
+    "applied": "Uygulandı",
+    "confirmed": "Onaylandı",
+    "false_alarm": "Yanlış alarm",
+    "planned": "Planlı",
+}
 
 
 def _tl(x):

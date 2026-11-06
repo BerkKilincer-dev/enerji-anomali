@@ -102,12 +102,14 @@ def register_tenant(conn: psycopg.Connection, info: TenantInfo) -> int:
 def register_building(conn: psycopg.Connection, info: BuildingInfo) -> int:
     """Create or update a customer building; returns its building_id."""
     stored = conn.execute(
-        "SELECT lat, lng, timezone, country, segment FROM buildings WHERE external_id = %s",
+        "SELECT weather_key, lat, lng, timezone, country, segment FROM buildings "
+        "WHERE external_id = %s",
         (info.external_id,),
     ).fetchone()
+    new_coords = info.lat is not None or info.lng is not None
     if stored:
         # An update keeps the stored location and segment, not the Istanbul or BDG2 default.
-        lat, lng, timezone, country, segment = stored
+        stored_key, lat, lng, timezone, country, segment = stored
         info = replace(
             info,
             lat=lat if info.lat is None else info.lat,
@@ -117,6 +119,9 @@ def register_building(conn: psycopg.Connection, info: BuildingInfo) -> int:
             segment=info.segment or segment,
         )
     loc = info.location()
+    # Keep the stored weather series (a BDG2 site key, or an earlier geo key) unless the caller
+    # moves the building with new coordinates; only then recompute the geo key.
+    weather_key = stored_key if (stored and not new_coords) else loc.weather_key
     country = (info.country or country_for_timezone(loc.timezone) or "").upper() or None
     row = conn.execute(
         """
@@ -140,7 +145,7 @@ def register_building(conn: psycopg.Connection, info: BuildingInfo) -> int:
         (
             info.external_id,
             info.name,
-            loc.weather_key,
+            weather_key,
             info.primary_use,
             info.square_feet,
             info.year_built,
