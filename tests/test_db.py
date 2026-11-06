@@ -172,6 +172,38 @@ def test_register_assigns_customer_ids_and_updates_in_place(db):
     assert row == ("Acme HQ", "CY", "geo:41.00,29.00", 4.2)
 
 
+def test_register_again_keeps_the_site_weather_and_location(db):
+    """Naming a loaded LEAD meter must not move it off its (BDG2 site) weather series."""
+    tables = make_tables()
+    site = tables.weather.assign(weather_key="site-x")
+    buildings = tables.buildings.assign(source="lead", weather_key="site-x")
+    lead = replace(tables, buildings=buildings, weather=site)
+    first, second = buildings["external_id"]
+    with connect(db) as conn:
+        load_tables(conn, lead)
+        before = conn.execute(
+            "SELECT external_id, weather_key, lat, lng, timezone FROM buildings ORDER BY 1"
+        ).fetchall()
+        register_building(conn, BuildingInfo(first, name="Lobi"))
+        register_building(conn, BuildingInfo(second, name="Mutfak"))
+        after = conn.execute(
+            "SELECT external_id, weather_key, lat, lng, timezone FROM buildings ORDER BY 1"
+        ).fetchall()
+        frame = model_frame(fetch_tables(conn))
+    assert after == before
+    assert frame["air_temp"].notna().all()
+
+
+def test_register_with_new_coordinates_moves_the_building(db):
+    with connect(db) as conn:
+        building = register_building(conn, BuildingInfo("acme-hq", lat=41.0, lng=29.0))
+        register_building(conn, BuildingInfo("acme-hq", lat=39.93, lng=32.86))
+        row = conn.execute(
+            "SELECT weather_key, lat, lng FROM buildings WHERE building_id = %s", (building,)
+        ).fetchone()
+    assert row == ("geo:39.93,32.86", 39.93, 32.86)
+
+
 def fake_weather(loc, start, end) -> pd.DataFrame:
     ts = pd.date_range(pd.Timestamp(start), pd.Timestamp(end) + pd.Timedelta(hours=23), freq="h")
     return pd.DataFrame(
