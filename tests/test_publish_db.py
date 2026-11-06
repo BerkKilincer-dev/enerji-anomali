@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+from src.config import get_settings
 from src.data.dataset import model_frame
 from src.models import publish, registry
 from tests.conftest import make_tables
@@ -9,7 +12,11 @@ from tests.test_db import count, db, empty_db, load_customer, pytestmark  # noqa
 
 
 def test_saved_model_publishes_once(db, scorer, tmp_path, monkeypatch):  # noqa: F811
-    tables = make_tables(days=20)
+    tables = make_tables()
+    r = tables.readings
+    # One night of waste, so there is a costed event to re-cost below.
+    night = r.ts.between("2026-02-05 00:00", "2026-02-05 05:00") & (r.building_id == 100000)
+    r.loc[night, "kwh"] *= 3
     load_customer(db, tables)
     loads = []
 
@@ -30,3 +37,15 @@ def test_saved_model_publishes_once(db, scorer, tmp_path, monkeypatch):  # noqa:
     assert publish.publish_saved(db, model_dir, if_missing=True) == scorer.version
     assert len(loads) == 1
     assert count(db, "SELECT count(*) FROM predictions WHERE origin = 'batch'") == hours
+
+    # A new default tariff re-costs the published events on the next start.
+    assert count(db, "SELECT count(*) FROM anomalies WHERE category = 'waste'") > 0
+    settings = replace(get_settings(), tariff_tl_per_kwh=get_settings().tariff_tl_per_kwh + 1)
+    monkeypatch.setattr(publish, "get_settings", lambda: settings)
+    publish.publish_saved(db, model_dir, if_missing=True)
+    assert len(loads) == 2
+    assert count(
+        db,
+        "SELECT count(*) FROM anomalies WHERE origin = 'batch' "
+        f"AND abs(est_cost_tl - excess_kwh * {settings.tariff_tl_per_kwh}) > 0.01",
+    ) == 0

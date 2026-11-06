@@ -69,7 +69,7 @@ def get_settings() -> Settings:
         model_dir=_path("MODEL_DIR", ROOT / "models_out"),
         mlflow_dir=_path("MLFLOW_DIR", ROOT / "mlruns"),
         database_url=os.getenv("DATABASE_URL") or None,
-        tariff_tl_per_kwh=float(os.getenv("TARIFF_TL_PER_KWH", "3.5")),
+        tariff_tl_per_kwh=float(os.getenv("TARIFF_TL_PER_KWH", "5.93")),
         default_lat=float(os.getenv("DEFAULT_LAT", lat)),
         default_lng=float(os.getenv("DEFAULT_LNG", lng)),
         default_timezone=os.getenv("DEFAULT_TIMEZONE", tz),

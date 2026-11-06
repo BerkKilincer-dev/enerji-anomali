@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from src.api import auth, main
 from src.api.repository import DemoRepository
 from src.api.schemas import Schedule
+from src.config import get_settings
 
 # Writes need this header; a cross-site form cannot set it.
 H = {"X-Requested-With": "test"}
@@ -198,7 +199,8 @@ def test_login_throttle_blocks_after_repeated_failures():
 
 
 def test_buildings_carry_a_tariff_and_windows_can_end_earlier(client):
-    assert {b["tariff_tl_per_kwh"] for b in client.get("/buildings").json()} == {3.5}
+    default = get_settings().tariff_tl_per_kwh
+    assert {b["tariff_tl_per_kwh"] for b in client.get("/buildings").json()} == {default}
     params = {"hours": 24, "end": "2026-10-19T05:00:00"}
     readings = client.get("/buildings/100000/readings", params=params).json()
     forecast = client.get("/buildings/100000/forecast", params=params).json()

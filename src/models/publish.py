@@ -68,25 +68,29 @@ def publish_results(
     return version
 
 
-def is_published(database_url: str, version: str) -> bool:
-    """True when this model version and its batch output are already in the database."""
+def is_published(database_url: str, version: str, tariff: float) -> bool:
+    """True when this model version's batch output is in the database, costed at this tariff."""
     with connect(database_url) as conn:
         return conn.execute(
             "SELECT EXISTS (SELECT 1 FROM predictions WHERE origin = 'batch' "
-            "AND model_version = %s)",
-            (version,),
+            "AND model_version = %s) "
+            "AND NOT EXISTS (SELECT 1 FROM anomalies WHERE origin = 'batch' "
+            "AND abs(est_cost_tl - excess_kwh * %s) > 0.01)",
+            (version, tariff),
         ).fetchone()[0]
 
 
 def publish_saved(database_url: str, model_dir: Path, if_missing: bool = False) -> str:
-    """Score the test meters with a saved model and publish, the same output as train --publish."""
+    """Score the test meters with a saved model and publish, the same output as train --publish.
+    With if_missing it skips when the version is published, unless the default tariff changed."""
     scorer = registry.load(model_dir)
-    if if_missing and is_published(database_url, scorer.version):
+    tariff = get_settings().tariff_tl_per_kwh
+    if if_missing and is_published(database_url, scorer.version, tariff):
         log.info("model %s already published, nothing to do", scorer.version)
         return scorer.version
     frame = model_frame(ensure_tables())
     scored = scorer.score(frame[frame["split"] == "test"].reset_index(drop=True))
-    events = build_events(scored, get_settings().tariff_tl_per_kwh)
+    events = build_events(scored, tariff)
     return publish_results(database_url, model_dir, scored, events)
 
 

@@ -33,7 +33,7 @@ from reports import collect, to_csv, to_pdf, to_xlsx
 
 BRAND = "Wattwise"  # tasarım görselindeki ad: EnerjiVista
 BRAND_SUB = "Daha verimli bir yarın"
-TARIFF_TL = 3.5  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
+TARIFF_TL = 5.93  # API sayacın tarifesini vermezse kullanılan varsayılan (TL/kWh)
 # İşletme özetinin dönemi: her sayacın son N günü. LEAD verisi 2016 sonunda bitiyor ve
 # Aralık sakin geçiyor, bu yüzden demo 90 günle açılır.
 DONEMLER = {"30 gün": 30, "90 gün": 90, "1 yıl": 365}

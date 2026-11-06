@@ -75,8 +75,8 @@ sayaçlar 24 saat çalıştığı için 1,5 katta kaldı.
 
 | Ekipman | İsraf olayı (önce → sonra) | TL (önce → sonra) |
 |---|---|---|
-| Aydınlatma | 315 → 455 | 90 bin → 115 bin |
-| Klima | 290 → 449 | 204 bin → 253 bin |
+| Aydınlatma | 315 → 455 | 152 bin → 195 bin |
+| Klima | 290 → 449 | 346 bin → 429 bin |
 | PLC | 5 → 15 | |
 | Kompresör, soğutma, genel | değişmedi | |
 
@@ -89,13 +89,14 @@ sınır 1,4'e çekilebilir (`STRICT_OFF_HOURS_RATIO`, `src/models/rules.py`).
 
 | İşletme | Tür | Son 90 gün | Son 1 yıl | Açık alarm (1 yıl) |
 |---|---|---|---|---|
-| Otel | Otel | 9.582 TL | 156.364 TL | 197 |
-| Özel Kolej | Eğitim | 25.234 TL | 150.891 TL | 267 |
-| Kongre Merkezi | Kamu / etkinlik | 39.566 TL | 119.477 TL | 436 |
-| Üniversite Kampüsü | Eğitim | 5.479 TL | 41.418 TL | 122 |
-| Ofis Plazası | Ofis | 26.688 TL | 40.559 TL | 144 |
+| Otel | Otel | 16.235 TL | 264.925 TL | 197 |
+| Özel Kolej | Eğitim | 42.753 TL | 255.645 TL | 267 |
+| Kongre Merkezi | Kamu / etkinlik | 67.036 TL | 202.428 TL | 436 |
+| Üniversite Kampüsü | Eğitim | 9.283 TL | 70.173 TL | 122 |
+| Ofis Plazası | Ofis | 45.217 TL | 68.718 TL | 144 |
 
-TL hesabı 3,50 TL/kWh varsayılan tarifeyle yapıldı. Her alarmın yanında ekipmana ve anomali
+TL hesabı 5,93 TL/kWh varsayılan tarifeyle yapıldı (EPDK ticarethane, tek zamanlı, yüksek kademe,
+vergisiz; 4 Nisan 2026 tarifesi). Tarife `.env`'deki `TARIFF_TL_PER_KWH` ile değişir. Her alarmın yanında ekipmana ve anomali
 türüne göre hazır bir öneri gösteriliyor (`data/recommendations.csv`).
 
 ## Sınırlar
