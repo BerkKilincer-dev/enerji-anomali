@@ -583,9 +583,10 @@ if "me" not in st.session_state:
             + '<ul class="lp-maddeler">' + "".join(f"<li>{tik}<span>{m}</span></li>" for m in pl["maddeler"]) + "</ul>"
         )
 
-    @st.dialog("Paket talebi", width="medium")
+    @st.dialog("Talep formu", width="medium")
     def talep_formu(pl):
-        teklif = pl["kod"] == "kurumsal"
+        dan = pl.get("danismanlik", False)
+        teklif = dan or pl["kod"] == "kurumsal"
         st.markdown(
             f'<div class="lg-title">{pl["ad"]} · {"Teklif iste" if teklif else "Satın al"}</div>'
             '<div class="lg-sub">Bilgilerinizi bırakın, satış ekibimiz bir iş günü içinde sizinle iletişime geçsin.</div>',
@@ -598,7 +599,8 @@ if "me" not in st.session_state:
             eposta = c1.text_input("E-posta *", placeholder="ornek@sirket.com", autocomplete="email")
             tel = c2.text_input("Telefon", placeholder="05xx xxx xx xx", autocomplete="tel")
             sayac = c1.number_input("Sayaç sayısı", min_value=1, max_value=10_000, value=pl["sayac"], step=1)
-            odeme = c2.radio("Ödeme modeli", ["Yıllık lisans", "Tasarruftan pay"], horizontal=True)
+            # Danışmanlıkta ödeme şekli kademeyle belli; lisans/tasarruf seçimi yalnız paketlerde sorulur.
+            odeme = "Danışmanlık" if dan else c2.radio("Ödeme modeli", ["Yıllık lisans", "Tasarruftan pay"], horizontal=True)
             notu = st.text_area("Mesajınız", placeholder="Tesisleriniz, ihtiyaçlarınız…", height=90)
             gonder = st.form_submit_button(
                 "Teklif iste" if teklif else "Satın alma talebi gönder", type="primary", use_container_width=True
@@ -623,26 +625,53 @@ if "me" not in st.session_state:
     PLANLAR = [
         {
             "kod": "baslangic", "ad": "Başlangıç", "kim": "Küçük işletme, tek bina", "sayac": 3,
-            "ucret": '<div class="lp-ucret">$120<small>/ sayaç / yıl</small></div>',
-            "kapsam": "1–9 sayaç · kurulum $300 · ör. 3 sayaç $360 / yıl",
+            "ucret": '<div class="lp-ucret">₺6.000<small>/ sayaç / yıl</small></div>',
+            "kapsam": "1–9 sayaç · kurulum ₺15.000 · ör. 3 sayaç ₺18.000 / yıl",
             "maddeler": ["Saatlik anomali tespiti ve TL maliyeti", "Her alarm için uygulanabilir öneri",
                          "Çalışma saatleri ve planlı duruş takvimi", "Aylık PDF tasarruf raporu", "2 kullanıcı"],
         },
         {
             "kod": "pro", "ad": "Profesyonel", "kim": "Otel, okul, kampüs", "sayac": 20,
-            "ucret": '<div class="lp-ucret">$90<small>/ sayaç / yıl</small></div>',
-            "kapsam": "10–39 sayaç · kurulum $1.000 · ör. 20 sayaç $2.070 / yıl",
+            "ucret": '<div class="lp-ucret">₺4.500<small>/ sayaç / yıl</small></div>',
+            "kapsam": "10–39 sayaç · kurulum ₺50.000 · ör. 20 sayaç ₺103.500 / yıl",
             "maddeler": ["Başlangıç planındaki her şey", "Canlı izleme: saatlik veri, anlık alarm",
                          "CSV, Excel ve PDF raporlar", "Alarm durum takibi ve geri bildirim",
                          "10 kullanıcı, operatör ve yönetici rolleri"],
         },
         {
             "kod": "kurumsal", "ad": "Kurumsal", "kim": "AVM, fabrika, çok tesisli zincir", "sayac": 60,
-            "ucret": '<div class="lp-ucret">$60<small>/ sayaç / yıl</small></div>',
-            "kapsam": "40+ sayaç · kurulum $1.000 · ör. 60 sayaç $5.040 / yıl",
+            "ucret": '<div class="lp-ucret">₺3.000<small>/ sayaç / yıl</small></div>',
+            "kapsam": "40+ sayaç · kurulum ₺50.000 · ör. 60 sayaç ₺252.000 / yıl",
             "maddeler": ["Profesyonel planındaki her şey", "Tüm tesisler tek panelde",
                          "API erişimi ve mevcut sistemlerle entegrasyon", "Kurum içi sunucuya kurulum seçeneği",
                          "Öncelikli destek ve kurulum eğitimi"],
+        },
+    ]
+    # Danışmanlık: sunumdaki danışmanlık slaytıyla aynı üç kademe. Anahtarlar "lp_plan_" ile başlar ki
+    # paket kartlarının görünümünü (kart, üzerine gelince öne çıkma, düğme) aynen alsınlar.
+    DANISMANLIK = [
+        {
+            "kod": "dan_rapor", "ad": "İsraf analizi raporu", "kim": "Tek seferlik", "sayac": 1, "danismanlik": True,
+            "ucret": '<div class="lp-ucret">₺10–40 bin<small>tek seferlik</small></div>',
+            "kapsam": "Tesis büyüklüğüne göre · aboneliğe geçene ilk yıl lisansından düşülür",
+            "maddeler": ["OSOS verinizden çıkarılan israf listesi", "Her israfın TL karşılığı",
+                         "Uygulanabilir öneriler"],
+        },
+        {
+            "kod": "dan_takip", "ad": "İsraf kapatma takibi", "kim": "Orta ölçekli işletme", "sayac": 5,
+            "danismanlik": True,
+            "ucret": '<div class="lp-ucret">₺15–25 bin<small>/ ay</small></div>',
+            "kapsam": "Aylık hizmet · bulunan israfların kapatılmasını biz takip ederiz",
+            "maddeler": ["Alarm takibi", "Ayda bir saha ziyareti", "Servis firmalarına yönlendirme",
+                         "Aylık tasarruf raporu"],
+        },
+        {
+            "kod": "dan_performans", "ad": "Performans danışmanlığı", "kim": "Büyük tesis", "sayac": 40,
+            "danismanlik": True,
+            "ucret": '<div class="lp-ucret">%20–30<small>doğrulanmış tasarruftan</small></div>',
+            "kapsam": "1–2 yıl · ödeme yalnız tasarruftan",
+            "maddeler": ["İsraf kapatma projesini biz üstleniriz",
+                         "Tasarruf, alarmların TL'si ve Uygulandı kayıtlarıyla ölçülür", "Tasarruf yoksa ödeme yok"],
         },
     ]
 
@@ -720,8 +749,8 @@ if "me" not in st.session_state:
         unsafe_allow_html=True,
     )
 
-    # Fiyatlar sunumdaki gelir modeliyle aynı: sayaç başına yıllık lisans, basamaklı (ilk 9 sayaç $120,
-    # sonraki 30 sayaç $90, sonrası $60). Ön çalışmadır, pilotla kesinleşir.
+    # Fiyatlar sunumdaki gelir modeliyle aynı: sayaç başına yıllık lisans, basamaklı (ilk 9 sayaç ₺6.000,
+    # sonraki 30 sayaç ₺4.500, sonrası ₺3.000; 1 $ ≈ 50 TL ile). Ön çalışmadır, pilotla kesinleşir.
     st.markdown(
         '<section class="lp-fiyat" aria-labelledby="lp-fiyat-baslik"><div class="lp-fiyat-bas">'
         f'<div class="lp-eyebrow">{svg("coins", 15, "#93C5FD")}Fiyatlandırma</div>'
@@ -738,10 +767,32 @@ if "me" not in st.session_state:
                 talep_formu(pl)
     st.markdown(
         '<div class="lp-notlar">'
-        f'<span>{svg("zap", 14, "#93C5FD")}Basamaklı: ilk 9 sayaç $120, sonraki 30 sayaç $90, sonrası $60</span>'
+        f'<span>{svg("zap", 14, "#93C5FD")}Basamaklı: ilk 9 sayaç ₺6.000, sonraki 30 sayaç ₺4.500, sonrası ₺3.000</span>'
         f'<span>{svg("leaf", 14, "#93C5FD")}İsterseniz lisans yerine doğrulanmış tasarrufun %20’si</span>'
         f'<span>{svg("calendar", 14, "#93C5FD")}Pilot: ilk 3 ay indirimli</span>'
-        f'<span>{svg("file", 14, "#93C5FD")}Fiyatlara KDV dahil değildir</span>'
+        f'<span>{svg("file", 14, "#93C5FD")}Fiyatlara KDV dahil değildir; yılda bir kura göre güncellenir</span>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<section class="lp-fiyat" aria-labelledby="lp-dan-baslik"><div class="lp-fiyat-bas">'
+        f'<div class="lp-eyebrow">{svg("bulb", 15, "#93C5FD")}Danışmanlık</div>'
+        '<h2 id="lp-dan-baslik">Yazılım israfı bulur, biz kapatırız</h2>'
+        "<p>Lisansın yanında, bulunan israfların kapatılması için ekibimizden destek alabilirsiniz: "
+        "tek seferlik rapor, aylık takip ya da ödemesi tasarruftan yapılan proje.</p></div></section>",
+        unsafe_allow_html=True,
+    )
+    for sutun, pl in zip(st.columns(3), DANISMANLIK, strict=True):
+        with sutun.container(key=f"lp_plan_{pl['kod']}"):
+            st.markdown(_plan_html(pl), unsafe_allow_html=True)
+            if st.button("Teklif iste", key=f"lp_al_{pl['kod']}", icon=":material/arrow_forward:",
+                         use_container_width=True):
+                talep_formu(pl)
+    st.markdown(
+        '<div class="lp-notlar">'
+        f'<span>{svg("file", 14, "#93C5FD")}Ücretlere KDV dahil değildir</span>'
+        f'<span>{svg("alert", 14, "#93C5FD")}Resmi enerji yöneticiliği hizmeti değildir</span>'
         "</div>"
         f'<div class="lp-foot"><span>© {datetime.now().year} {BRAND} · {BRAND_SUB}</span>'
         "<span>AVM · Fabrika · Otel · Ofis · Eğitim</span></div>",
